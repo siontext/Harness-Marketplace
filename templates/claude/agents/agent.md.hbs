@@ -1,0 +1,12 @@
+---
+name: {{id}}
+description: {{description}}
+{{#if rules.length}}
+skills:
+{{#each rules}}
+  - {{this}}
+{{/each}}
+{{/if}}
+---
+
+{{{content}}}

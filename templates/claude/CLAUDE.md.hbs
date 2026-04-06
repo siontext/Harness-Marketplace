@@ -1,0 +1,26 @@
+# Project Guidelines
+
+{{#each sections}}
+## {{name}}
+
+{{#each rules}}
+{{{content}}}
+
+{{/each}}
+{{/each}}
+{{#if denySection}}
+## 보안 — 금지 명령
+
+다음 명령은 절대 실행하지 마세요:
+
+{{#each denyPatterns}}
+- `{{pattern}}` — {{description}}
+{{/each}}
+
+{{/if}}
+## 에이전트 위임
+
+다음 서브에이전트를 사용할 수 있습니다:
+{{#each roles}}
+- **{{id}}**: {{description}}
+{{/each}}
