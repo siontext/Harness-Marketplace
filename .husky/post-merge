@@ -1,0 +1,5 @@
+#!/bin/bash
+if git diff HEAD@{1} --name-only | grep -qE '^(rules|roles|templates)/'; then
+  echo "[harness] 규칙이 변경되었습니다. Gemini/Codex 동기화 중..."
+  npm run sync
+fi
