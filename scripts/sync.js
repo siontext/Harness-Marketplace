@@ -38,6 +38,20 @@ async function mergeSettings(srcPath, destPath) {
   console.log(`  merge: ${destPath} (deny_rules updated, personal settings preserved)`);
 }
 
+async function copyDir(srcDir, destDir) {
+  await fs.mkdir(destDir, { recursive: true });
+  const entries = await fs.readdir(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const src = path.join(srcDir, entry.name);
+    const dest = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      await copyDir(src, dest);
+    } else {
+      await copyFile(src, dest);
+    }
+  }
+}
+
 async function syncPlatform(platform, config) {
   const targetDir = expandHome(config.target);
   const distDir = path.join(ROOT, 'dist', platform);
@@ -50,6 +64,15 @@ async function syncPlatform(platform, config) {
   } else if (platform === 'codex') {
     await copyFile(path.join(distDir, 'AGENTS.md'), path.join(targetDir, 'AGENTS.md'));
     await mergeSettings(path.join(distDir, 'config.json'), path.join(targetDir, 'config.json'));
+  }
+
+  // Copy roles/ for on-demand loading
+  const rolesDir = path.join(distDir, 'roles');
+  try {
+    await fs.access(rolesDir);
+    await copyDir(rolesDir, path.join(targetDir, 'roles'));
+  } catch {
+    // no roles dir — skip
   }
 
   console.log(`[${platform}] sync complete`);
