@@ -15,6 +15,7 @@ function groupBySection(rules) {
     });
     sections.push({ name, rules: sectionRules });
   }
+  sections.sort((a, b) => a.name.localeCompare(b.name));
   return sections;
 }
 
