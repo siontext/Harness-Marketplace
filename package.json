@@ -1,0 +1,27 @@
+{
+  "name": "team-harness",
+  "version": "1.0.0",
+  "description": "크로스 플랫폼 AI 에이전트 하네스",
+  "type": "module",
+  "scripts": {
+    "build:harness": "node build/index.js",
+    "validate": "node build/index.js --validate-only",
+    "sync": "node scripts/sync.js",
+    "sync:gemini": "node scripts/sync.js --platform gemini",
+    "sync:codex": "node scripts/sync.js --platform codex",
+    "sync:settings": "node scripts/sync.js --settings-only",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "vitest": "^3.1.0",
+    "husky": "^9.1.0"
+  },
+  "dependencies": {
+    "handlebars": "^4.7.8",
+    "gray-matter": "^4.0.3",
+    "glob": "^11.0.0",
+    "deepmerge": "^4.3.1"
+  }
+}

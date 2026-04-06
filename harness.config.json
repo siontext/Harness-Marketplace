@@ -1,0 +1,8 @@
+{
+  "team": "my-team",
+  "version": "1.0.0",
+  "sync": {
+    "gemini": { "target": "~/.gemini" },
+    "codex": { "target": "~/.codex" }
+  }
+}

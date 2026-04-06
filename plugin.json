@@ -1,0 +1,10 @@
+{
+  "name": "team-harness",
+  "version": "1.0.0",
+  "description": "팀 공용 AI 하네스",
+  "components": {
+    "agents": "dist/claude/agents",
+    "skills": "dist/claude/skills",
+    "instructions": "dist/claude/CLAUDE.md"
+  }
+}
