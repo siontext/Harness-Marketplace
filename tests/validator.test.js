@@ -3,51 +3,51 @@ import { validate } from '../build/validator.js';
 
 describe('validate', () => {
   it('유효한 데이터는 오류 없이 통과한다', () => {
-    const rules = [
-      { id: 'rule-a', description: 'A', section: '섹션', platforms: ['claude'] },
-      { id: 'rule-b', description: 'B', section: '섹션', platforms: ['claude'] },
+    const skills = [
+      { id: 'skill-a', description: 'A', section: '섹션', platforms: ['claude'] },
+      { id: 'skill-b', description: 'B', section: '섹션', platforms: ['claude'] },
     ];
-    const roles = [
-      { id: 'role-a', description: 'A', transform: { claude: 'agent' }, rules: ['rule-a'] },
+    const agents = [
+      { id: 'agent-a', description: 'A', transform: { claude: 'agent' }, skills: ['skill-a'] },
     ];
-    const errors = validate(rules, roles);
+    const errors = validate(skills, agents);
     expect(errors).toEqual([]);
   });
 
-  it('규칙 id 중복을 감지한다', () => {
-    const rules = [
+  it('스킬 id 중복을 감지한다', () => {
+    const skills = [
       { id: 'dup', description: 'A', section: '섹션' },
       { id: 'dup', description: 'B', section: '섹션' },
     ];
-    const errors = validate(rules, []);
+    const errors = validate(skills, []);
     expect(errors).toContainEqual(expect.objectContaining({ type: 'DUPLICATE_RULE_ID' }));
   });
 
-  it('역할이 존재하지 않는 규칙을 참조하면 오류', () => {
-    const rules = [{ id: 'rule-a', description: 'A', section: '섹션' }];
-    const roles = [{ id: 'role-a', description: 'A', transform: { claude: 'agent' }, rules: ['rule-a', 'nonexistent'] }];
-    const errors = validate(rules, roles);
+  it('에이전트가 존재하지 않는 스킬을 참조하면 오류', () => {
+    const skills = [{ id: 'skill-a', description: 'A', section: '섹션' }];
+    const agents = [{ id: 'agent-a', description: 'A', transform: { claude: 'agent' }, skills: ['skill-a', 'nonexistent'] }];
+    const errors = validate(skills, agents);
     expect(errors).toContainEqual(expect.objectContaining({ type: 'MISSING_RULE_REF' }));
   });
 
-  it('필수 필드 누락을 감지한다 — 규칙', () => {
-    const rules = [{ description: 'no id', section: '섹션' }];
-    const errors = validate(rules, []);
+  it('필수 필드 누락을 감지한다 — 스킬', () => {
+    const skills = [{ description: 'no id', section: '섹션' }];
+    const errors = validate(skills, []);
     expect(errors).toContainEqual(expect.objectContaining({ type: 'MISSING_FIELD' }));
   });
 
-  it('필수 필드 누락을 감지한다 — 역할', () => {
-    const roles = [{ id: 'role-a', description: 'A' }];
-    const errors = validate([], roles);
+  it('필수 필드 누락을 감지한다 — 에이전트', () => {
+    const agents = [{ id: 'agent-a', description: 'A' }];
+    const errors = validate([], agents);
     expect(errors).toContainEqual(expect.objectContaining({ type: 'MISSING_FIELD' }));
   });
 
-  it('역할 id 중복을 감지한다', () => {
-    const roles = [
-      { id: 'dup', description: 'A', transform: { claude: 'agent' }, rules: [] },
-      { id: 'dup', description: 'B', transform: { claude: 'agent' }, rules: [] },
+  it('에이전트 id 중복을 감지한다', () => {
+    const agents = [
+      { id: 'dup', description: 'A', transform: { claude: 'agent' }, skills: [] },
+      { id: 'dup', description: 'B', transform: { claude: 'agent' }, skills: [] },
     ];
-    const errors = validate([], roles);
+    const errors = validate([], agents);
     expect(errors).toContainEqual(expect.objectContaining({ type: 'DUPLICATE_ROLE_ID' }));
   });
 });

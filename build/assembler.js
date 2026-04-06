@@ -1,19 +1,19 @@
-function groupBySection(rules) {
+function groupBySection(skills) {
   const groups = new Map();
-  for (const rule of rules) {
-    if (rule.type === 'deny-rules') continue;
-    if (!groups.has(rule.section)) groups.set(rule.section, []);
-    groups.get(rule.section).push(rule);
+  for (const skill of skills) {
+    if (skill.type === 'deny-rules') continue;
+    if (!groups.has(skill.section)) groups.set(skill.section, []);
+    groups.get(skill.section).push(skill);
   }
   const sections = [];
-  for (const [name, sectionRules] of groups) {
-    sectionRules.sort((a, b) => {
+  for (const [name, sectionSkills] of groups) {
+    sectionSkills.sort((a, b) => {
       const orderA = a.order ?? Infinity;
       const orderB = b.order ?? Infinity;
       if (orderA !== orderB) return orderA - orderB;
       return a.id.localeCompare(b.id);
     });
-    sections.push({ name, rules: sectionRules });
+    sections.push({ name, rules: sectionSkills });
   }
   sections.sort((a, b) => a.name.localeCompare(b.name));
   return sections;
@@ -23,32 +23,32 @@ function filterByPlatform(items, platform) {
   return items.filter(item => item.platforms.includes(platform));
 }
 
-function extractDenyPatterns(rules) {
-  const denyRule = rules.find(r => r.type === 'deny-rules');
-  return denyRule?.denyPatterns || [];
+function extractDenyPatterns(skills) {
+  const denySkill = skills.find(s => s.type === 'deny-rules');
+  return denySkill?.denyPatterns || [];
 }
 
-function collectSkillRules(roles, rules) {
+function collectReferencedSkills(agents, skills) {
   const referencedIds = new Set();
-  for (const role of roles) {
-    for (const ruleId of role.rules) {
-      referencedIds.add(ruleId);
+  for (const agent of agents) {
+    for (const skillId of (agent.skills || [])) {
+      referencedIds.add(skillId);
     }
   }
-  return rules.filter(r => referencedIds.has(r.id));
+  return skills.filter(s => referencedIds.has(s.id));
 }
 
-export function assemble(rules, roles) {
+export function assemble(skills, agents) {
   const platforms = ['claude', 'gemini', 'codex'];
   const result = {};
   for (const platform of platforms) {
-    const platformRules = filterByPlatform(rules, platform);
-    const platformRoles = filterByPlatform(roles, platform);
-    const sections = groupBySection(platformRules);
-    const denyPatterns = extractDenyPatterns(platformRules);
-    const platformData = { sections, roles: platformRoles, denyPatterns };
+    const platformSkills = filterByPlatform(skills, platform);
+    const platformAgents = filterByPlatform(agents, platform);
+    const sections = groupBySection(platformSkills);
+    const denyPatterns = extractDenyPatterns(platformSkills);
+    const platformData = { sections, roles: platformAgents, denyPatterns };
     if (platform === 'claude') {
-      platformData.skillRules = collectSkillRules(platformRoles, platformRules);
+      platformData.skillRules = collectReferencedSkills(platformAgents, platformSkills);
     }
     result[platform] = platformData;
   }

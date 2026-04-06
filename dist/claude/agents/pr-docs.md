@@ -1,9 +1,6 @@
 ---
 name: pr-docs
 description: 검증 완료된 변경 사항의 커밋, PR, 문서 초안을 준비하는 문서 작성자
-skills:
-  - git-conventions
-  - commit-splitting
 ---
 
 ## 목적

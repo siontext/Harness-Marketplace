@@ -67,7 +67,7 @@ async function syncPlatform(platform, config) {
   }
 
   // Copy roles/ and rules/ for on-demand loading
-  for (const subDir of ['roles', 'rules']) {
+  for (const subDir of ['agents', 'skills']) {
     const srcDir = path.join(distDir, subDir);
     try {
       await fs.access(srcDir);

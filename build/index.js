@@ -1,4 +1,4 @@
-import { parseRules, parseRoles } from './parser.js';
+import { parseSkills, parseAgents } from './parser.js';
 import { validate } from './validator.js';
 import { assemble } from './assembler.js';
 import { renderTemplate } from './renderer.js';
@@ -12,8 +12,8 @@ const ROOT = path.resolve(__dirname, '..');
 
 export async function build(options = {}) {
   const {
-    rulesDir = path.join(ROOT, 'rules'),
-    rolesDir = path.join(ROOT, 'roles'),
+    skillsDir = path.join(ROOT, 'skills'),
+    agentsDir = path.join(ROOT, 'agents'),
     templatesDir = path.join(ROOT, 'templates'),
     distDir = path.join(ROOT, 'dist'),
     validateOnly = false,
@@ -21,11 +21,11 @@ export async function build(options = {}) {
   } = options;
 
   // 1. Parse
-  const rules = await parseRules(rulesDir);
-  const roles = await parseRoles(rolesDir);
+  const skills = await parseSkills(skillsDir);
+  const agents = await parseAgents(agentsDir);
 
   // 2. Validate
-  const errors = validate(rules, roles);
+  const errors = validate(skills, agents);
   if (errors.length > 0) {
     console.error('Validation errors:');
     for (const err of errors) {
@@ -40,13 +40,13 @@ export async function build(options = {}) {
   }
 
   // 3. Assemble
-  const assembled = assemble(rules, roles);
+  const assembled = assemble(skills, agents);
 
   if (dryRun) {
     console.log('Dry run:');
-    console.log(`  Claude: ${assembled.claude.sections.length} sections, ${assembled.claude.roles.length} roles`);
-    console.log(`  Gemini: ${assembled.gemini.sections.length} sections, ${assembled.gemini.roles.length} roles`);
-    console.log(`  Codex: ${assembled.codex.sections.length} sections, ${assembled.codex.roles.length} roles`);
+    console.log(`  Claude: ${assembled.claude.sections.length} sections, ${assembled.claude.roles.length} agents`);
+    console.log(`  Gemini: ${assembled.gemini.sections.length} sections, ${assembled.gemini.roles.length} agents`);
+    console.log(`  Codex: ${assembled.codex.sections.length} sections, ${assembled.codex.roles.length} agents`);
     return;
   }
 
@@ -65,21 +65,21 @@ export async function build(options = {}) {
   await fs.writeFile(path.join(claudeDir, 'CLAUDE.md'), renderTemplate(claudeTemplate, claudeData));
 
   // Claude agents
-  const agentsDir = path.join(claudeDir, 'agents');
-  await fs.mkdir(agentsDir, { recursive: true });
+  const claudeAgentsDir = path.join(claudeDir, 'agents');
+  await fs.mkdir(claudeAgentsDir, { recursive: true });
   const agentTemplate = await fs.readFile(path.join(templatesDir, 'claude', 'agents', 'agent.md.hbs'), 'utf-8');
-  for (const role of assembled.claude.roles) {
-    if (role.transform?.claude === 'agent') {
-      await fs.writeFile(path.join(agentsDir, `${role.id}.md`), renderTemplate(agentTemplate, role));
+  for (const agent of assembled.claude.roles) {
+    if (agent.transform?.claude === 'agent') {
+      await fs.writeFile(path.join(claudeAgentsDir, `${agent.id}.md`), renderTemplate(agentTemplate, agent));
     }
   }
 
-  // Claude skills (only rules referenced by roles)
-  const skillsDir = path.join(claudeDir, 'skills');
-  for (const rule of assembled.claude.skillRules) {
-    const skillDir = path.join(skillsDir, rule.id);
+  // Claude skills (only skills referenced by agents)
+  const claudeSkillsDir = path.join(claudeDir, 'skills');
+  for (const skill of assembled.claude.skillRules) {
+    const skillDir = path.join(claudeSkillsDir, skill.id);
     await fs.mkdir(skillDir, { recursive: true });
-    await fs.writeFile(path.join(skillDir, 'SKILL.md'), `---\nname: ${rule.id}\ndescription: ${rule.description}\n---\n\n${rule.content}\n`);
+    await fs.writeFile(path.join(skillDir, 'SKILL.md'), `---\nname: ${skill.id}\ndescription: ${skill.description}\n---\n\n${skill.content}\n`);
   }
 
   // Gemini
@@ -90,20 +90,20 @@ export async function build(options = {}) {
   await fs.writeFile(path.join(geminiDir, 'GEMINI.md'), renderTemplate(geminiTemplate, assembled.gemini));
   await fs.writeFile(path.join(geminiDir, 'settings.json'), generateGeminiSettings(assembled.gemini.denyPatterns));
 
-  // Gemini roles (separate files for on-demand loading)
-  const geminiRolesDir = path.join(geminiDir, 'roles');
-  await fs.mkdir(geminiRolesDir, { recursive: true });
-  for (const role of assembled.gemini.roles) {
-    const rulesRef = role.rules.length > 0 ? `rules: [${role.rules.join(', ')}]` : '';
-    await fs.writeFile(path.join(geminiRolesDir, `${role.id}.md`), `---\nid: ${role.id}\ndescription: ${role.description}\n${rulesRef}\n---\n\n${role.content}\n`);
+  // Gemini agents (separate files for on-demand loading)
+  const geminiAgentsDir = path.join(geminiDir, 'agents');
+  await fs.mkdir(geminiAgentsDir, { recursive: true });
+  for (const agent of assembled.gemini.roles) {
+    const skillsRef = agent.skills && agent.skills.length > 0 ? `skills: [${agent.skills.join(', ')}]` : '';
+    await fs.writeFile(path.join(geminiAgentsDir, `${agent.id}.md`), `---\nid: ${agent.id}\ndescription: ${agent.description}\n${skillsRef}\n---\n\n${agent.content}\n`);
   }
 
-  // Gemini rules (separate files for on-demand loading)
-  const geminiRulesDir = path.join(geminiDir, 'rules');
-  await fs.mkdir(geminiRulesDir, { recursive: true });
+  // Gemini skills (separate files for on-demand loading)
+  const geminiSkillsDir = path.join(geminiDir, 'skills');
+  await fs.mkdir(geminiSkillsDir, { recursive: true });
   for (const section of assembled.gemini.sections) {
-    for (const rule of section.rules) {
-      await fs.writeFile(path.join(geminiRulesDir, `${rule.id}.md`), `# ${rule.description}\n\n${rule.content}\n`);
+    for (const skill of section.rules) {
+      await fs.writeFile(path.join(geminiSkillsDir, `${skill.id}.md`), `# ${skill.description}\n\n${skill.content}\n`);
     }
   }
 
@@ -115,27 +115,27 @@ export async function build(options = {}) {
   await fs.writeFile(path.join(codexDir, 'AGENTS.md'), renderTemplate(codexTemplate, assembled.codex));
   await fs.writeFile(path.join(codexDir, 'config.json'), generateCodexConfig(assembled.codex.denyPatterns));
 
-  // Codex roles (separate files for on-demand loading)
-  const codexRolesDir = path.join(codexDir, 'roles');
-  await fs.mkdir(codexRolesDir, { recursive: true });
-  for (const role of assembled.codex.roles) {
-    const rulesRef = role.rules.length > 0 ? `rules: [${role.rules.join(', ')}]` : '';
-    await fs.writeFile(path.join(codexRolesDir, `${role.id}.md`), `---\nid: ${role.id}\ndescription: ${role.description}\n${rulesRef}\n---\n\n${role.content}\n`);
+  // Codex agents (separate files for on-demand loading)
+  const codexAgentsDir = path.join(codexDir, 'agents');
+  await fs.mkdir(codexAgentsDir, { recursive: true });
+  for (const agent of assembled.codex.roles) {
+    const skillsRef = agent.skills && agent.skills.length > 0 ? `skills: [${agent.skills.join(', ')}]` : '';
+    await fs.writeFile(path.join(codexAgentsDir, `${agent.id}.md`), `---\nid: ${agent.id}\ndescription: ${agent.description}\n${skillsRef}\n---\n\n${agent.content}\n`);
   }
 
-  // Codex rules (separate files for on-demand loading)
-  const codexRulesDir = path.join(codexDir, 'rules');
-  await fs.mkdir(codexRulesDir, { recursive: true });
+  // Codex skills (separate files for on-demand loading)
+  const codexSkillsDir = path.join(codexDir, 'skills');
+  await fs.mkdir(codexSkillsDir, { recursive: true });
   for (const section of assembled.codex.sections) {
-    for (const rule of section.rules) {
-      await fs.writeFile(path.join(codexRulesDir, `${rule.id}.md`), `# ${rule.description}\n\n${rule.content}\n`);
+    for (const skill of section.rules) {
+      await fs.writeFile(path.join(codexSkillsDir, `${skill.id}.md`), `# ${skill.description}\n\n${skill.content}\n`);
     }
   }
 
   const summary = {
-    claude: { sections: assembled.claude.sections.length, agents: assembled.claude.roles.filter(r => r.transform?.claude === 'agent').length, skills: assembled.claude.skillRules.length },
-    gemini: { sections: assembled.gemini.sections.length, roles: assembled.gemini.roles.length },
-    codex: { sections: assembled.codex.sections.length, roles: assembled.codex.roles.length },
+    claude: { sections: assembled.claude.sections.length, agents: assembled.claude.roles.filter(a => a.transform?.claude === 'agent').length, skills: assembled.claude.skillRules.length },
+    gemini: { sections: assembled.gemini.sections.length, agents: assembled.gemini.roles.length },
+    codex: { sections: assembled.codex.sections.length, agents: assembled.codex.roles.length },
   };
   console.log('Build complete:', JSON.stringify(summary, null, 2));
 

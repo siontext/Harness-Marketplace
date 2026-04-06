@@ -1,34 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { parseRules, parseRoles, parseDenyRulesTable } from '../build/parser.js';
+import { parseSkills, parseAgents, parseDenyRulesTable } from '../build/parser.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, 'fixtures');
 
-describe('parseRules', () => {
-  it('일반 규칙 파일을 파싱한다', async () => {
-    const rules = await parseRules(path.join(fixturesDir, 'rules'));
-    const rule = rules.find(r => r.id === 'test-rule');
+describe('parseSkills', () => {
+  it('스킬 파일을 파싱한다', async () => {
+    const skills = await parseSkills(path.join(fixturesDir, 'skills'));
+    const skill = skills.find(s => s.id === 'test-rule');
 
-    expect(rule).toBeDefined();
-    expect(rule.description).toBe('테스트 규칙');
-    expect(rule.platforms).toEqual(['claude', 'gemini', 'codex']);
-    expect(rule.section).toBe('테스트');
-    expect(rule.order).toBe(1);
-    expect(rule.content).toContain('규칙 1');
+    expect(skill).toBeDefined();
+    expect(skill.description).toBe('테스트 규칙');
+    expect(skill.platforms).toEqual(['claude', 'gemini', 'codex']);
+    expect(skill.section).toBe('테스트');
+    expect(skill.order).toBe(1);
+    expect(skill.content).toContain('규칙 1');
   });
 
   it('platforms 생략 시 전체 플랫폼으로 설정한다', async () => {
-    const rules = await parseRules(path.join(fixturesDir, 'rules'));
-    const deny = rules.find(r => r.id === 'test-deny');
+    const skills = await parseSkills(path.join(fixturesDir, 'skills'));
+    const deny = skills.find(s => s.id === 'test-deny');
 
     expect(deny.platforms).toEqual(['claude', 'gemini', 'codex']);
   });
 
   it('deny-rules 타입의 테이블을 파싱한다', async () => {
-    const rules = await parseRules(path.join(fixturesDir, 'rules'));
-    const deny = rules.find(r => r.id === 'test-deny');
+    const skills = await parseSkills(path.join(fixturesDir, 'skills'));
+    const deny = skills.find(s => s.id === 'test-deny');
 
     expect(deny.type).toBe('deny-rules');
     expect(deny.denyPatterns).toEqual([
@@ -38,15 +38,15 @@ describe('parseRules', () => {
   });
 });
 
-describe('parseRoles', () => {
-  it('역할 파일을 파싱한다', async () => {
-    const roles = await parseRoles(path.join(fixturesDir, 'roles'));
-    const role = roles.find(r => r.id === 'test-role');
+describe('parseAgents', () => {
+  it('에이전트 파일을 파싱한다', async () => {
+    const agents = await parseAgents(path.join(fixturesDir, 'agents'));
+    const agent = agents.find(a => a.id === 'test-role');
 
-    expect(role).toBeDefined();
-    expect(role.description).toBe('테스트 역할');
-    expect(role.transform).toEqual({ claude: 'agent', gemini: 'section', codex: 'section' });
-    expect(role.rules).toEqual(['test-rule']);
-    expect(role.content).toContain('테스트 역할입니다');
+    expect(agent).toBeDefined();
+    expect(agent.description).toBe('테스트 역할');
+    expect(agent.transform).toEqual({ claude: 'agent', gemini: 'section', codex: 'section' });
+    expect(agent.skills).toEqual(['test-rule']);
+    expect(agent.content).toContain('테스트 역할입니다');
   });
 });

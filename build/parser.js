@@ -37,11 +37,11 @@ async function parseMarkdownFiles(dir) {
   return results;
 }
 
-export async function parseRules(rulesDir) {
-  const items = await parseMarkdownFiles(rulesDir);
+export async function parseSkills(skillsDir) {
+  const items = await parseMarkdownFiles(skillsDir);
 
   return items.map(item => {
-    const rule = {
+    const skill = {
       id: item.id,
       description: item.description,
       platforms: item.platforms || ALL_PLATFORMS,
@@ -52,23 +52,23 @@ export async function parseRules(rulesDir) {
       _file: item._file,
     };
 
-    if (rule.type === 'deny-rules') {
-      rule.denyPatterns = parseDenyRulesTable(rule.content);
+    if (skill.type === 'deny-rules') {
+      skill.denyPatterns = parseDenyRulesTable(skill.content);
     }
 
-    return rule;
+    return skill;
   });
 }
 
-export async function parseRoles(rolesDir) {
-  const items = await parseMarkdownFiles(rolesDir);
+export async function parseAgents(agentsDir) {
+  const items = await parseMarkdownFiles(agentsDir);
 
   return items.map(item => ({
     id: item.id,
     description: item.description,
     platforms: item.platforms || ALL_PLATFORMS,
     transform: item.transform,
-    rules: item.rules || [],
+    skills: item.rules || item.skills || [],
     content: item.content,
     _file: item._file,
   }));

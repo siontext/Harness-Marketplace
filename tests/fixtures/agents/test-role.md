@@ -6,7 +6,7 @@ transform:
   claude: agent
   gemini: section
   codex: section
-rules: [test-rule]
+skills: [test-rule]
 ---
 
 ## 테스트 역할 내용
