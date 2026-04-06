@@ -1,13 +1,11 @@
 # Project Guidelines
 
+## 핵심 원칙
+
 {{#each sections}}
-## {{name}}
-
-{{#each rules}}
-{{{content}}}
-
+- **{{name}}**: {{#each rules}}`{{id}}`{{#unless @last}}, {{/unless}}{{/each}}
 {{/each}}
-{{/each}}
+
 {{#if denySection}}
 ## 보안 — 금지 명령
 

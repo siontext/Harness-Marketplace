@@ -22,10 +22,10 @@ describe('build', () => {
       distDir: tempDist,
     });
 
-    // CLAUDE.md 생성 확인
+    // CLAUDE.md 생성 확인 (목차만, 인라인 아님)
     const claudeMd = await fs.readFile(path.join(tempDist, 'claude', 'CLAUDE.md'), 'utf-8');
     expect(claudeMd).toContain('Project Guidelines');
-    expect(claudeMd).toContain('테스트 규칙 내용');
+    expect(claudeMd).toContain('test-rule');
 
     // Claude 에이전트 파일 생성 확인
     const agentMd = await fs.readFile(path.join(tempDist, 'claude', 'agents', 'test-role.md'), 'utf-8');
