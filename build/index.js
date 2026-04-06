@@ -56,6 +56,10 @@ export async function build(options = {}) {
   const claudeDir = path.join(distDir, 'claude');
   await fs.mkdir(claudeDir, { recursive: true });
 
+  // Claude plugin.json for plugin system
+  const pluginMeta = { name: 'harness', description: '크로스 플랫폼 AI 에이전트 하네스', version: '1.0.0' };
+  await fs.writeFile(path.join(claudeDir, 'plugin.json'), JSON.stringify(pluginMeta, null, 2));
+
   const claudeTemplate = await fs.readFile(path.join(templatesDir, 'claude', 'CLAUDE.md.hbs'), 'utf-8');
   const claudeData = {
     ...assembled.claude,
