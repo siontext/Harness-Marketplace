@@ -1,0 +1,24 @@
+{
+  "deny_rules": [
+    {
+      "tool": "shell",
+      "pattern": "rm -rf*"
+    },
+    {
+      "tool": "shell",
+      "pattern": "git push --force*"
+    },
+    {
+      "tool": "shell",
+      "pattern": "git reset --hard*"
+    },
+    {
+      "tool": "shell",
+      "pattern": "sudo *"
+    },
+    {
+      "tool": "shell",
+      "pattern": "DROP TABLE*"
+    }
+  ]
+}
