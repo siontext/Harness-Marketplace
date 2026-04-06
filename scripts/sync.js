@@ -66,13 +66,15 @@ async function syncPlatform(platform, config) {
     await mergeSettings(path.join(distDir, 'config.json'), path.join(targetDir, 'config.json'));
   }
 
-  // Copy roles/ for on-demand loading
-  const rolesDir = path.join(distDir, 'roles');
-  try {
-    await fs.access(rolesDir);
-    await copyDir(rolesDir, path.join(targetDir, 'roles'));
-  } catch {
-    // no roles dir — skip
+  // Copy roles/ and rules/ for on-demand loading
+  for (const subDir of ['roles', 'rules']) {
+    const srcDir = path.join(distDir, subDir);
+    try {
+      await fs.access(srcDir);
+      await copyDir(srcDir, path.join(targetDir, subDir));
+    } catch {
+      // dir doesn't exist — skip
+    }
   }
 
   console.log(`[${platform}] sync complete`);

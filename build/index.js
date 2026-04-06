@@ -94,7 +94,17 @@ export async function build(options = {}) {
   const geminiRolesDir = path.join(geminiDir, 'roles');
   await fs.mkdir(geminiRolesDir, { recursive: true });
   for (const role of assembled.gemini.roles) {
-    await fs.writeFile(path.join(geminiRolesDir, `${role.id}.md`), `# ${role.description}\n\n${role.content}\n`);
+    const rulesRef = role.rules.length > 0 ? `rules: [${role.rules.join(', ')}]` : '';
+    await fs.writeFile(path.join(geminiRolesDir, `${role.id}.md`), `---\nid: ${role.id}\ndescription: ${role.description}\n${rulesRef}\n---\n\n${role.content}\n`);
+  }
+
+  // Gemini rules (separate files for on-demand loading)
+  const geminiRulesDir = path.join(geminiDir, 'rules');
+  await fs.mkdir(geminiRulesDir, { recursive: true });
+  for (const section of assembled.gemini.sections) {
+    for (const rule of section.rules) {
+      await fs.writeFile(path.join(geminiRulesDir, `${rule.id}.md`), `# ${rule.description}\n\n${rule.content}\n`);
+    }
   }
 
   // Codex
@@ -109,7 +119,17 @@ export async function build(options = {}) {
   const codexRolesDir = path.join(codexDir, 'roles');
   await fs.mkdir(codexRolesDir, { recursive: true });
   for (const role of assembled.codex.roles) {
-    await fs.writeFile(path.join(codexRolesDir, `${role.id}.md`), `# ${role.description}\n\n${role.content}\n`);
+    const rulesRef = role.rules.length > 0 ? `rules: [${role.rules.join(', ')}]` : '';
+    await fs.writeFile(path.join(codexRolesDir, `${role.id}.md`), `---\nid: ${role.id}\ndescription: ${role.description}\n${rulesRef}\n---\n\n${role.content}\n`);
+  }
+
+  // Codex rules (separate files for on-demand loading)
+  const codexRulesDir = path.join(codexDir, 'rules');
+  await fs.mkdir(codexRulesDir, { recursive: true });
+  for (const section of assembled.codex.sections) {
+    for (const rule of section.rules) {
+      await fs.writeFile(path.join(codexRulesDir, `${rule.id}.md`), `# ${rule.description}\n\n${rule.content}\n`);
+    }
   }
 
   const summary = {

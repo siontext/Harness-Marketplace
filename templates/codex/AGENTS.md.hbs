@@ -1,17 +1,33 @@
 # Project Guidelines
 
+## 핵심 원칙
+
 {{#each sections}}
-## {{name}}
-
-{{#each rules}}
-{{{content}}}
-
+- **{{name}}**: {{#each rules}}`rules/{{id}}.md`{{#unless @last}}, {{/unless}}{{/each}}
 {{/each}}
-{{/each}}
-## 역할별 전문 지침
 
-다음 역할이 필요할 때 해당 파일을 읽고 지침을 따르세요:
+## 작업 프로토콜
+
+작업을 받으면 다음 절차를 따르세요:
+
+1. **역할 파일 읽기**: 아래 역할 중 적절한 것을 선택하고, 해당 파일을 읽는다.
+2. **규칙 파일 읽기**: 역할 파일의 `rules:` 메타데이터에 명시된 규칙 파일을 모두 읽는다.
+3. **도구 제한 준수**: 역할 파일의 "허용/금지" 도구 목록을 따른다.
+4. **동작 흐름 실행**: 역할 파일에 정의된 절차대로 작업한다.
+
+역할이 명시되지 않은 일반 작업은 관련 규칙 파일만 읽고 작업하세요.
+
+## 사용 가능한 역할
 
 {{#each roles}}
-- **{{description}}**: `roles/{{id}}.md` 파일을 읽어 지침을 확인하세요.
+- **{{description}}**: `roles/{{id}}.md`
+{{/each}}
+
+## 사용 가능한 규칙
+
+{{#each sections}}
+### {{name}}
+{{#each rules}}
+- `rules/{{id}}.md` — {{description}}
+{{/each}}
 {{/each}}
