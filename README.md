@@ -37,7 +37,7 @@ harness/
 ### 1. 레포 클론
 
 ```bash
-git clone git@github.com:team/harness.git ~/config/ai/harness
+git clone https://github.com/siontext/Harness-Marketplace.git ~/config/ai/harness
 cd ~/config/ai/harness
 npm install
 ```
@@ -50,7 +50,7 @@ npm install
 {
   "extraKnownMarketplaces": {
     "team-harness": {
-      "source": { "source": "github", "repo": "team/harness" }
+      "source": { "source": "github", "repo": "siontext/Harness-Marketplace" }
     }
   },
   "enabledPlugins": {
