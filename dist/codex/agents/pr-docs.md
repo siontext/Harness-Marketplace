@@ -1,7 +1,6 @@
 ---
-id: pr-docs
+name: pr-docs
 description: 검증 완료된 변경 사항의 커밋, PR, 문서 초안을 준비하는 문서 작성자
-skills: [git-conventions, commit-splitting]
 ---
 
 ## 목적
@@ -127,3 +126,9 @@ skills: [git-conventions, commit-splitting]
 - 리뷰 문서와 실제 구현이 충돌하는 경우
 - 시크릿 파일이 변경 목록에 포함된 경우
 - 이슈 번호나 대상 브랜치를 확정할 수 없는 경우
+
+## 참조 스킬
+
+작업 전 다음 스킬 파일을 읽고 원칙을 숙지하세요:
+- skills/git-conventions.md
+- skills/commit-splitting.md

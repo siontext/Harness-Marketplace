@@ -94,12 +94,14 @@ export async function build(options = {}) {
   await fs.writeFile(path.join(geminiDir, 'GEMINI.md'), renderTemplate(geminiTemplate, assembled.gemini));
   await fs.writeFile(path.join(geminiDir, 'settings.json'), generateGeminiSettings(assembled.gemini.denyPatterns));
 
-  // Gemini agents (separate files for on-demand loading)
+  // Gemini agents (Gemini CLI native format: name required, no id/skills)
   const geminiAgentsDir = path.join(geminiDir, 'agents');
   await fs.mkdir(geminiAgentsDir, { recursive: true });
   for (const agent of assembled.gemini.roles) {
-    const skillsRef = agent.skills && agent.skills.length > 0 ? `skills: [${agent.skills.join(', ')}]` : '';
-    await fs.writeFile(path.join(geminiAgentsDir, `${agent.id}.md`), `---\nid: ${agent.id}\ndescription: ${agent.description}\n${skillsRef}\n---\n\n${agent.content}\n`);
+    const skillsNote = agent.skills && agent.skills.length > 0
+      ? `\n## 참조 스킬\n\n작업 전 다음 스킬 파일을 읽고 원칙을 숙지하세요:\n${agent.skills.map(s => `- skills/${s}.md`).join('\n')}\n`
+      : '';
+    await fs.writeFile(path.join(geminiAgentsDir, `${agent.id}.md`), `---\nname: ${agent.id}\ndescription: ${agent.description}\n---\n\n${agent.content}\n${skillsNote}`);
   }
 
   // Gemini skills (separate files for on-demand loading)
@@ -119,12 +121,14 @@ export async function build(options = {}) {
   await fs.writeFile(path.join(codexDir, 'AGENTS.md'), renderTemplate(codexTemplate, assembled.codex));
   await fs.writeFile(path.join(codexDir, 'config.json'), generateCodexConfig(assembled.codex.denyPatterns));
 
-  // Codex agents (separate files for on-demand loading)
+  // Codex agents (Codex CLI format: name required, no id/skills)
   const codexAgentsDir = path.join(codexDir, 'agents');
   await fs.mkdir(codexAgentsDir, { recursive: true });
   for (const agent of assembled.codex.roles) {
-    const skillsRef = agent.skills && agent.skills.length > 0 ? `skills: [${agent.skills.join(', ')}]` : '';
-    await fs.writeFile(path.join(codexAgentsDir, `${agent.id}.md`), `---\nid: ${agent.id}\ndescription: ${agent.description}\n${skillsRef}\n---\n\n${agent.content}\n`);
+    const skillsNote = agent.skills && agent.skills.length > 0
+      ? `\n## 참조 스킬\n\n작업 전 다음 스킬 파일을 읽고 원칙을 숙지하세요:\n${agent.skills.map(s => `- skills/${s}.md`).join('\n')}\n`
+      : '';
+    await fs.writeFile(path.join(codexAgentsDir, `${agent.id}.md`), `---\nname: ${agent.id}\ndescription: ${agent.description}\n---\n\n${agent.content}\n${skillsNote}`);
   }
 
   // Codex skills (separate files for on-demand loading)
