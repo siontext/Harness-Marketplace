@@ -1,4 +1,7 @@
-# Spring Boot + 4-Layered + Hexagonal 아키텍처 기반 DI, 어노테이션, 설정 관리, 예외 처리 규칙. Spring Boot 코드 작성 및 리뷰 시 참조.
+---
+name: spring-boot-conventions
+description: Spring Boot + 4-Layered + Hexagonal 아키텍처 기반 DI, 어노테이션, 설정 관리, 예외 처리 규칙. Spring Boot 코드 작성 및 리뷰 시 참조.
+---
 
 # Spring Boot Conventions
 

@@ -1,4 +1,7 @@
-# 공통 코딩 컨벤션
+---
+name: general-style
+description: 공통 코딩 컨벤션
+---
 
 ## 공통 코딩 컨벤션
 

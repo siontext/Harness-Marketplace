@@ -1,0 +1,14 @@
+name = "{{id}}"
+description = "{{description}}"
+developer_instructions = """
+{{{content}}}
+{{#if skills.length}}
+
+## 참조 스킬
+
+작업 전 다음 스킬을 숙지하세요:
+{{#each skills}}
+- {{this}}
+{{/each}}
+{{/if}}
+"""

@@ -61,20 +61,32 @@ async function syncPlatform(platform, config) {
   if (platform === 'gemini') {
     await copyFile(path.join(distDir, 'GEMINI.md'), path.join(targetDir, 'GEMINI.md'));
     await mergeSettings(path.join(distDir, 'settings.json'), path.join(targetDir, 'settings.json'));
+    // Gemini: agents/ and skills/ to target dir
+    for (const subDir of ['agents', 'skills']) {
+      const srcDir = path.join(distDir, subDir);
+      try {
+        await fs.access(srcDir);
+        await copyDir(srcDir, path.join(targetDir, subDir));
+      } catch { /* skip */ }
+    }
   } else if (platform === 'codex') {
     await copyFile(path.join(distDir, 'AGENTS.md'), path.join(targetDir, 'AGENTS.md'));
     await mergeSettings(path.join(distDir, 'config.json'), path.join(targetDir, 'config.json'));
-  }
-
-  // Copy roles/ and rules/ for on-demand loading
-  for (const subDir of ['agents', 'skills']) {
-    const srcDir = path.join(distDir, subDir);
+    // Codex: agents/*.toml to ~/.codex/agents/
+    const agentsSrc = path.join(distDir, 'agents');
     try {
-      await fs.access(srcDir);
-      await copyDir(srcDir, path.join(targetDir, subDir));
-    } catch {
-      // dir doesn't exist — skip
-    }
+      await fs.access(agentsSrc);
+      await copyDir(agentsSrc, path.join(targetDir, 'agents'));
+    } catch { /* skip */ }
+    // Codex: skills/ to ~/.agents/skills/ (Codex reads from ~/.agents/skills/)
+    const homeDir = process.env.HOME || process.env.USERPROFILE;
+    const codexSkillsTarget = path.join(homeDir, '.agents', 'skills');
+    const skillsSrc = path.join(distDir, 'skills');
+    try {
+      await fs.access(skillsSrc);
+      await copyDir(skillsSrc, codexSkillsTarget);
+      console.log(`  skills -> ${codexSkillsTarget}`);
+    } catch { /* skip */ }
   }
 
   console.log(`[${platform}] sync complete`);

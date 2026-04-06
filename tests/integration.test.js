@@ -56,10 +56,11 @@ describe('build', () => {
     // AGENTS.md 생성 확인 (목차만)
     const agentsMd = await fs.readFile(path.join(tempDist, 'codex', 'AGENTS.md'), 'utf-8');
     expect(agentsMd).toContain('Project Guidelines');
-    expect(agentsMd).toContain('agents/test-role.md');
+    expect(agentsMd).toContain('test-role');
 
-    // Codex 에이전트/스킬 파일 생성 확인
-    const codexAgent = await fs.readFile(path.join(tempDist, 'codex', 'agents', 'test-role.md'), 'utf-8');
+    // Codex 에이전트 파일 생성 확인 (TOML)
+    const codexAgent = await fs.readFile(path.join(tempDist, 'codex', 'agents', 'test-role.toml'), 'utf-8');
+    expect(codexAgent).toContain('name = "test-role"');
     expect(codexAgent).toContain('테스트 역할');
 
     // Codex config.json 생성 확인

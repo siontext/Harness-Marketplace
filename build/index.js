@@ -119,20 +119,21 @@ export async function build(options = {}) {
   await fs.writeFile(path.join(codexDir, 'AGENTS.md'), renderTemplate(codexTemplate, assembled.codex));
   await fs.writeFile(path.join(codexDir, 'config.json'), generateCodexConfig(assembled.codex.denyPatterns));
 
-  // Codex agents (template-based)
+  // Codex agents (TOML format, template-based)
   const codexAgentsDir = path.join(codexDir, 'agents');
   await fs.mkdir(codexAgentsDir, { recursive: true });
-  const codexAgentTemplate = await fs.readFile(path.join(templatesDir, 'codex', 'agents', 'agent.md.hbs'), 'utf-8');
+  const codexAgentTemplate = await fs.readFile(path.join(templatesDir, 'codex', 'agents', 'agent.toml.hbs'), 'utf-8');
   for (const agent of assembled.codex.roles) {
-    await fs.writeFile(path.join(codexAgentsDir, `${agent.id}.md`), renderTemplate(codexAgentTemplate, agent));
+    await fs.writeFile(path.join(codexAgentsDir, `${agent.id}.toml`), renderTemplate(codexAgentTemplate, agent));
   }
 
-  // Codex skills (separate files for on-demand loading)
+  // Codex skills (SKILL.md format in skill-name/ folders, same as Claude)
   const codexSkillsDir = path.join(codexDir, 'skills');
-  await fs.mkdir(codexSkillsDir, { recursive: true });
   for (const section of assembled.codex.sections) {
     for (const skill of section.rules) {
-      await fs.writeFile(path.join(codexSkillsDir, `${skill.id}.md`), `# ${skill.description}\n\n${skill.content}\n`);
+      const skillDir = path.join(codexSkillsDir, skill.id);
+      await fs.mkdir(skillDir, { recursive: true });
+      await fs.writeFile(path.join(skillDir, 'SKILL.md'), `---\nname: ${skill.id}\ndescription: ${skill.description}\n---\n\n${skill.content}\n`);
     }
   }
 

@@ -1,4 +1,7 @@
-# 브랜치 네이밍, 커밋 메시지, PR 템플릿, 이슈 관리 규칙. 커밋/PR 작성 시 참조.
+---
+name: git-conventions
+description: 브랜치 네이밍, 커밋 메시지, PR 템플릿, 이슈 관리 규칙. 커밋/PR 작성 시 참조.
+---
 
 # Git Conventions
 

@@ -1,4 +1,7 @@
-# 프로젝트 기술 스택 및 환경
+---
+name: project-context
+description: 프로젝트 기술 스택 및 환경
+---
 
 ## 기술 스택
 
