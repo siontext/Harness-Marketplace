@@ -1,6 +1,10 @@
 {
   "name": "team-harness",
   "description": "Cross-platform AI harness for Claude, Gemini, Codex",
+  "owner": {
+    "name": "siontext",
+    "email": "siontext@github.com"
+  },
   "plugins": [
     {
       "name": "harness",
