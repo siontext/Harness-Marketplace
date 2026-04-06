@@ -8,6 +8,10 @@ Claude Code, Gemini CLI, Codex CLI가 동일한 규칙으로 동작하도록 하
 
 ```
 harness/
+├── .claude-plugin/     # Claude Code 플러그인 매니페스트
+│   ├── marketplace.json
+│   └── plugin.json
+│
 ├── agents/             # 에이전트 (Single Source of Truth)
 │   ├── designer.md     # 설계 전문가
 │   ├── backend-dev.md  # 백엔드 개발자
@@ -27,9 +31,9 @@ harness/
 ├── scripts/            # sync 스크립트
 │
 └── dist/               # 자동 생성 결과물 (커밋 대상)
-    ├── claude/         # CLAUDE.md(목차) + agents/ + skills/
-    ├── gemini/         # GEMINI.md(목차) + agents/ + skills/ + settings.json
-    └── codex/          # AGENTS.md(목차) + agents/ + skills/ + config.json
+    ├── claude/         # CLAUDE.md + plugin.json + agents/ + skills/
+    ├── gemini/         # GEMINI.md + agents/ + skills/ + settings.json
+    └── codex/          # AGENTS.md + agents/ + skills/ + config.json
 ```
 
 ## 초기 설치
