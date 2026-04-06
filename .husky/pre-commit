@@ -1,5 +1,5 @@
 #!/bin/bash
-if git diff --cached --name-only | grep -qE '^(rules|roles|templates)/'; then
+if git diff --cached --name-only | grep -qE '^(skills|agents|templates)/'; then
   echo "[harness] 규칙 변경 감지 — dist/ 재생성 중..."
   npm run build:harness
   git add dist/
