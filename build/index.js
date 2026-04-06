@@ -94,14 +94,12 @@ export async function build(options = {}) {
   await fs.writeFile(path.join(geminiDir, 'GEMINI.md'), renderTemplate(geminiTemplate, assembled.gemini));
   await fs.writeFile(path.join(geminiDir, 'settings.json'), generateGeminiSettings(assembled.gemini.denyPatterns));
 
-  // Gemini agents (Gemini CLI native format: name required, no id/skills)
+  // Gemini agents (template-based)
   const geminiAgentsDir = path.join(geminiDir, 'agents');
   await fs.mkdir(geminiAgentsDir, { recursive: true });
+  const geminiAgentTemplate = await fs.readFile(path.join(templatesDir, 'gemini', 'agents', 'agent.md.hbs'), 'utf-8');
   for (const agent of assembled.gemini.roles) {
-    const skillsNote = agent.skills && agent.skills.length > 0
-      ? `\n## 참조 스킬\n\n작업 전 다음 스킬 파일을 읽고 원칙을 숙지하세요:\n${agent.skills.map(s => `- skills/${s}.md`).join('\n')}\n`
-      : '';
-    await fs.writeFile(path.join(geminiAgentsDir, `${agent.id}.md`), `---\nname: ${agent.id}\ndescription: ${agent.description}\n---\n\n${agent.content}\n${skillsNote}`);
+    await fs.writeFile(path.join(geminiAgentsDir, `${agent.id}.md`), renderTemplate(geminiAgentTemplate, agent));
   }
 
   // Gemini skills (separate files for on-demand loading)
@@ -121,14 +119,12 @@ export async function build(options = {}) {
   await fs.writeFile(path.join(codexDir, 'AGENTS.md'), renderTemplate(codexTemplate, assembled.codex));
   await fs.writeFile(path.join(codexDir, 'config.json'), generateCodexConfig(assembled.codex.denyPatterns));
 
-  // Codex agents (Codex CLI format: name required, no id/skills)
+  // Codex agents (template-based)
   const codexAgentsDir = path.join(codexDir, 'agents');
   await fs.mkdir(codexAgentsDir, { recursive: true });
+  const codexAgentTemplate = await fs.readFile(path.join(templatesDir, 'codex', 'agents', 'agent.md.hbs'), 'utf-8');
   for (const agent of assembled.codex.roles) {
-    const skillsNote = agent.skills && agent.skills.length > 0
-      ? `\n## 참조 스킬\n\n작업 전 다음 스킬 파일을 읽고 원칙을 숙지하세요:\n${agent.skills.map(s => `- skills/${s}.md`).join('\n')}\n`
-      : '';
-    await fs.writeFile(path.join(codexAgentsDir, `${agent.id}.md`), `---\nname: ${agent.id}\ndescription: ${agent.description}\n---\n\n${agent.content}\n${skillsNote}`);
+    await fs.writeFile(path.join(codexAgentsDir, `${agent.id}.md`), renderTemplate(codexAgentTemplate, agent));
   }
 
   // Codex skills (separate files for on-demand loading)

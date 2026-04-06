@@ -1,0 +1,15 @@
+---
+name: {{id}}
+description: {{description}}
+---
+
+{{{content}}}
+{{#if skills.length}}
+
+## 참조 스킬
+
+작업 전 다음 스킬 파일을 읽고 원칙을 숙지하세요:
+{{#each skills}}
+- skills/{{this}}.md
+{{/each}}
+{{/if}}
