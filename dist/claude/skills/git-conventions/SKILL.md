@@ -47,13 +47,16 @@ description: 브랜치 네이밍, 커밋 메시지, PR 템플릿, 이슈 관리 
 ## Commit
 
 ```
-[type] : [subject] [#issue-number]
+[type] : [subject]
 ```
 
 예시:
-- `feat : login-page 구현 #3`
+- `feat : login-page 구현`
+- `fix : 인증 토큰 만료 처리 수정`
+- `refactor : 공통 예외 모델 분리`
 
-subject는 간결하게 작성. 구체적인 내용은 커밋 본문(Extended description)에 작성.
+subject는 명사형 종결로 작성한다. (`~~ 추가`, `~~ 수정`, `~~ 생성`, `~~ 분리` 등)
+구체적인 내용은 커밋 본문(Extended description)에 작성.
 
 ## Pull Request
 
@@ -63,10 +66,10 @@ subject는 간결하게 작성. 구체적인 내용은 커밋 본문(Extended de
 ### PR 제목
 
 ```
-[subject] [#issue-number]
+[subject]
 ```
 
-예시: `login-page 구현 #3`
+예시: `login-page 구현`
 
 ### PR 본문 템플릿
 

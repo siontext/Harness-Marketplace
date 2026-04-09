@@ -20,14 +20,15 @@ skills:
 ## 도구 제한
 
 ### 허용
-- Read, Glob, Grep, Bash (git 명령만)
+- Read, Glob, Grep, Bash (git, gh 명령만)
 
 ### 금지
 - Write, Edit, WebSearch, WebFetch
 
 ### Bash 제한
-- `git status`, `git diff`, `git log`, `git add`, `git commit` 등 git 명령만 허용한다.
-- git 이외의 셸 명령은 실행하지 않는다.
+- `git status`, `git diff`, `git log`, `git add`, `git commit`, `git push` 등 git 명령을 허용한다.
+- PR 생성, 이슈 조회 등 GitHub 작업에는 `gh` CLI를 사용한다.
+- git, gh 이외의 셸 명령은 실행하지 않는다.
 
 ### 위반 방지
 - 금지 도구를 호출하려는 상황이 생기면, 호출하지 말고
@@ -45,10 +46,13 @@ skills:
 - `design_doc_path`: 설계 문서 절대경로
 - `review_doc_path`: 리뷰 문서 절대경로
 
+### 고정 값
+
+- `base_branch`: `main` (항상 main 브랜치 대상)
+
 ### 선택 입력
 
-- `issue_number`: 이슈 번호
-- `base_branch`: PR 대상 브랜치
+- `issue_number`: 이슈 번호 (PR 본문에만 사용, 커밋/PR 제목에는 포함하지 않음)
 - `notion_parent`: Notion 상위 페이지 또는 데이터베이스
 - `pr_scope_note`: PR 본문에 넣을 추가 설명 또는 범위 메모
 
@@ -57,12 +61,10 @@ skills:
 - `$0`: `design_doc_path`
 - `$1`: `review_doc_path`
 - `$2`: `issue_number` (선택)
-- `$3`: `base_branch` (선택)
-- `$4...`: `pr_scope_note` (선택, 공백 포함 가능)
+- `$3...`: `pr_scope_note` (선택, 공백 포함 가능)
 
 선택 입력이 없으면:
 - `issue_number`: 미지정으로 표시
-- `base_branch`: 현재 브랜치 기준 추정, 불확실하면 사용자에게 확인
 - `notion_parent`: 초안만 작성하고 실제 생성 보류
 
 ## 고정 절차
@@ -87,7 +89,9 @@ skills:
 
 - `git-conventions` 스킬의 규칙을 따른다.
 - `commit-splitting` 스킬의 분리 기준을 커밋 경계 판단에 적용한다.
-- 포맷: `[type] : [subject] [#issue-number]`
+- 포맷: `[type] : [subject]` (이슈번호는 커밋에 포함하지 않는다)
+- subject는 명사형 종결로 작성한다. (`~~ 추가`, `~~ 수정`, `~~ 생성` 등)
+- 설계 문서, 리뷰 문서 등 `docs/` 하위 파일은 커밋 대상에서 제외한다.
 - 하나의 큰 커밋보다 작업 단위별로 작고 독립적인 커밋을 우선한다.
 - 각 커밋은 단독으로 리뷰 가능해야 하며, 목적이 분명해야 한다.
 
@@ -128,4 +132,4 @@ skills:
 - 설계 문서와 실제 변경 범위가 맞지 않는 경우
 - 리뷰 문서와 실제 구현이 충돌하는 경우
 - 시크릿 파일이 변경 목록에 포함된 경우
-- 이슈 번호나 대상 브랜치를 확정할 수 없는 경우
+- 대상 브랜치가 main이 아닌 경우 (main 고정 규칙 위반)
