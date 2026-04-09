@@ -13,11 +13,17 @@
 
 다음 명령은 절대 실행하지 마세요:
 
-- `rm -rf*` — 재귀 삭제 금지
-- `git push --force*` — 강제 푸시 금지
-- `git reset --hard*` — 하드 리셋 금지
-- `sudo *` — 관리자 권한 금지
-- `DROP TABLE*` — 테이블 삭제 금지
+- `rm -rf*` — 재귀 삭제 금지 → 대신: 개별 파일 삭제(rm file) 또는 사용자에게 확인 요청
+- `git push --force*` — 강제 푸시 금지 → 대신: git push --force-with-lease 사용
+- `git reset --hard*` — 하드 리셋 금지 → 대신: git stash 또는 git revert 사용
+- `sudo *` — 관리자 권한 금지 → 대신: 사용자에게 직접 실행 요청
+- `DROP TABLE*` — 테이블 삭제 금지 → 대신: 사용자에게 확인 후 직접 실행 요청
+
+## 워크플로우
+
+- 브레인스토밍/설계 작업 시 `oop-principles`, `layered-architecture` 스킬을 반드시 참조할 것.
+- 설계 방향이 결정되면 `designer` 에이전트에게 문서 작성을 위임할 것.
+- 코드 검증/리뷰 시 `reviewer` 에이전트에게 위임할 것.
 
 ## 에이전트 위임
 

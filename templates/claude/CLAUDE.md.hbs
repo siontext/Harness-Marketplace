@@ -12,10 +12,16 @@
 다음 명령은 절대 실행하지 마세요:
 
 {{#each denyPatterns}}
-- `{{pattern}}` — {{description}}
+- `{{pattern}}` — {{description}}{{#if alternative}} → 대신: {{alternative}}{{/if}}
 {{/each}}
 
 {{/if}}
+## 워크플로우
+
+- 브레인스토밍/설계 작업 시 `oop-principles`, `layered-architecture` 스킬을 반드시 참조할 것.
+- 설계 방향이 결정되면 `designer` 에이전트에게 문서 작성을 위임할 것.
+- 코드 검증/리뷰 시 `reviewer` 에이전트에게 위임할 것.
+
 ## 에이전트 위임
 
 다음 서브에이전트를 사용할 수 있습니다:

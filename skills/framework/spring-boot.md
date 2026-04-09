@@ -1,67 +1,13 @@
 ---
 id: spring-boot-conventions
-description: Spring Boot + 4-Layered + Hexagonal 아키텍처 기반 DI, 어노테이션, 설정 관리, 예외 처리 규칙. Spring Boot 코드 작성 및 리뷰 시 참조.
+description: Spring Boot 코드를 작성하거나 리뷰할 때 사용 — DI, 어노테이션, 설정 관리, 예외 처리 규칙 적용.
 section: "프레임워크"
 order: 1
 ---
 
 # Spring Boot Conventions
 
-## 레이어 구조
-
-```
-Presentation → Application → Domain ← Infrastructure
-```
-
-- **Presentation**: HTTP 요청/응답 처리만. 비즈니스 로직 금지. DTO 변환까지만 담당.
-- **Application**: 유스케이스 오케스트레이션. 트랜잭션 경계. Inbound Port를 구현.
-- **Domain**: 핵심 비즈니스 로직, 도메인 모델, Port(인터페이스) 정의. Spring 어노테이션 금지.
-- **Infrastructure**: Outbound Port 구현(Adapter), JPA Entity, 외부 시스템 연동, 설정.
-
-레이어 간 의존 규칙은 `layered-architecture` 스킬을 참조.
-
-## 패키지 구조
-
-4-Layered + Hexagonal 패키지 구조:
-
-```
-com.example.project
-├── domain/
-│   ├── order/
-│   │   ├── Order.java                    # 도메인 모델
-│   │   ├── OrderStatus.java              # Value Object / Enum
-│   │   ├── OrderDomainService.java       # Domain Service (선택)
-│   │   └── port/
-│   │       ├── in/
-│   │       │   └── CreateOrderUseCase.java   # Inbound Port (interface)
-│   │       └── out/
-│   │           └── OrderPort.java            # Outbound Port (interface)
-│   └── payment/
-│       └── ...
-├── application/
-│   ├── order/
-│   │   ├── CreateOrderService.java       # Inbound Port 구현 (UseCase)
-│   │   ├── CreateOrderCommand.java       # Command
-│   │   └── OrderResponse.java            # Application DTO
-│   └── ...
-├── presentation/
-│   ├── order/
-│   │   ├── OrderController.java          # Inbound Adapter
-│   │   ├── OrderCreateRequest.java       # Request DTO
-│   │   └── OrderApiResponse.java         # Response DTO
-│   └── ...
-├── infrastructure/
-│   ├── order/
-│   │   ├── OrderPortAdapter.java         # Outbound Adapter
-│   │   ├── OrderJpaRepository.java       # Spring Data JPA
-│   │   └── OrderEntity.java              # JPA Entity (DB 매핑)
-│   └── config/
-│       └── JpaConfig.java
-└── common/
-    ├── config/                           # 공통 설정 클래스
-    ├── error/                            # 글로벌 예외 처리
-    └── response/                         # 공통 응답 포맷
-```
+레이어 구조, 패키지 배치, 의존 방향 규칙은 `layered-architecture` 스킬을 참조. 이 스킬은 Spring Boot 고유 규칙만 다룬다.
 
 ## DI (의존성 주입)
 

@@ -40,7 +40,7 @@
 - `skills/java-testing.md` — Java/Spring Boot 코드의 테스트를 작성하거나 리뷰할 때 사용하는 가이드. 레이어별 테스트 전략, 어노테이션, Mock 규칙을 포함한다.
 - `skills/kotlin-testing.md` — Kotlin/Spring Boot 코드의 테스트를 작성하거나 리뷰할 때 사용하는 가이드. MockK, 코루틴 테스트, 레이어별 전략을 포함한다.
 ### 프레임워크
-- `skills/spring-boot-conventions.md` — Spring Boot + 4-Layered + Hexagonal 아키텍처 기반 DI, 어노테이션, 설정 관리, 예외 처리 규칙. Spring Boot 코드 작성 및 리뷰 시 참조.
+- `skills/spring-boot-conventions.md` — Spring Boot 코드를 작성하거나 리뷰할 때 사용 — DI, 어노테이션, 설정 관리, 예외 처리 규칙 적용.
 ### 프로젝트 컨텍스트
 - `skills/project-context.md` — 프로젝트 기술 스택 및 환경
 ### Git

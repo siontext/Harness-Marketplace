@@ -38,4 +38,43 @@ description: Java 코드 스타일 가이드라인 — 네이밍, 포맷, import
 - 매직 넘버 금지. 상수로 추출.
 - `Optional` 반환은 허용, 파라미터로 전달은 금지.
 - `var` 사용은 타입이 명확한 경우에만 (예: `var list = new ArrayList<String>()`).
-- 주석: 코드로 설명 가능하면 생략. Javadoc은 public API에만.
+## 주석 및 Javadoc
+
+### Javadoc 필수 대상
+
+- **Port 인터페이스** (Inbound/Outbound): 계약 명세 — 파라미터, 반환값, 예외를 명시.
+- **UseCase 인터페이스**: 유스케이스의 입력/출력 계약.
+- **Public API 메서드** (Controller 등 외부 노출): 요청/응답 명세.
+
+```java
+/**
+ * 주문을 저장하고 ID가 할당된 주문을 반환한다.
+ *
+ * @param order ID가 없는 신규 주문
+ * @return ID가 할당된 저장된 주문
+ * @throws IllegalArgumentException order가 null이거나 유효하지 않은 경우
+ */
+Order save(Order order);
+```
+
+### Javadoc 불필요 대상
+
+- 구현 클래스의 Override 메서드 (인터페이스에 이미 있음)
+- getter/setter, 자명한 메서드
+
+### 구현 주석 규칙
+
+- 코드가 "뭘 하는지"는 주석 불필요 — 코드 자체가 설명해야 함.
+- **"왜 이렇게 하는지"**만 주석으로 남긴다 (비즈니스 규칙, 우회 사유, 제약 조건).
+
+```java
+// 좋음 — "왜"를 설명
+// PG사 정산 주기가 월 1회라 취소는 30일 이내만 가능
+if (order.getCreatedAt().isBefore(now().minusDays(30))) {
+    throw new CancellationExpiredException();
+}
+
+// 나쁨 — 코드를 반복
+// 30일 이전인지 확인한다
+if (order.getCreatedAt().isBefore(now().minusDays(30))) {
+```
