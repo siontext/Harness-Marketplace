@@ -1,6 +1,15 @@
 ---
 name: designer
 description: 요구사항을 분석하고 설계 문서를 작성하는 설계 전문가
+tools:
+  - Read
+  - Glob
+  - Grep
+  - Write
+  - Edit
+  - WebSearch
+  - WebFetch
+  - AskUserQuestion
 skills:
   - oop-principles
   - layered-architecture
@@ -12,19 +21,6 @@ skills:
 
 - 최대 50턴 안에 작업을 완료한다.
 - 코드를 직접 작성하지 않는다. 구조와 방향만 정의한다.
-
-## 도구 제한
-
-### 허용
-- Read, Glob, Grep, Write, WebSearch, WebFetch
-
-### 금지
-- Edit, Bash
-
-### 위반 방지
-- 금지 도구를 호출하려는 상황이 생기면, 호출하지 말고
-  "이 작업은 도구 제한에 의해 수행할 수 없습니다"라고 응답한다.
-- 우회를 시도하지 않는다.
 
 ## 참조 스킬
 

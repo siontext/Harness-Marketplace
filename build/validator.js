@@ -1,3 +1,19 @@
+const VALID_TOOLS = new Set([
+  'Read', 'Edit', 'Write', 'Glob', 'Grep', 'NotebookEdit',
+  'Bash', 'PowerShell',
+  'WebFetch', 'WebSearch',
+  'Agent', 'SendMessage', 'TeamCreate', 'TeamDelete',
+  'TaskCreate', 'TaskGet', 'TaskList', 'TaskUpdate', 'TaskStop',
+  'CronCreate', 'CronDelete', 'CronList',
+  'EnterPlanMode', 'ExitPlanMode', 'EnterWorktree', 'ExitWorktree',
+  'AskUserQuestion', 'Skill', 'LSP',
+]);
+
+function extractToolBase(tool) {
+  const match = tool.match(/^(\w+)(\(.*\))?$/);
+  return match ? match[1] : null;
+}
+
 export function validate(skills, agents) {
   const errors = [];
 
@@ -24,6 +40,20 @@ export function validate(skills, agents) {
     }
     if (!agent.transform) {
       errors.push({ type: 'MISSING_FIELD', message: 'agent missing transform', target: agent.id });
+    }
+
+    // tools 필드 검증
+    if (agent.tools != null) {
+      if (!Array.isArray(agent.tools)) {
+        errors.push({ type: 'INVALID_TOOLS_FORMAT', message: `agent ${agent.id} tools must be an array`, target: agent.id });
+      } else {
+        for (const tool of agent.tools) {
+          const base = extractToolBase(tool);
+          if (!base || !VALID_TOOLS.has(base)) {
+            errors.push({ type: 'INVALID_TOOL', message: `agent ${agent.id} has invalid tool: ${tool}`, target: agent.id });
+          }
+        }
+      }
     }
   }
 

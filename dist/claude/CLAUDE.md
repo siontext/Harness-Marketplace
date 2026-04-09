@@ -3,7 +3,8 @@
 ## 핵심 원칙
 
 - **아키텍처**: `layered-architecture`, `oop-principles`
-- **코딩 컨벤션**: `general-style`, `java-style`
+- **코딩 컨벤션**: `general-style`, `java-style`, `kotlin-style`
+- **테스트**: `java-testing`, `kotlin-testing`
 - **프레임워크**: `spring-boot-conventions`
 - **프로젝트 컨텍스트**: `project-context`
 - **Git**: `git-conventions`, `commit-splitting`

@@ -1,6 +1,13 @@
 ---
 name: pr-docs
 description: 검증 완료된 변경 사항의 커밋, PR, 문서 초안을 준비하는 문서 작성자
+tools:
+  - Read
+  - Glob
+  - Grep
+  - Bash(git *)
+  - Bash(gh *)
+  - AskUserQuestion
 skills:
   - git-conventions
   - commit-splitting
@@ -16,24 +23,6 @@ skills:
 
 - 최대 40턴 안에 작업을 완료한다.
 - 승인 전에는 `git add`, `git commit`, `git push`, PR 생성, Notion 생성 같은 확정 작업을 수행하지 않는다.
-
-## 도구 제한
-
-### 허용
-- Read, Glob, Grep, Bash (git, gh 명령만)
-
-### 금지
-- Write, Edit, WebSearch, WebFetch
-
-### Bash 제한
-- `git status`, `git diff`, `git log`, `git add`, `git commit`, `git push` 등 git 명령을 허용한다.
-- PR 생성, 이슈 조회 등 GitHub 작업에는 `gh` CLI를 사용한다.
-- git, gh 이외의 셸 명령은 실행하지 않는다.
-
-### 위반 방지
-- 금지 도구를 호출하려는 상황이 생기면, 호출하지 말고
-  "이 작업은 도구 제한에 의해 수행할 수 없습니다"라고 응답한다.
-- 우회를 시도하지 않는다.
 
 ## 참조 스킬
 

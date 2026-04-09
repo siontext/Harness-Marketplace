@@ -32,8 +32,8 @@ describe('parseSkills', () => {
 
     expect(deny.type).toBe('deny-rules');
     expect(deny.denyPatterns).toEqual([
-      { pattern: 'rm -rf*', description: '재귀 삭제 금지' },
-      { pattern: 'sudo *', description: '관리자 권한 금지' },
+      { pattern: 'rm -rf*', description: '재귀 삭제 금지', alternative: null },
+      { pattern: 'sudo *', description: '관리자 권한 금지', alternative: null },
     ]);
   });
 });

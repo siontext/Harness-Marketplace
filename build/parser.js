@@ -16,7 +16,7 @@ export function parseDenyRulesTable(content) {
     }
     const cells = trimmed.split('|').map(c => c.trim()).filter(Boolean);
     if (cells.length >= 2) {
-      patterns.push({ pattern: cells[0], description: cells[1] });
+      patterns.push({ pattern: cells[0], description: cells[1], alternative: cells[2] || null });
     }
   }
 
@@ -69,6 +69,7 @@ export async function parseAgents(agentsDir) {
     platforms: item.platforms || ALL_PLATFORMS,
     transform: item.transform,
     skills: item.rules || item.skills || [],
+    tools: item.tools || null,
     content: item.content,
     _file: item._file,
   }));

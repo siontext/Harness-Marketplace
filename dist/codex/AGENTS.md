@@ -3,7 +3,8 @@
 ## 핵심 원칙
 
 - **아키텍처**: `layered-architecture`, `oop-principles`
-- **코딩 컨벤션**: `general-style`, `java-style`
+- **코딩 컨벤션**: `general-style`, `java-style`, `kotlin-style`
+- **테스트**: `java-testing`, `kotlin-testing`
 - **프레임워크**: `spring-boot-conventions`
 - **프로젝트 컨텍스트**: `project-context`
 - **Git**: `git-conventions`, `commit-splitting`
@@ -24,6 +25,10 @@ Codex가 자동으로 에이전트를 로드합니다:
 ### 코딩 컨벤션
 - `general-style` — 공통 코딩 컨벤션
 - `java-style` — Java 코드 스타일 가이드라인 — 네이밍, 포맷, import, 예외 처리 규칙. Java 코드를 작성하거나 리뷰할 때 참조.
+- `kotlin-style` — Kotlin 코드를 작성하거나 리뷰할 때 사용하는 스타일 가이드. null safety, 이디엄, 스코프 함수, KDoc 규칙을 포함한다.
+### 테스트
+- `java-testing` — Java/Spring Boot 코드의 테스트를 작성하거나 리뷰할 때 사용하는 가이드. 레이어별 테스트 전략, 어노테이션, Mock 규칙을 포함한다.
+- `kotlin-testing` — Kotlin/Spring Boot 코드의 테스트를 작성하거나 리뷰할 때 사용하는 가이드. MockK, 코루틴 테스트, 레이어별 전략을 포함한다.
 ### 프레임워크
 - `spring-boot-conventions` — Spring Boot + 4-Layered + Hexagonal 아키텍처 기반 DI, 어노테이션, 설정 관리, 예외 처리 규칙. Spring Boot 코드 작성 및 리뷰 시 참조.
 ### 프로젝트 컨텍스트

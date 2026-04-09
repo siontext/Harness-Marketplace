@@ -4,6 +4,17 @@ description: {{description}}
 ---
 
 {{{content}}}
+{{#if tools}}
+
+## 도구 제한
+
+### 허용
+{{#each tools}}
+- {{this}}
+{{/each}}
+
+위 목록에 없는 도구는 사용하지 않는다.
+{{/if}}
 {{#if skills.length}}
 
 ## 참조 스킬

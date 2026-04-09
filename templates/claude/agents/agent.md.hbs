@@ -1,6 +1,12 @@
 ---
 name: {{id}}
 description: {{description}}
+{{#if tools}}
+tools:
+{{#each tools}}
+  - {{this}}
+{{/each}}
+{{/if}}
 {{#if skills.length}}
 skills:
 {{#each skills}}
