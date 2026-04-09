@@ -1,6 +1,6 @@
 ---
 name: general-style
-description: 공통 코딩 컨벤션
+description: 언어에 무관한 공통 코딩 컨벤션을 적용할 때 사용.
 ---
 
 ## 공통 코딩 컨벤션

@@ -33,7 +33,7 @@
 - `skills/layered-architecture.md` — 4-Layered + Hexagonal(Port/Adapter) 아키텍처 규칙. 레이어 간 의존 방향, 패키지 배치, Port/Adapter 구현 기준. 코드 구현 및 리뷰 시 참조.
 - `skills/oop-principles.md` — 객체지향 설계 원칙 — SOLID, 캡슐화, 다형성, 디자인패턴 적용 가이드. 코드 설계 및 리뷰 시 참조.
 ### 코딩 컨벤션
-- `skills/general-style.md` — 공통 코딩 컨벤션
+- `skills/general-style.md` — 언어에 무관한 공통 코딩 컨벤션을 적용할 때 사용.
 - `skills/java-style.md` — Java 코드 스타일 가이드라인 — 네이밍, 포맷, import, 예외 처리 규칙. Java 코드를 작성하거나 리뷰할 때 참조.
 - `skills/kotlin-style.md` — Kotlin 코드를 작성하거나 리뷰할 때 사용하는 스타일 가이드. null safety, 이디엄, 스코프 함수, KDoc 규칙을 포함한다.
 ### 테스트
@@ -42,7 +42,7 @@
 ### 프레임워크
 - `skills/spring-boot-conventions.md` — Spring Boot 코드를 작성하거나 리뷰할 때 사용 — DI, 어노테이션, 설정 관리, 예외 처리 규칙 적용.
 ### 프로젝트 컨텍스트
-- `skills/project-context.md` — 프로젝트 기술 스택 및 환경
+- `skills/project-context.md` — 프로젝트의 기술 스택, 빌드 환경, 디렉토리 구조를 파악할 때 사용.
 ### Git
 - `skills/git-conventions.md` — 브랜치 네이밍, 커밋 메시지, PR 템플릿, 이슈 관리 규칙. 커밋/PR 작성 시 참조.
 - `skills/commit-splitting.md` — 커밋을 관심사, 역할, 변경 이유 기준으로 분리하는 규칙. 커밋 전략 수립, 스테이징 범위 결정, PR 전 커밋 정리에 사용.

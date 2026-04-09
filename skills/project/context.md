@@ -1,6 +1,6 @@
 ---
 id: project-context
-description: "프로젝트 기술 스택 및 환경"
+description: 프로젝트의 기술 스택, 빌드 환경, 디렉토리 구조를 파악할 때 사용.
 section: "프로젝트 컨텍스트"
 order: 1
 ---
