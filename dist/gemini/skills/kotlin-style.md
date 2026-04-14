@@ -31,5 +31,19 @@
 
 ## Documentation
 
-- Port, UseCase, 외부에 노출되는 계약에는 KDoc을 작성한다.
-- 구현 클래스의 자명한 override에는 KDoc을 반복하지 않는다.
+### KDoc 필수 대상
+
+- **Port 인터페이스** (Inbound/Outbound): 모든 메서드에 @param, @return, @throws 명시.
+- **UseCase 인터페이스**: 모든 메서드에 @param, @return, @throws 명시.
+- **Domain 클래스**: 클래스 레벨 설명 필수. 팩토리 메서드(companion object)에는 비즈니스 규칙과 제약 조건 명시.
+- **VO (Value Object)**: 클래스 레벨 설명 필수. 생성 제약이 있으면 팩토리 메서드에도 명시.
+- **Command / Result DTO**: 클래스 레벨 설명 + @property로 모든 필드 설명.
+- **Entity (JPA)**: 클래스 레벨 설명 필수. toDomain/fromDomain 메서드에 @param, @return 명시.
+- **Adapter/Repository 구현체**: 클래스 레벨에 어떤 Port를 구현하는지 간단히 명시.
+- **Controller 메서드**: 요청/응답 명세. @param, @return 명시.
+
+### KDoc 불필요 대상
+
+- 구현 클래스의 override 메서드 (인터페이스에 이미 있음)
+- 자명한 getter, 자명한 메서드
+- Request DTO — @Schema(Swagger)로 대체

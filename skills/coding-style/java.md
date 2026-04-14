@@ -44,9 +44,14 @@ order: 2
 
 ### Javadoc 필수 대상
 
-- **Port 인터페이스** (Inbound/Outbound): 계약 명세 — 파라미터, 반환값, 예외를 명시.
-- **UseCase 인터페이스**: 유스케이스의 입력/출력 계약.
-- **Public API 메서드** (Controller 등 외부 노출): 요청/응답 명세.
+- **Port 인터페이스** (Inbound/Outbound): 모든 메서드에 @param, @return, @throws 명시.
+- **UseCase 인터페이스**: 모든 메서드에 @param, @return, @throws 명시.
+- **Domain 클래스**: 클래스 레벨 설명 필수. 팩토리 메서드에는 비즈니스 규칙과 제약 조건 명시.
+- **VO (Value Object)**: 클래스 레벨 설명 필수. 생성 제약이 있으면 팩토리 메서드에도 명시.
+- **Command / Result DTO**: 클래스 레벨 설명 + @param으로 모든 필드 설명.
+- **Entity (JPA)**: 클래스 레벨 설명 필수. toDomain/fromDomain 메서드에 @param, @return 명시.
+- **Adapter/Repository 구현체**: 클래스 레벨에 어떤 Port를 구현하는지 간단히 명시.
+- **Controller 메서드**: 요청/응답 명세. @param, @return 명시.
 
 ```java
 /**
@@ -63,6 +68,7 @@ Order save(Order order);
 
 - 구현 클래스의 Override 메서드 (인터페이스에 이미 있음)
 - getter/setter, 자명한 메서드
+- Request DTO — @Schema(Swagger)로 대체
 
 ### 구현 주석 규칙
 
