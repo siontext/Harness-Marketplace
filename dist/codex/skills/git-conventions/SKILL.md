@@ -56,7 +56,9 @@ description: 브랜치 네이밍, 커밋 메시지, PR 템플릿, 이슈 관리 
 - `refactor : 공통 예외 모델 분리`
 
 subject는 명사형 종결로 작성한다. (`~~ 추가`, `~~ 수정`, `~~ 생성`, `~~ 분리` 등)
-구체적인 내용은 커밋 본문(Extended description)에 작성.
+subject는 50자 이내로 작성한다.
+
+커밋 메시지에 `Co-Authored-By` 태그를 넣지 않는다.
 
 ## Pull Request
 
