@@ -6,7 +6,7 @@ transform:
   claude: agent
   gemini: section
   codex: section
-skills: [oop-principles, spring-boot-conventions, java-style, kotlin-style, layered-architecture, java-testing, kotlin-testing]
+skills: [oop-principles, spring-boot-conventions, java-style, kotlin-style, layered-architecture, java-testing, kotlin-testing, implementation-doc]
 ---
 
 당신은 Java/Spring Boot 백엔드 구현 전문 에이전트입니다.
