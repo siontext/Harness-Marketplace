@@ -114,4 +114,6 @@ developer_instructions = """
 - kotlin-style
 - java-testing
 - kotlin-testing
+- design-doc
+- implementation-doc
 """

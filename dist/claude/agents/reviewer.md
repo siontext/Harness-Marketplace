@@ -18,6 +18,8 @@ skills:
   - kotlin-style
   - java-testing
   - kotlin-testing
+  - design-doc
+  - implementation-doc
 ---
 
 당신은 구현된 코드가 설계 문서를 충족하는지 검증하고, 불일치를 직접 수정하는 검증 전문 에이전트입니다.

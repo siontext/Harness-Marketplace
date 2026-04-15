@@ -62,4 +62,5 @@ developer_instructions = """
 - layered-architecture
 - java-testing
 - kotlin-testing
+- implementation-doc
 """

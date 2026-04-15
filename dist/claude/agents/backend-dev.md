@@ -18,6 +18,7 @@ skills:
   - layered-architecture
   - java-testing
   - kotlin-testing
+  - implementation-doc
 ---
 
 당신은 Java/Spring Boot 백엔드 구현 전문 에이전트입니다.

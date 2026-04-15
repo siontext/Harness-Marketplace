@@ -2,7 +2,7 @@
 
 ## 핵심 원칙
 
-- **아키텍처**: `layered-architecture`, `oop-principles`
+- **아키텍처**: `layered-architecture`, `oop-principles`, `design-doc`, `implementation-doc`
 - **코딩 컨벤션**: `general-style`, `java-style`, `kotlin-style`
 - **테스트**: `java-testing`, `kotlin-testing`
 - **프레임워크**: `spring-boot-conventions`
@@ -22,6 +22,8 @@ Codex가 자동으로 에이전트를 로드합니다:
 ### 아키텍처
 - `layered-architecture` — 4-Layered + Hexagonal(Port/Adapter) 아키텍처 규칙. 레이어 간 의존 방향, 패키지 배치, Port/Adapter 구현 기준. 코드 구현 및 리뷰 시 참조.
 - `oop-principles` — 객체지향 설계 원칙 — SOLID, 캡슐화, 다형성, 디자인패턴 적용 가이드. 코드 설계 및 리뷰 시 참조.
+- `design-doc` — 설계 문서 작성 가이드 — 필수 구성 요소, 시니어 검증 관점, 대안 비교 기준. 설계 문서를 작성하거나 리뷰할 때 참조.
+- `implementation-doc` — 구현 문서 작성 가이드 — 설계를 코드로 옮기기 위한 구체적 명세. 구현 문서를 작성하거나 구현 작업 시 참조.
 ### 코딩 컨벤션
 - `general-style` — 언어에 무관한 공통 코딩 컨벤션을 적용할 때 사용.
 - `java-style` — Java 코드 스타일 가이드라인 — 네이밍, 포맷, import, 예외 처리 규칙. Java 코드를 작성하거나 리뷰할 때 참조.
