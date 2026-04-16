@@ -4,7 +4,7 @@
 
 - **아키텍처**: `layered-architecture`, `oop-principles`, `design-doc`, `implementation-doc`
 - **코딩 컨벤션**: `general-style`, `java-style`, `kotlin-style`
-- **테스트**: `java-testing`, `kotlin-testing`
+- **테스트**: `java-testing`, `kotlin-testing`, `api-verification`
 - **프레임워크**: `spring-boot-conventions`
 - **프로젝트 컨텍스트**: `project-context`
 - **Git**: `git-conventions`, `commit-splitting`
@@ -31,6 +31,7 @@ Codex가 자동으로 에이전트를 로드합니다:
 ### 테스트
 - `java-testing` — Java/Spring Boot 코드의 테스트를 작성하거나 리뷰할 때 사용하는 가이드. 레이어별 테스트 전략, 어노테이션, Mock 규칙을 포함한다.
 - `kotlin-testing` — Kotlin/Spring Boot 코드의 테스트를 작성하거나 리뷰할 때 사용하는 가이드. MockK, 코루틴 테스트, 레이어별 전략을 포함한다.
+- `api-verification` — 구현 완료 후 전체 API 동작 검증 절차 — 애플리케이션을 실제로 기동하고 모든 엔드포인트를 curl로 호출하여 설계 스펙과 대조한다. reviewer 에이전트가 검증 단계에서 실행한다.
 ### 프레임워크
 - `spring-boot-conventions` — Spring Boot 코드를 작성하거나 리뷰할 때 사용 — DI, 어노테이션, 설정 관리, 예외 처리 규칙 적용.
 ### 프로젝트 컨텍스트

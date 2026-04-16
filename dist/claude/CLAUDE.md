@@ -4,7 +4,7 @@
 
 - **아키텍처**: `layered-architecture`, `oop-principles`, `design-doc`, `implementation-doc`
 - **코딩 컨벤션**: `general-style`, `java-style`, `kotlin-style`
-- **테스트**: `java-testing`, `kotlin-testing`
+- **테스트**: `java-testing`, `kotlin-testing`, `api-verification`
 - **프레임워크**: `spring-boot-conventions`
 - **프로젝트 컨텍스트**: `project-context`
 - **Git**: `git-conventions`, `commit-splitting`

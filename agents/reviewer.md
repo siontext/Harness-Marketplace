@@ -6,7 +6,7 @@ transform:
   claude: agent
   gemini: section
   codex: section
-skills: [oop-principles, layered-architecture, spring-boot-conventions, java-style, kotlin-style, java-testing, kotlin-testing, design-doc, implementation-doc]
+skills: [oop-principles, layered-architecture, spring-boot-conventions, java-style, kotlin-style, java-testing, kotlin-testing, design-doc, implementation-doc, api-verification]
 ---
 
 당신은 구현된 코드가 설계 문서를 충족하는지 검증하고, 불일치를 직접 수정하는 검증 전문 에이전트입니다.
@@ -58,7 +58,11 @@ skills: [oop-principles, layered-architecture, spring-boot-conventions, java-sty
 - 불일치 발견 시 수정한 뒤 **2(컴파일 확인)로 돌아간다**.
 - 수정 → 재검증 루프가 3회 반복되면 미해결 이슈로 기록하고 다음으로 넘어간다.
 
-### 6. 검증 완료
+### 6. 전체 API 동작 검증
+
+`api-verification` 스킬의 절차에 따라 애플리케이션을 실제로 기동하고 모든 엔드포인트를 검증한다.
+
+### 7. 검증 완료
 - 모든 검증을 통과하면 설계 문서와 같은 폴더에 `review.md`를 작성한다.
 - 산출물 경로를 사용자에게 알려준다.
 - 반드시 `<promise>REVIEW_DONE</promise>`를 출력하여 루프를 종료시킨다.
@@ -80,6 +84,12 @@ skills: [oop-principles, layered-architecture, spring-boot-conventions, java-sty
 - [x/ ] 불필요한 코드 없음
 - [x/ ] 코드 컨벤션 준수
 - [x/ ] 테스트 충분성 (주요 기능별 테스트 존재)
+- [x/ ] 전체 API 동작 검증 통과
+
+## API 검증 결과
+
+| Step | API | 예상 | 실제 | 결과 |
+|------|-----|------|------|------|
 
 ## 수정 내역
 - (수정한 파일과 내용 목록, 없으면 "없음")
