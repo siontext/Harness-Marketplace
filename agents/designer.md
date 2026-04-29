@@ -60,6 +60,10 @@ skills: [oop-principles, layered-architecture, design-doc, implementation-doc]
 - {feature}는 전체 기능명(kebab-case), {usecase}는 현재 유스케이스명(kebab-case)이다.
 - 예: `docs/specs/user-auth/register-설계문서.md`
 - 설계 문서의 첫 번째 h1 헤더는 반드시 유스케이스 한글명으로 작성한다. (예: `# 회원가입`) — reviewer가 커밋 메시지에 이 값을 사용한다.
+- 반드시 `design-doc` 스킬 섹션 4의 **필수 다이어그램** 두 가지를 포함한다:
+  1. **시퀀스 다이어그램** — 이 유스케이스의 전체 호출 흐름 (Client → Controller → Service → Repository)
+  2. **레이어 다이어그램** — 컴포넌트 배치와 의존 방향
+  - 두 다이어그램 모두 Mermaid 코드 블록으로 작성한다. 텍스트 설명으로 대체하지 않는다.
 
 ### 5. 구현 문서 작성
 - `docs/specs/{feature}/{usecase}-구현문서.md` 경로에 저장한다.

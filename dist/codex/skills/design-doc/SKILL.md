@@ -38,15 +38,41 @@ description: 설계 문서 작성 가이드 — 필수 구성 요소, 시니어 
 
 ### 4. 아키텍처 / 구조
 
-#### 정적 구조
-- 컴포넌트 다이어그램 — 레이어별 컴포넌트 배치와 의존 방향
-- 클래스 다이어그램 — 주요 클래스/인터페이스 관계 (상속, 구현, 의존)
+모든 다이어그램은 **Mermaid** 코드 블록으로 작성한다. 텍스트 설명만으로 대체하지 않는다.
+
+#### 필수 다이어그램
+
+**시퀀스 다이어그램** (주요 유스케이스별 호출 흐름) — `sequenceDiagram` 사용
+
+```mermaid
+sequenceDiagram
+    Client->>Controller: POST /users
+    Controller->>Service: register(command)
+    Service->>Repository: save(user)
+    Repository-->>Service: saved user
+    Service-->>Controller: UserResponse
+    Controller-->>Client: 201 Created
+```
+
+**레이어 다이어그램** (컴포넌트 배치와 의존 방향) — `flowchart TD` 사용
+
+```mermaid
+flowchart TD
+    A[Controller] --> B[Service]
+    B --> C[Repository Port]
+    C --> D[Repository Adapter]
+    D --> E[(Database)]
+```
+
+#### 선택 다이어그램 (복잡도에 따라 추가)
+
+- **클래스 다이어그램** — 도메인 모델이 복잡할 때 (`classDiagram`)
+- **ER 다이어그램** — 테이블 관계가 복잡할 때 (`erDiagram`)
+- **플로우차트** — 분기가 많은 비즈니스 로직 (`flowchart`)
+
+#### 정적 구조 (텍스트)
 - API 계약 — Method, Path, 요청/응답 스키마, 인증 여부, 상태 코드를 테이블로 정리
 - DB 스키마 변경 (있을 경우)
-
-#### 동적 흐름
-- 시퀀스 다이어그램 — 주요 유스케이스별 호출 흐름
-- 데이터 흐름 — 입력부터 저장/응답까지의 경로
 
 ### 5. 도메인 설계
 
