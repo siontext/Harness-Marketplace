@@ -2,7 +2,7 @@
 
 ## 핵심 원칙
 
-- **아키텍처**: `layered-architecture`, `oop-principles`, `design-doc`, `implementation-doc`
+- **아키텍처**: `layered-architecture`, `oop-principles`, `design-doc`, `implementation-doc`, `implementation-checkpoint`
 - **코딩 컨벤션**: `general-style`, `java-style`, `kotlin-style`
 - **테스트**: `java-testing`, `kotlin-testing`, `api-verification`
 - **프레임워크**: `spring-boot-conventions`

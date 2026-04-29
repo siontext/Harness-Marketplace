@@ -2,7 +2,7 @@
 
 ## 핵심 원칙
 
-- **아키텍처**: `skills/layered-architecture.md`, `skills/oop-principles.md`, `skills/design-doc.md`, `skills/implementation-doc.md`
+- **아키텍처**: `skills/layered-architecture.md`, `skills/oop-principles.md`, `skills/design-doc.md`, `skills/implementation-doc.md`, `skills/implementation-checkpoint.md`
 - **코딩 컨벤션**: `skills/general-style.md`, `skills/java-style.md`, `skills/kotlin-style.md`
 - **테스트**: `skills/java-testing.md`, `skills/kotlin-testing.md`, `skills/api-verification.md`
 - **프레임워크**: `skills/spring-boot-conventions.md`
@@ -34,6 +34,7 @@
 - `skills/oop-principles.md` — 객체지향 설계 원칙 — SOLID, 캡슐화, 다형성, 디자인패턴 적용 가이드. 코드 설계 및 리뷰 시 참조.
 - `skills/design-doc.md` — 설계 문서 작성 가이드 — 필수 구성 요소, 시니어 검증 관점, 대안 비교 기준. 설계 문서를 작성하거나 리뷰할 때 참조.
 - `skills/implementation-doc.md` — 구현 문서 작성 가이드 — 설계를 코드로 옮기기 위한 구체적 명세. 구현 문서를 작성하거나 구현 작업 시 참조. 구현이 완료되면 반드시 이 스킬의 전체 API 동작 검증 절차를 실행.
+- `skills/implementation-checkpoint.md` — 구현 단위 완료 후 컴파일 확인 및 사용자 승인을 요청하는 체크포인트 프로토콜. backend-dev 에이전트가 각 구현 단위 완료 시 사용.
 ### 코딩 컨벤션
 - `skills/general-style.md` — 언어에 무관한 공통 코딩 컨벤션을 적용할 때 사용.
 - `skills/java-style.md` — Java 코드 스타일 가이드라인 — 네이밍, 포맷, import, 예외 처리 규칙. Java 코드를 작성하거나 리뷰할 때 참조.
