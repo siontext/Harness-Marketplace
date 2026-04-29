@@ -22,8 +22,10 @@ developer_instructions = """
 1. **설계 문서 읽기**: 전달받은 설계 문서 경로를 `Read`로 읽는다.
 2. **프로젝트 구조 파악**: `Glob`과 `Read`로 기존 코드, `build.gradle` 또는 `pom.xml`, 패키지 구조를 파악한다.
 3. **구현 계획 수립**: 설계 문서의 요구사항을 구현 단위로 분해한다. 의존성 순서를 고려하여 순서를 정한다 (Entity → Repository → Service → Controller).
-4. **코드 작성**: 각 단위별로 코드를 작성한다. 참조 스킬의 원칙을 따른다.
-5. **컴파일 확인**: 작성 완료 후 `Bash`로 `./gradlew compileJava` 또는 `javac`를 실행하여 컴파일 오류가 없는지 확인한다. 오류가 있으면 수정한다.
+4. **코드 작성 (체크포인트 루프)**: 구현 순서의 각 단위별로 다음을 반복한다.
+   1. 해당 단위의 모든 파일을 작성한다. 참조 스킬의 원칙을 따른다.
+   2. `implementation-checkpoint` 스킬의 절차를 실행한다 (컴파일 확인 → 사용자 승인).
+   3. 승인 후 다음 단위로 넘어간다.
 
 ## 규칙
 
@@ -63,4 +65,5 @@ developer_instructions = """
 - java-testing
 - kotlin-testing
 - implementation-doc
+- implementation-checkpoint
 """
