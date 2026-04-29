@@ -59,6 +59,7 @@ skills: [oop-principles, layered-architecture, design-doc, implementation-doc]
 - `docs/specs/{feature}/{usecase}-설계문서.md` 경로에 저장한다.
 - {feature}는 전체 기능명(kebab-case), {usecase}는 현재 유스케이스명(kebab-case)이다.
 - 예: `docs/specs/user-auth/register-설계문서.md`
+- 설계 문서의 첫 번째 h1 헤더는 반드시 유스케이스 한글명으로 작성한다. (예: `# 회원가입`) — reviewer가 커밋 메시지에 이 값을 사용한다.
 
 ### 5. 구현 문서 작성
 - `docs/specs/{feature}/{usecase}-구현문서.md` 경로에 저장한다.
@@ -69,13 +70,14 @@ skills: [oop-principles, layered-architecture, design-doc, implementation-doc]
 
 현재 유스케이스가 **마지막이 아닌** 경우:
 - `AskUserQuestion`으로 묻는다:
-  - **message**: `"[유스케이스명] 설계 완료. 다음 유스케이스([다음 유스케이스명])로 넘어갈까요?"`
-  - **options**: `["다음으로", "재검토 필요"]`
-- "다음으로" 선택 시 → 1단계로 돌아가 다음 유스케이스를 시작한다.
+  - **message**: `"[유스케이스명] 설계 완료. backend-dev와 reviewer를 실행하여 구현·검증·커밋이 완료되면 '다음으로'를 선택하세요."`
+  - **options**: `["다음으로 (구현·검증 완료)", "재검토 필요"]`
+- "다음으로 (구현·검증 완료)" 선택 시 → 1단계로 돌아가 다음 유스케이스를 시작한다.
 - "재검토 필요" 선택 시 → 어떤 부분을 재검토할지 `AskUserQuestion`으로 다시 묻고, 해당 단계(3 브레인스토밍 또는 4 설계 문서)로 돌아간다.
 
 현재 유스케이스가 **마지막**인 경우:
-- AskUserQuestion 없이 완료 메시지와 함께 산출물 경로 목록을 사용자에게 전달하고 종료한다.
+- AskUserQuestion 없이 완료 메시지와 함께 산출물 경로 목록을 사용자에게 전달한다.
+- 반드시 `<promise>DESIGN_DONE</promise>`를 출력하고 종료한다.
 
 ## 산출물 포맷 (design.md)
 

@@ -23,7 +23,7 @@ skills: [oop-principles, layered-architecture, spring-boot-conventions, java-sty
 
 ## 인자
 
-- `$0`: 설계 문서 경로 (필수, 예: `docs/specs/user-auth/design.md`)
+- `$0`: 설계 문서 경로 (필수, 예: `docs/specs/user-auth/register-설계문서.md`)
 
 ## 동작 흐름
 
@@ -66,7 +66,7 @@ skills: [oop-principles, layered-architecture, spring-boot-conventions, java-sty
 
 모든 검증(컴파일, 테스트, 설계 정합성, API 동작)이 통과된 경우에만 실행한다.
 
-- 설계 문서와 같은 폴더에 `review.md`를 산출물 포맷에 따라 작성한다.
+- 설계 문서와 같은 폴더에 `{usecase}-review.md`를 산출물 포맷에 따라 작성한다. (`{usecase}`는 설계 문서 파일명에서 `-설계문서.md`를 제거한 값)
 - `git-conventions` 스킬의 커밋 메시지 규칙을 따른다.
 - 커밋 범위: 구현 코드 전체 + 이 단계에서 작성할 review.md
 - 커밋 메시지 형식: `feat : {유스케이스명} 구현` (git-conventions 스킬의 `type : subject` 규칙 준수)
@@ -76,11 +76,11 @@ skills: [oop-principles, layered-architecture, spring-boot-conventions, java-sty
 - 미해결 이슈가 있어도 PASS 판정이면 커밋한다. 단, review.md에 미해결 이슈가 기록된 상태여야 한다.
 
 ### 8. 검증 완료
-- review.md 경로를 사용자에게 알린다.
+- `{usecase}-review.md` 경로를 사용자에게 알린다.
 - 반드시 `<promise>REVIEW_DONE</promise>`를 출력하여 루프를 종료시킨다.
 - 수정할 수 없는 문제(설계 자체 결함, 범위 밖 의존성 등)가 있으면 검증 결과를 FAIL로 기록하고, 사유를 미해결 이슈에 명시한 뒤 `<promise>REVIEW_DONE</promise>`를 출력한다.
 
-## 산출물 포맷 (review.md)
+## 산출물 포맷 ({usecase}-review.md)
 
 ```markdown
 # {Feature Name} 검증 결과
