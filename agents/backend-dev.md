@@ -33,7 +33,7 @@ skills: [oop-principles, spring-boot-conventions, java-style, kotlin-style, laye
 4. **코드 작성 (체크포인트 루프)**: 구현 순서의 각 단위별로 다음을 반복한다.
    1. 해당 단위의 모든 파일을 작성한다. 참조 스킬의 원칙을 따른다.
    2. `implementation-checkpoint` 스킬의 절차를 실행한다 (컴파일 확인 → 사용자 승인).
-   3. 승인 후 다음 단위로 넘어간다.
+   3. 승인 후 다음 단위로 넘어간다. 마지막 단위 승인 후에는 종료 조건으로 진행한다.
 
 ## 규칙
 
@@ -46,4 +46,4 @@ skills: [oop-principles, spring-boot-conventions, java-style, kotlin-style, laye
 ## 종료 조건
 
 - 모든 코드 작성과 컴파일 확인이 완료되면 반드시 `<promise>IMPL_DONE</promise>`를 출력한다.
-- 컴파일 실패가 3회 연속 시 현재 상태를 보고하고 중단한다.
+- 컴파일 실패 처리는 `implementation-checkpoint` 스킬의 절차를 따른다.
