@@ -1,5 +1,51 @@
 #!/bin/bash
-if git diff HEAD@{1} --name-only | grep -qE '^(skills|agents|templates)/'; then
-  echo "[harness] 규칙이 변경되었습니다. Gemini/Codex 동기화 중..."
+if git diff HEAD@{1} --name-only | grep -qE '^(skills|agents|templates|package\.json)/|^package\.json$'; then
+  echo "[harness] 변경 감지 — 빌드 및 캐시 갱신 중..."
+
+  npm install --silent
+  npm run build:harness
+
+  # 새 버전 읽기
+  NEW_VERSION=$(node -e "import { readFileSync } from 'fs'; console.log(JSON.parse(readFileSync('package.json','utf-8')).version);" --input-type=module)
+  echo "[harness] 새 버전: $NEW_VERSION"
+
+  # 캐시 베이스 경로
+  CACHE_BASE=~/.claude/plugins/cache/team-harness/harness
+
+  # 새 버전 캐시 디렉토리 생성 및 복사
+  NEW_CACHE="$CACHE_BASE/$NEW_VERSION"
+  mkdir -p "$NEW_CACHE"
+  cp -r dist/claude/. "$NEW_CACHE/"
+  echo "[harness] 캐시 갱신 완료: $NEW_CACHE"
+
+  # installed_plugins.json 버전 및 경로 갱신
+  python3 - "$NEW_VERSION" "$NEW_CACHE" <<'EOF'
+import sys, json, os
+
+new_version = sys.argv[1]
+new_cache = sys.argv[2]
+plugins_path = os.path.expanduser('~/.claude/plugins/installed_plugins.json')
+
+with open(plugins_path) as f:
+    d = json.load(f)
+
+entries = d['plugins'].get('harness@team-harness', [])
+if entries:
+    import subprocess
+    sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode().strip()
+    from datetime import datetime, timezone
+    entries[0]['version'] = new_version
+    entries[0]['installPath'] = new_cache
+    entries[0]['lastUpdated'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+    entries[0]['gitCommitSha'] = sha
+
+with open(plugins_path, 'w') as f:
+    json.dump(d, f, indent=2)
+    f.write('\n')
+
+print(f'[harness] installed_plugins.json 갱신 완료 (v{new_version})')
+EOF
+
   npm run sync
+  echo "[harness] 완료"
 fi
