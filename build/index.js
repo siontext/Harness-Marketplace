@@ -79,6 +79,27 @@ export async function build(options = {}) {
     }
   }
 
+  // Claude hooks
+  const claudeHooksDir = path.join(claudeDir, 'hooks');
+  await fs.mkdir(claudeHooksDir, { recursive: true });
+  const hooksJson = {
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: 'Agent',
+          hooks: [
+            {
+              type: 'command',
+              command: "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"[AGENT HARNESS REMINDER] 에이전트를 호출하기 전에 반드시 해당 에이전트의 하네스 파일을 읽으세요. 파일 위치: ~/.claude/plugins/marketplaces/team-harness/agents/<agent-id>.md (예: designer.md, backend-dev.md). 하네스를 읽어야 통신 프로토콜(브리지 형식, AskUserQuestion 중계 등)을 정확히 파악할 수 있습니다.\"}}'",
+              statusMessage: '에이전트 하네스 확인 중...',
+            },
+          ],
+        },
+      ],
+    },
+  };
+  await fs.writeFile(path.join(claudeHooksDir, 'hooks.json'), JSON.stringify(hooksJson, null, 2));
+
   // Claude skills (only skills referenced by agents)
   const claudeSkillsDir = path.join(claudeDir, 'skills');
   for (const skill of assembled.claude.skillRules) {
