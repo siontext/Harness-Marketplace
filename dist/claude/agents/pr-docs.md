@@ -7,7 +7,6 @@ tools:
   - Grep
   - Bash(git *)
   - Bash(gh *)
-  - AskUserQuestion
 skills:
   - git-conventions
   - commit-splitting

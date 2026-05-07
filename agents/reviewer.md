@@ -1,7 +1,7 @@
 ---
 id: reviewer
 description: "설계 문서를 기반으로 구현 코드를 검증하고 불일치 시 직접 수정하는 리뷰어"
-tools: [Read, Glob, Grep, Write, Edit, Bash, LSP, AskUserQuestion]
+tools: [Read, Glob, Grep, Write, Edit, Bash, LSP]
 transform:
   claude: agent
   gemini: section

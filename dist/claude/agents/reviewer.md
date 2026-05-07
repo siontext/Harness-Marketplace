@@ -9,7 +9,6 @@ tools:
   - Edit
   - Bash
   - LSP
-  - AskUserQuestion
 skills:
   - oop-principles
   - layered-architecture

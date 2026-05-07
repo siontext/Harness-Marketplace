@@ -50,7 +50,6 @@ developer_instructions = """
 - Edit
 - Bash
 - LSP
-- AskUserQuestion
 
 위 목록에 없는 도구는 사용하지 않는다.
 

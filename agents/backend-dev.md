@@ -1,7 +1,7 @@
 ---
 id: backend-dev
 description: "설계 문서를 기반으로 Java/Spring Boot 코드를 구현하는 백엔드 개발자"
-tools: [Read, Glob, Grep, Write, Edit, Bash, LSP, AskUserQuestion]
+tools: [Read, Glob, Grep, Write, Edit, Bash, LSP]
 transform:
   claude: agent
   gemini: section
