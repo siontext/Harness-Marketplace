@@ -2,7 +2,7 @@
 if git diff --cached --name-only | grep -qE '^(skills|agents|templates)/'; then
   echo "[harness] 규칙 변경 감지 — 버전 bump 및 dist/ 재생성 중..."
 
-  # patch 버전 자동 bump
+  # patch 버전 자동 bump + marketplace.json 동기화
   node -e "
     import { readFileSync, writeFileSync } from 'fs';
     const pkg = JSON.parse(readFileSync('package.json', 'utf-8'));
@@ -10,8 +10,16 @@ if git diff --cached --name-only | grep -qE '^(skills|agents|templates)/'; then
     pkg.version = \`\${major}.\${minor}.\${patch + 1}\`;
     writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
     console.log('[harness] 버전:',  pkg.version);
+
+    const mpPath = '.claude-plugin/marketplace.json';
+    const mp = JSON.parse(readFileSync(mpPath, 'utf-8'));
+    for (const plugin of mp.plugins) {
+      if (plugin.name === 'harness') plugin.version = pkg.version;
+    }
+    writeFileSync(mpPath, JSON.stringify(mp, null, 2) + '\n');
+    console.log('[harness] marketplace 버전:', pkg.version);
   " --input-type=module
 
   npm run build:harness
-  git add dist/ package.json
+  git add dist/ package.json .claude-plugin/marketplace.json
 fi
