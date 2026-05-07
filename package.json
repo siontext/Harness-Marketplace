@@ -1,10 +1,11 @@
 {
   "name": "team-harness",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "크로스 플랫폼 AI 에이전트 하네스",
   "type": "module",
   "scripts": {
     "build:harness": "node build/index.js",
+    "build:watch": "chokidar 'agents/**/*.md' 'skills/**/*.md' -c 'npm run build:harness'",
     "validate": "node build/index.js --validate-only",
     "sync": "node scripts/sync.js",
     "sync:gemini": "node scripts/sync.js --platform gemini",
@@ -15,13 +16,14 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "vitest": "^3.1.0",
-    "husky": "^9.1.0"
+    "chokidar-cli": "^3.0.0",
+    "husky": "^9.1.0",
+    "vitest": "^3.1.0"
   },
   "dependencies": {
-    "handlebars": "^4.7.8",
-    "gray-matter": "^4.0.3",
+    "deepmerge": "^4.3.1",
     "glob": "^11.0.0",
-    "deepmerge": "^4.3.1"
+    "gray-matter": "^4.0.3",
+    "handlebars": "^4.7.8"
   }
 }
