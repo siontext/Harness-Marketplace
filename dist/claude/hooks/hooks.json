@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"[AGENT HARNESS REMINDER] 에이전트를 호출하기 전에 반드시 해당 에이전트의 하네스 파일을 읽으세요. 파일 위치: ~/.claude/plugins/marketplaces/team-harness/agents/<agent-id>.md (예: designer.md, backend-dev.md). 하네스를 읽어야 통신 프로토콜(브리지 형식, AskUserQuestion 중계 등)을 정확히 파악할 수 있습니다.\"}}'",
+            "command": "python3 -c \"\nimport json, sys, os\ndata = json.load(sys.stdin)\nagent_id = data.get('tool_input', {}).get('subagent_type', 'unknown')\nflag_file = f'/tmp/harness-{agent_id}-loaded'\nharness_path = os.path.expanduser(f'~/.claude/plugins/marketplaces/team-harness/agents/{agent_id}.md')\nif os.path.exists(flag_file):\n    os.remove(flag_file)\n    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'additionalContext': f'[HARNESS: {agent_id}] 확인 완료. 진행합니다.'}}))\n    sys.exit(0)\nif os.path.exists(harness_path):\n    with open(harness_path) as f:\n        content = f.read()\n    open(flag_file, 'w').close()\n    output = {'continue': False, 'stopReason': f'[HARNESS REQUIRED] {agent_id} 하네스가 아래에 주입되었습니다. 내용을 숙지한 뒤 Agent를 다시 호출하세요.', 'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'additionalContext': f'[HARNESS: {agent_id}]\\n{content}'}}\nelse:\n    output = {'continue': False, 'stopReason': f'[ERROR] Harness not found for agent: {agent_id}'}\nprint(json.dumps(output))\n\"",
             "statusMessage": "에이전트 하네스 확인 중..."
           }
         ]
