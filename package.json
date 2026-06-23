@@ -1,6 +1,6 @@
 {
   "name": "team-harness",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "크로스 플랫폼 AI 에이전트 하네스",
   "type": "module",
   "scripts": {
