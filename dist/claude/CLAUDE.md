@@ -2,12 +2,12 @@
 
 ## 핵심 원칙
 
-- **Git**: `git-conventions`, `commit-splitting`
 - **아키텍처**: `layered-architecture`, `oop-principles`, `design-doc`, `implementation-doc`, `implementation-checkpoint`
 - **코딩 컨벤션**: `general-style`, `java-style`, `kotlin-style`
 - **테스트**: `java-testing`, `kotlin-testing`, `api-verification`
 - **프레임워크**: `spring-boot-conventions`
 - **프로젝트 컨텍스트**: `project-context`
+- **Git**: `git-conventions`, `commit-splitting`
 
 ## 보안 — 금지 명령
 
@@ -26,6 +26,12 @@
 - 코드 검증/리뷰 시 `reviewer` 에이전트에게 위임할 것.
 
 ## 에이전트 위임
+
+### 서브에이전트 실행/정리 방식
+
+- 서브에이전트는 background(`run_in_background`)로 띄우지 말고, **`name`을 붙여 포그라운드 teammate로 띄울 것** — tmux pane(패널)에 작업 진행 상황이 보여야 한다.
+- 서브에이전트가 작업을 마치고 **idle 알림을 보내면, 결과 회수 후 즉시 `shutdown_request`를 보내 정리할 것** — idle 상태로 방치하지 않는다.
+- 이유: Claude Code에 "완료 시 자동 정리" 설정이 없음. background는 pane이 안 떠서 진행 상황이 안 보이고, 포그라운드는 끝나도 idle로 대기함.
 
 다음 서브에이전트를 사용할 수 있습니다:
 - **reviewer**: 설계 문서를 기반으로 구현 코드를 검증하고 불일치 시 직접 수정하는 리뷰어
