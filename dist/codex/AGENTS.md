@@ -6,7 +6,6 @@
 - **코딩 컨벤션**: `general-style`, `java-style`, `kotlin-style`
 - **테스트**: `java-testing`, `kotlin-testing`, `api-verification`
 - **프레임워크**: `spring-boot-conventions`
-- **프로젝트 컨텍스트**: `project-context`
 - **Git**: `git-conventions`, `commit-splitting`
 
 ## 사용 가능한 에이전트
@@ -35,8 +34,6 @@ Codex가 자동으로 에이전트를 로드합니다:
 - `api-verification` — 구현 코드 검증 중 전체 API 동작을 확인해야 할 때 사용 — 애플리케이션을 실제로 기동하고 모든 엔드포인트를 curl로 호출하여 설계 스펙과 대조한다.
 ### 프레임워크
 - `spring-boot-conventions` — Spring Boot 코드를 작성하거나 리뷰할 때 사용 — DI, 어노테이션, 설정 관리, 예외 처리 규칙 적용.
-### 프로젝트 컨텍스트
-- `project-context` — 프로젝트의 기술 스택, 빌드 환경, 디렉토리 구조를 파악할 때 사용.
 ### Git
 - `git-conventions` — 브랜치 네이밍, 커밋 메시지, PR 템플릿, 이슈 관리 규칙. 커밋/PR 작성 시 참조.
 - `commit-splitting` — 커밋을 관심사, 역할, 변경 이유 기준으로 분리하는 규칙. 커밋 전략 수립, 스테이징 범위 결정, PR 전 커밋 정리에 사용.

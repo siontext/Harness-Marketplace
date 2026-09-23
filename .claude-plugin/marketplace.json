@@ -9,7 +9,7 @@
     {
       "name": "harness",
       "description": "크로스 플랫폼 AI 에이전트 하네스",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "source": "./dist/claude"
     }
   ]

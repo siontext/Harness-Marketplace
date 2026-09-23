@@ -63,8 +63,15 @@ export async function build(options = {}) {
   await fs.writeFile(path.join(claudeDir, 'plugin.json'), JSON.stringify(pluginMeta, null, 2));
 
   const claudeTemplate = await fs.readFile(path.join(templatesDir, 'claude', 'CLAUDE.md.hbs'), 'utf-8');
+  // Claude에는 에이전트가 참조하는 스킬만 배포된다. CLAUDE.md가 나머지까지
+  // 나열하면 존재하지 않는 스킬을 가리키게 되므로, 실제 배포분으로 좁힌다.
+  const shippedSkillIds = new Set(assembled.claude.skillRules.map(s => s.id));
+  const claudeSections = assembled.claude.sections
+    .map(section => ({ ...section, rules: section.rules.filter(r => shippedSkillIds.has(r.id)) }))
+    .filter(section => section.rules.length > 0);
   const claudeData = {
     ...assembled.claude,
+    sections: claudeSections,
     denySection: assembled.claude.denyPatterns.length > 0,
     denyPatterns: assembled.claude.denyPatterns,
   };
@@ -72,6 +79,7 @@ export async function build(options = {}) {
 
   // Claude agents
   const claudeAgentsDir = path.join(claudeDir, 'agents');
+  await fs.rm(claudeAgentsDir, { recursive: true, force: true });
   await fs.mkdir(claudeAgentsDir, { recursive: true });
   const agentTemplate = await fs.readFile(path.join(templatesDir, 'claude', 'agents', 'agent.md.hbs'), 'utf-8');
   for (const agent of assembled.claude.roles) {
@@ -99,6 +107,7 @@ export async function build(options = {}) {
 
   // Claude skills (only skills referenced by agents)
   const claudeSkillsDir = path.join(claudeDir, 'skills');
+  await fs.rm(claudeSkillsDir, { recursive: true, force: true });
   for (const skill of assembled.claude.skillRules) {
     const skillDir = path.join(claudeSkillsDir, skill.id);
     await fs.mkdir(skillDir, { recursive: true });
@@ -123,6 +132,7 @@ export async function build(options = {}) {
 
   // Gemini skills (separate files for on-demand loading)
   const geminiSkillsDir = path.join(geminiDir, 'skills');
+  await fs.rm(geminiSkillsDir, { recursive: true, force: true });
   await fs.mkdir(geminiSkillsDir, { recursive: true });
   for (const section of assembled.gemini.sections) {
     for (const skill of section.rules) {
@@ -148,6 +158,7 @@ export async function build(options = {}) {
 
   // Codex skills (SKILL.md format in skill-name/ folders, same as Claude)
   const codexSkillsDir = path.join(codexDir, 'skills');
+  await fs.rm(codexSkillsDir, { recursive: true, force: true });
   for (const section of assembled.codex.sections) {
     for (const skill of section.rules) {
       const skillDir = path.join(codexSkillsDir, skill.id);

@@ -10,6 +10,7 @@ tools:
   - Bash
   - LSP
 skills:
+  - general-style
   - oop-principles
   - spring-boot-conventions
   - java-style

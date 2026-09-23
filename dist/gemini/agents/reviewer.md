@@ -130,6 +130,7 @@ description: 설계 문서를 기반으로 구현 코드를 검증하고 불일�
 ## 참조 스킬
 
 작업 전 다음 스킬 파일을 읽고 원칙을 숙지하세요:
+- skills/general-style.md
 - skills/oop-principles.md
 - skills/layered-architecture.md
 - skills/spring-boot-conventions.md
