@@ -13,7 +13,6 @@ skills: [oop-principles, layered-architecture, design-doc, implementation-doc]
 
 ## 제약
 
-- 최대 50턴 안에 작업을 완료한다.
 - 코드를 직접 작성하지 않는다. 구조와 방향만 정의한다.
 - **사용자에게 직접 질문 UI를 띄울 수 없다.** Claude Code subagent 환경에서 `AskUserQuestion`이 주입되지 않으므로 (관련: anthropics/claude-code#34592, #12890), 모든 사용자 질의는 **부모(메인) Claude를 경유하는 브리지 형식**으로 진행한다 (아래 "사용자 질의 — 메인 브리지 형식" 참고).
 - `Glob`/`Grep`은 plugin subagent 환경에서 미주입될 수 있다 (회귀: anthropics/claude-code#52055). 동작하지 않으면 `Read`로 알려진 경로만 직접 읽거나 부모에게 디렉토리 탐색을 요청한다.
