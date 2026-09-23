@@ -3,6 +3,7 @@ import { validate } from './validator.js';
 import { assemble } from './assembler.js';
 import { renderTemplate } from './renderer.js';
 import { generateGeminiSettings, generateCodexConfig } from './settings-generator.js';
+import { generateHooksJson, generateDenyRulesJson } from './hooks-generator.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -82,23 +83,19 @@ export async function build(options = {}) {
   // Claude hooks
   const claudeHooksDir = path.join(claudeDir, 'hooks');
   await fs.mkdir(claudeHooksDir, { recursive: true });
-  const hooksJson = {
-    hooks: {
-      PreToolUse: [
-        {
-          matcher: 'Agent',
-          hooks: [
-            {
-              type: 'command',
-              command: "echo '{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"[AGENT HARNESS REMINDER] 에이전트를 호출하기 전에 반드시 해당 에이전트의 하네스 파일을 읽으세요. 파일 위치: ~/.claude/plugins/marketplaces/team-harness/agents/<agent-id>.md (예: designer.md, backend-dev.md). 하네스를 읽어야 통신 프로토콜(브리지 형식, AskUserQuestion 중계 등)을 정확히 파악할 수 있습니다.\"}}'",
-              statusMessage: '에이전트 하네스 확인 중...',
-            },
-          ],
-        },
-      ],
-    },
-  };
-  await fs.writeFile(path.join(claudeHooksDir, 'hooks.json'), JSON.stringify(hooksJson, null, 2));
+  await fs.writeFile(
+    path.join(claudeHooksDir, 'hooks.json'),
+    generateHooksJson(assembled.claude.denyPatterns)
+  );
+  await fs.writeFile(
+    path.join(claudeHooksDir, 'deny-rules.json'),
+    generateDenyRulesJson(assembled.claude.denyPatterns)
+  );
+  // 훅 스크립트는 템플릿 원본을 그대로 복사한다 (실행 권한 포함).
+  const denyGuardSrc = path.join(templatesDir, 'claude', 'hooks', 'deny-guard.py');
+  const denyGuardDest = path.join(claudeHooksDir, 'deny-guard.py');
+  await fs.copyFile(denyGuardSrc, denyGuardDest);
+  await fs.chmod(denyGuardDest, 0o755);
 
   // Claude skills (only skills referenced by agents)
   const claudeSkillsDir = path.join(claudeDir, 'skills');

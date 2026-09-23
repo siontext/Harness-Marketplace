@@ -10,6 +10,16 @@
             "statusMessage": "에이전트 하네스 확인 중..."
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/deny-guard.py\"",
+            "statusMessage": "위험 명령 검사 중..."
+          }
+        ]
       }
     ]
   }

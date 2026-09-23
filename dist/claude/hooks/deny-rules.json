@@ -1,0 +1,36 @@
+{
+  "rules": [
+    {
+      "pattern": "rm -rf*",
+      "description": "재귀 삭제 금지",
+      "alternative": "개별 파일 삭제(rm file) 또는 사용자에게 확인 요청",
+      "exceptions": []
+    },
+    {
+      "pattern": "git push --force*",
+      "description": "강제 푸시 금지",
+      "alternative": "git push --force-with-lease 사용",
+      "exceptions": [
+        "git push --force-with-lease*"
+      ]
+    },
+    {
+      "pattern": "git reset --hard*",
+      "description": "하드 리셋 금지",
+      "alternative": "git stash 또는 git revert 사용",
+      "exceptions": []
+    },
+    {
+      "pattern": "sudo *",
+      "description": "관리자 권한 금지",
+      "alternative": "사용자에게 직접 실행 요청",
+      "exceptions": []
+    },
+    {
+      "pattern": "DROP TABLE*",
+      "description": "테이블 삭제 금지",
+      "alternative": "사용자에게 확인 후 직접 실행 요청",
+      "exceptions": []
+    }
+  ]
+}

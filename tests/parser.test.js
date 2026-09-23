@@ -32,8 +32,8 @@ describe('parseSkills', () => {
 
     expect(deny.type).toBe('deny-rules');
     expect(deny.denyPatterns).toEqual([
-      { pattern: 'rm -rf*', description: '재귀 삭제 금지', alternative: null },
-      { pattern: 'sudo *', description: '관리자 권한 금지', alternative: null },
+      { pattern: 'rm -rf*', description: '재귀 삭제 금지', alternative: null, exceptions: [] },
+      { pattern: 'sudo *', description: '관리자 권한 금지', alternative: null, exceptions: [] },
     ]);
   });
 });
@@ -48,5 +48,26 @@ describe('parseAgents', () => {
     expect(agent.transform).toEqual({ claude: 'agent', gemini: 'section', codex: 'section' });
     expect(agent.skills).toEqual(['test-rule']);
     expect(agent.content).toContain('테스트 역할입니다');
+  });
+});
+
+describe('parseDenyRulesTable — 예외 열', () => {
+  const table = [
+    '| 패턴 | 설명 | 대체 방법 | 예외 |',
+    '|---|---|---|---|',
+    '| rm -rf* | 재귀 삭제 금지 | 개별 파일 삭제 | |',
+    '| git push --force* | 강제 푸시 금지 | force-with-lease 사용 | git push --force-with-lease* |',
+  ].join('\n');
+
+  it('비어 있는 예외 열을 빈 배열로 읽는다', () => {
+    const [rule] = parseDenyRulesTable(table);
+    expect(rule.pattern).toBe('rm -rf*');
+    expect(rule.alternative).toBe('개별 파일 삭제');
+    expect(rule.exceptions).toEqual([]);
+  });
+
+  it('예외 열이 채워진 행은 배열로 읽는다', () => {
+    const rule = parseDenyRulesTable(table)[1];
+    expect(rule.exceptions).toEqual(['git push --force-with-lease*']);
   });
 });

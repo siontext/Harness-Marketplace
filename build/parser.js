@@ -14,9 +14,16 @@ export function parseDenyRulesTable(content) {
     if (!trimmed.startsWith('|') || trimmed.startsWith('| 패턴') || trimmed.startsWith('|---')) {
       continue;
     }
-    const cells = trimmed.split('|').map(c => c.trim()).filter(Boolean);
-    if (cells.length >= 2) {
-      patterns.push({ pattern: cells[0], description: cells[1], alternative: cells[2] || null });
+    // 표 양끝의 '|'가 만드는 빈 칸만 걷어낸다. 중간의 빈 칸은 위치가 의미를
+    // 가지므로(예: 비어 있는 '예외' 열) 남겨 둔다.
+    const cells = trimmed.split('|').map(c => c.trim()).slice(1, -1);
+    if (cells.length >= 2 && cells[0]) {
+      patterns.push({
+        pattern: cells[0],
+        description: cells[1],
+        alternative: cells[2] || null,
+        exceptions: cells[3] ? cells[3].split(',').map(e => e.trim()).filter(Boolean) : [],
+      });
     }
   }
 

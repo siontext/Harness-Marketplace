@@ -25,12 +25,12 @@ harness/
 │   ├── security/       # 보안 (deny-rules)
 │   └── project/        # 프로젝트 컨텍스트
 │
-├── templates/          # 플랫폼별 Handlebars 템플릿
+├── templates/          # 플랫폼별 템플릿 + 훅 스크립트
 ├── build/              # 빌드 시스템 (parser → validator → assembler → renderer)
 ├── scripts/            # sync 스크립트
 │
 └── dist/               # 자동 생성 결과물 (커밋 대상)
-    ├── claude/         # CLAUDE.md + plugin.json + agents/ + skills/
+    ├── claude/         # CLAUDE.md + plugin.json + agents/ + skills/ + hooks/
     ├── gemini/         # GEMINI.md + agents/ + skills/ + settings.json
     └── codex/          # AGENTS.md + agents/ + skills/ + config.json
 ```
@@ -104,6 +104,34 @@ git pull
 | `npm run sync:codex` | Codex만 동기화 |
 | `npm run sync:settings` | settings.json deny rules만 병합 |
 | `npm test` | 테스트 실행 |
+
+## 보안 — 위험 명령 차단
+
+`skills/security/deny-rules.md`의 표가 단일 원천이며, 빌드가 플랫폼별 차단 장치를 생성한다.
+
+| 플랫폼 | 산출물 | 방식 |
+|---|---|---|
+| Claude | `dist/claude/hooks/` | `PreToolUse` 훅이 Bash 명령을 검사해 차단 |
+| Gemini | `dist/gemini/settings.json` | `deny_rules` 설정 |
+| Codex | `dist/codex/config.json` | `deny_rules` 설정 |
+
+Claude에는 `deny_rules`에 대응하는 플러그인 설정이 없어 훅으로 구현했다. 훅은
+플러그인에 함께 배포되므로 `claude plugin install`만 하면 팀원 전원에게 적용된다.
+
+### 표 작성 규칙
+
+```markdown
+| 패턴 | 설명 | 대체 방법 | 예외 |
+|---|---|---|---|
+| git push --force* | 강제 푸시 금지 | git push --force-with-lease 사용 | git push --force-with-lease* |
+```
+
+- **패턴**: `*`는 임의 문자열. 명령 경계(줄 시작, `;` `&&` `|` `(` 따옴표 뒤)에서 매칭하므로
+  `cd /tmp && rm -rf x`처럼 복합 명령에 숨겨도 잡힌다.
+- **예외**: 같은 행의 패턴에 걸리더라도 허용할 명령. 비워둘 수 있다.
+- 판단이 애매하면 **차단** 쪽으로 기운다. 오탐은 재시도 한 번이면 되지만 미탐은 되돌릴 수 없다.
+
+규칙을 바꿀 때 `deny-guard.py`를 손댈 필요는 없다. 표만 고치고 빌드하면 된다.
 
 ## 스킬 파일 작성법
 
