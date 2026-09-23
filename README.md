@@ -8,9 +8,8 @@ Claude Code, Gemini CLI, Codex CLI가 동일한 규칙으로 동작하도록 하
 
 ```
 harness/
-├── .claude-plugin/     # Claude Code 플러그인 매니페스트
-│   ├── marketplace.json
-│   └── plugin.json
+├── .claude-plugin/     # Claude Code 마켓플레이스 매니페스트
+│   └── marketplace.json
 │
 ├── agents/             # 에이전트 (Single Source of Truth)
 │   ├── designer.md     # 설계 전문가
