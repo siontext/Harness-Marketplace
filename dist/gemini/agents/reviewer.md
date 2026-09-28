@@ -139,6 +139,5 @@ description: 설계 문서를 기반으로 구현 코드를 검증하고 불일�
 - skills/java-testing.md
 - skills/kotlin-testing.md
 - skills/design-doc.md
-- skills/implementation-doc.md
 - skills/api-verification.md
 - skills/git-conventions.md

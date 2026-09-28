@@ -23,11 +23,12 @@ description: 설계 문서를 기반으로 Java/Spring Boot 코드를 구현하�
 
 1. **설계 문서 읽기**: 전달받은 설계 문서 경로를 `Read`로 읽는다.
 2. **프로젝트 구조 파악**: `Glob`과 `Read`로 기존 코드, `build.gradle` 또는 `pom.xml`, 패키지 구조를 파악한다.
-3. **구현 계획 수립**: 설계 문서의 요구사항을 구현 단위로 분해한다. 의존성 순서를 고려하여 순서를 정한다 (Entity → Repository → Service → Controller).
-4. **코드 작성 (체크포인트 루프)**: 구현 순서의 각 단위별로 다음을 반복한다.
-   1. 해당 단위의 모든 파일을 작성한다. 참조 스킬의 원칙을 따른다.
-   2. `implementation-checkpoint` 스킬의 절차를 실행한다 (컴파일 확인 → 사용자 승인).
-   3. 승인 후 다음 단위로 넘어간다. 마지막 단위 승인 후에는 종료 조건으로 진행한다.
+3. **구현 페이즈 확인**: 설계 문서 **8번 "구현 페이즈" 표**를 그대로 구현 순서로 쓴다. 순서를 새로 정하지 않는다. 표가 없으면 작성을 멈추고 사용자에게 알린다.
+4. **코드 작성 (페이즈 루프)**: 페이즈 표의 각 행마다 다음을 반복한다.
+   1. `implementation-checkpoint` 스킬 0단계를 실행한다 (만들 클래스와 시그니처 제시 → 승인).
+   2. 승인된 구성대로 해당 페이즈의 파일을 작성한다. 참조 스킬의 원칙을 따른다.
+   3. `implementation-checkpoint` 스킬 1~4단계를 실행한다 (컴파일 확인 → 사용자 승인).
+   4. 승인 후 다음 페이즈로 넘어간다. 마지막 페이즈 승인 후에는 종료 조건으로 진행한다.
 
 ## 규칙
 
@@ -66,5 +67,5 @@ description: 설계 문서를 기반으로 Java/Spring Boot 코드를 구현하�
 - skills/layered-architecture.md
 - skills/java-testing.md
 - skills/kotlin-testing.md
-- skills/implementation-doc.md
+- skills/design-doc.md
 - skills/implementation-checkpoint.md

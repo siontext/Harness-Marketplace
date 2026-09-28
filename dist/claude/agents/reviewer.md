@@ -19,7 +19,6 @@ skills:
   - java-testing
   - kotlin-testing
   - design-doc
-  - implementation-doc
   - api-verification
   - git-conventions
 ---
