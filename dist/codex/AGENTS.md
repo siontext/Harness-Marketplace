@@ -2,7 +2,7 @@
 
 ## 핵심 원칙
 
-- **아키텍처**: `layered-architecture`, `oop-principles`, `design-doc`, `implementation-checkpoint`
+- **아키텍처**: `layered-architecture`, `oop-principles`, `design-doc`, `awx-agent-design-doc`, `implementation-checkpoint`
 - **코딩 컨벤션**: `general-style`, `java-style`, `kotlin-style`
 - **테스트**: `java-testing`, `kotlin-testing`, `api-verification`
 - **프레임워크**: `spring-boot-conventions`
@@ -22,6 +22,7 @@ Codex가 자동으로 에이전트를 로드합니다:
 - `layered-architecture` — 4-Layered + Hexagonal(Port/Adapter) 아키텍처 규칙. 레이어 간 의존 방향, 패키지 배치, Port/Adapter 구현 기준. 코드 구현 및 리뷰 시 참조.
 - `oop-principles` — 객체지향 설계 원칙 — SOLID, 캡슐화, 다형성, 디자인패턴 적용 가이드. 코드 설계 및 리뷰 시 참조.
 - `design-doc` — 설계 문서 작성 가이드 — 그림·표 중심 8개 섹션과 구현 페이즈 분해. 설계 문서를 작성하거나 리뷰할 때 참조.
+- `awx-agent-design-doc` — AWX(Agentic Works) 에이전트 설계 문서 작성 가이드 — 그림·표 중심 12개 섹션과 구현·이관 페이즈 분해. AWX·AgentWorks 위에서 에이전트, 챗봇, RAG, 도구 호출 기능을 설계하거나 그 설계 문서를 리뷰할 때 참조한다. 사용자가 "설계문서"라고 말하지 않아도 AWX 에이전트 설계라면 이 스킬을 따른다.
 - `implementation-checkpoint` — 구현 페이즈 시작 시 대상 클래스를 제시하고, 완료 후 컴파일 확인과 사용자 승인을 받는 체크포인트 프로토콜. backend-dev 에이전트가 페이즈마다 사용.
 ### 코딩 컨벤션
 - `general-style` — 언어에 무관한 공통 코딩 컨벤션을 적용할 때 사용.

@@ -63,6 +63,7 @@ options:
 ### 1. 프로젝트 컨텍스트 파악
 - `Read`로 프로젝트 구조, 기술 스택, 기존 코드 패턴을 파악한다 (`Glob` 동작 시 함께 사용).
 - `build.gradle.kts`, `settings.gradle.kts`, 패키지 구조를 확인한다.
+- AWX(Agentic Works) 에이전트 프로젝트면 `requirements.txt`·`pyproject.toml`과 기존 프롬프트·도구 폴더를 확인한다.
 - `Glob`/`Grep` 미주입 환경이면 메인에게 디렉토리 탐색을 요청한다.
 
 ### 2. 기존 설계 문서 참조
@@ -83,6 +84,7 @@ options:
   - 횡단 관심사: 감사 필드, 트랜잭션 경계, 로깅
   - 테스트: 레벨 (단위/슬라이스/E2E)
   - 문서화: API 문서 (OpenAPI 등)
+  - AWX 에이전트: 흐름 구조(고정 흐름/LLM 자유 선택), 도구 목록, RAG 사용 여부, 가드레일 위치(프롬프트/코드), 평가셋
 - **명백한 기본값**(UTF-8, Gradle Wrapper, JUnit5 등)은 묻지 않고 자동 채택한다. 의사결정의 여지가 있는 것만 묻는다.
 - 최종 항목 목록을 메인에 먼저 보여주고 "이 순서대로 하나씩 묻겠습니다"라고 알린 뒤 3-2로 진행한다.
 
@@ -116,6 +118,7 @@ options:
 - 3-3에서 누적 기록한 의사결정 영향 노트를 **6번 "결정" 표**로 옮긴다.
 - **8번 "구현 페이즈" 표를 반드시 채운다.** 대상 열에 이 유스케이스에서 실제로 만들 클래스명을 적는다. backend-dev가 이 표를 페이즈 단위로 구현한다.
 - 구현 문서는 만들지 않는다. 클래스별 상세 명세도 쓰지 않는다 — 시그니처는 backend-dev가 페이즈 시작 직전 체크포인트에서 제시한다.
+- **AWX(Agentic Works) 에이전트 유스케이스면** 위 섹션 규칙 대신 `awx-agent-design-doc` 스킬의 **12개 섹션**을 따른다. Mermaid로 그리는 그림은 **구성도**(`flowchart LR`)와 **처리 흐름**(`sequenceDiagram`)이고, 12번 "구현·이관 페이즈" 표를 반드시 채운다. 결정은 9번 "결정" 표에 옮긴다.
 
 ### 5. 유스케이스 완료 확인
 
@@ -135,7 +138,7 @@ options:
 
 ## 산출물 포맷
 
-`design-doc` 스킬의 8개 섹션과 작성 원칙을 따른다. 유스케이스당 설계 문서 1개만 만든다.
+`design-doc` 스킬의 8개 섹션과 작성 원칙을 따른다. AWX 에이전트 유스케이스는 `awx-agent-design-doc` 스킬의 12개 섹션을 따른다. 유스케이스당 설계 문서 1개만 만든다.
 
 ## 규칙
 
@@ -163,3 +166,4 @@ options:
 - skills/oop-principles.md
 - skills/layered-architecture.md
 - skills/design-doc.md
+- skills/awx-agent-design-doc.md
