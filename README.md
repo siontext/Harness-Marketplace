@@ -1,53 +1,28 @@
-# Cross-Platform AI Harness
+# Team Harness
 
-Claude Code, Gemini CLI, Codex CLI가 동일한 규칙으로 동작하도록 하는 크로스 플랫폼 하네스.
+Claude Code용 에이전트 하네스 마켓플레이스. 공통 플러그인(`core`)과 언어별 플러그인(`java`)으로 나뉘며, 프로젝트 언어에 맞는 플러그인만 켜서 쓴다.
 
-에이전트와 스킬을 Markdown으로 한 번 작성하면, 빌드 스크립트가 각 플랫폼에 맞는 지시문과 설정 파일을 자동 생성합니다.
+빌드 단계가 없다. `plugins/` 아래 파일이 그대로 배포된다.
 
 ## 구조
 
 ```
-harness/
-├── .claude-plugin/     # Claude Code 마켓플레이스 매니페스트
-│   └── marketplace.json
-│
-├── agents/             # 에이전트 (Single Source of Truth)
-│   ├── designer.md     # 설계 전문가
-│   ├── backend-dev.md  # 백엔드 개발자
-│   ├── reviewer.md     # 코드 리뷰어
-│   └── pr-docs.md      # PR/문서 작성자
-│
-├── skills/             # 스킬 (Single Source of Truth)
-│   ├── coding-style/   # 코딩 컨벤션
-│   ├── architecture/   # 아키텍처 원칙
-│   ├── framework/      # 프레임워크 규칙
-│   ├── git/            # Git 워크플로우
-│   ├── security/       # 보안 (deny-rules)
-│   └── project/        # 프로젝트 컨텍스트
-│
-├── templates/          # 플랫폼별 템플릿 + 훅 스크립트
-├── build/              # 빌드 시스템 (parser → validator → assembler → renderer)
-├── scripts/            # sync 스크립트
-│
-└── dist/               # 자동 생성 결과물 (커밋 대상)
-    ├── claude/         # CLAUDE.md + plugin.json + agents/ + skills/ + hooks/
-    ├── gemini/         # GEMINI.md + agents/ + skills/ + settings.json
-    └── codex/          # AGENTS.md + agents/ + skills/ + config.json
+.claude-plugin/marketplace.json   플러그인 목록
+plugins/
+├── core/                         공통 — 모든 프로젝트에서 켬
+│   ├── agents/                   designer, pr-docs
+│   ├── skills/                   design-doc, implementation-checkpoint, oop-principles,
+│   │                             general-style, git-conventions, commit-splitting, team-workflow
+│   └── hooks/                    위험 명령 차단 (deny-guard.py + deny-rules.json)
+└── java/                         Java/Kotlin/Spring Boot 프로젝트
+    ├── agents/                   backend-dev, java-reviewer
+    └── skills/                   java-style, kotlin-style, java-testing, kotlin-testing,
+                                  spring-boot-conventions, layered-architecture, api-verification
 ```
 
-## 초기 설치
+## 설치
 
-### 1. 레포 클론
-
-```bash
-git clone https://github.com/siontext/Harness-Marketplace.git ~/config/ai/harness
-cd ~/config/ai/harness
-npm install
-```
-
-### 2. Claude Code 플러그인 등록
-
-`~/.claude/settings.json`에 추가:
+`~/.claude/settings.json`:
 
 ```json
 {
@@ -57,161 +32,52 @@ npm install
     }
   },
   "enabledPlugins": {
-    "harness@team-harness": true
+    "core@team-harness": true,
+    "java@team-harness": true
   }
 }
 ```
 
-### 3. Gemini/Codex 동기화
+프로젝트마다 다르게 켜려면 프로젝트의 `.claude/settings.json`에 `enabledPlugins`를 둔다.
 
-```bash
-npm run sync
+### 1.x(`harness@team-harness`)에서 옮기기
+
+1. `enabledPlugins`에서 `harness@team-harness`를 지우고 `core@team-harness`, `java@team-harness`를 추가한다.
+2. `/plugin`에서 마켓플레이스를 업데이트한다.
+3. 스킬 이름 앞부분이 바뀐다: `harness:design-doc` → `core:design-doc`, `harness:java-style` → `java:java-style`.
+4. 에이전트 이름 변경: `reviewer` → `java-reviewer`.
+
+Gemini·Codex 동기화는 2.0에서 없앴다. 이전 버전이 `~/.gemini`, `~/.codex`에 복사해 둔 파일은 그대로 남아 있으니 필요 없으면 직접 지운다.
+
+## 수정하기
+
+- 스킬: `plugins/<플러그인>/skills/<이름>/SKILL.md`. frontmatter는 `name`, `description`.
+- 에이전트: `plugins/<플러그인>/agents/<이름>.md`. `skills:`에 같은 플러그인 스킬은 이름만, 다른 플러그인 스킬은 `core:design-doc`처럼 플러그인 이름을 붙인다.
+- 바꾼 뒤 `marketplace.json`과 해당 플러그인 `plugin.json`의 `version`을 올린다. 버전이 같으면 설치된 쪽이 갱신되지 않는다.
+- 로컬에서 바로 시험: `claude --plugin-dir plugins/core --plugin-dir plugins/java`
+- 검사: `claude plugin validate .`
+
+플러그인 루트의 `CLAUDE.md`는 Claude Code가 읽지 않는다. 항상 적용할 지시문은 스킬로 만든다.
+
+## 위험 명령 차단
+
+`plugins/core/hooks/deny-rules.json`이 규칙의 단일 원천이다. `PreToolUse` 훅이 Bash 명령을 검사해 차단한다.
+
+```json
+{
+  "pattern": "git push --force*",
+  "description": "강제 푸시 금지",
+  "alternative": "git push --force-with-lease 사용",
+  "exceptions": ["git push --force-with-lease*"]
+}
 ```
 
-## 사용법
+- **pattern**: `*`는 임의 문자열. 명령 경계(줄 시작, `;` `&&` `|` `(` 따옴표 뒤)에서 매칭하므로 복합 명령에 숨겨도 잡힌다.
+- **exceptions**: 같은 규칙에 걸려도 허용할 명령.
+- 판단이 애매하면 차단 쪽으로 기운다. 오탐은 재시도 한 번이면 되지만 미탐은 되돌릴 수 없다.
 
-### 스킬/에이전트 수정 (리드 개발자)
+규칙을 바꿀 때 `deny-guard.py`는 손대지 않는다.
 
-```bash
-# 1. 스킬 파일 수정
-vi skills/architecture/layered.md
+## 프로젝트·사용자 전용 스킬
 
-# 2. 커밋 — pre-commit hook이 dist/ 자동 재생성
-git add skills/
-git commit -m "docs: 레이어 아키텍처 스킬 업데이트"
-
-# 3. 푸시
-git push
-```
-
-### 업데이트 받기 (팀원)
-
-```bash
-git pull
-# Claude Code: 플러그인이 자동 반영
-# Gemini/Codex: post-merge hook이 자동 sync
-```
-
-## 명령어
-
-| 명령어 | 설명 |
-|---|---|
-| `npm run build:harness` | 전체 빌드 (dist/ 재생성) |
-| `npm run build:harness -- --dry-run` | 변경 미리보기 |
-| `npm run validate` | 스킬/에이전트 검증만 실행 |
-| `npm run sync` | Gemini + Codex 동기화 |
-| `npm run sync:gemini` | Gemini만 동기화 |
-| `npm run sync:codex` | Codex만 동기화 |
-| `npm run sync:settings` | settings.json deny rules만 병합 |
-| `npm test` | 테스트 실행 |
-
-## 보안 — 위험 명령 차단
-
-`skills/security/deny-rules.md`의 표가 단일 원천이며, 빌드가 플랫폼별 차단 장치를 생성한다.
-
-| 플랫폼 | 산출물 | 방식 |
-|---|---|---|
-| Claude | `dist/claude/hooks/` | `PreToolUse` 훅이 Bash 명령을 검사해 차단 |
-| Gemini | `dist/gemini/settings.json` | `deny_rules` 설정 |
-| Codex | `dist/codex/config.json` | `deny_rules` 설정 |
-
-Claude에는 `deny_rules`에 대응하는 플러그인 설정이 없어 훅으로 구현했다. 훅은
-플러그인에 함께 배포되므로 `claude plugin install`만 하면 팀원 전원에게 적용된다.
-
-### 표 작성 규칙
-
-```markdown
-| 패턴 | 설명 | 대체 방법 | 예외 |
-|---|---|---|---|
-| git push --force* | 강제 푸시 금지 | git push --force-with-lease 사용 | git push --force-with-lease* |
-```
-
-- **패턴**: `*`는 임의 문자열. 명령 경계(줄 시작, `;` `&&` `|` `(` 따옴표 뒤)에서 매칭하므로
-  `cd /tmp && rm -rf x`처럼 복합 명령에 숨겨도 잡힌다.
-- **예외**: 같은 행의 패턴에 걸리더라도 허용할 명령. 비워둘 수 있다.
-- 판단이 애매하면 **차단** 쪽으로 기운다. 오탐은 재시도 한 번이면 되지만 미탐은 되돌릴 수 없다.
-
-규칙을 바꿀 때 `deny-guard.py`를 손댈 필요는 없다. 표만 고치고 빌드하면 된다.
-
-## 스킬 파일 작성법
-
-```markdown
----
-id: my-skill                   # 고유 식별자
-description: "스킬 설명"        # 한 줄 설명
-section: "섹션명"               # 지시문 내 그룹핑 섹션
-order: 1                       # 섹션 내 순서 (선택)
-platforms: [claude, gemini]    # 적용 플랫폼 (선택, 기본: 전체)
----
-
-## 스킬 내용
-
-여기에 Markdown으로 스킬을 작성합니다.
-```
-
-### deny-rules 전용 형식
-
-```markdown
----
-id: deny-rules
-description: "위험 명령어 차단"
-section: "보안"
-type: deny-rules
----
-
-| 패턴 | 설명 |
-|---|---|
-| rm -rf* | 재귀 삭제 금지 |
-| sudo * | 관리자 권한 금지 |
-```
-
-빌드 시 Claude는 CLAUDE.md에 텍스트로, Gemini/Codex는 settings.json에 JSON으로 변환됩니다.
-
-## 에이전트 파일 작성법
-
-```markdown
----
-id: my-agent                   # 고유 식별자
-description: "에이전트 설명"
-transform:
-  claude: agent                # Claude: 서브에이전트로 생성
-  gemini: section              # Gemini: 별도 파일 (on-demand Read)
-  codex: section               # Codex: 별도 파일 (on-demand Read)
-skills: [skill-a, skill-b]    # 참조할 스킬 id (선택)
----
-
-에이전트의 상세 내용을 여기에 작성합니다.
-```
-
-`skills` 필드에 참조된 스킬은 Claude에서 스킬 폴더(`dist/claude/skills/`)로 자동 생성됩니다.
-
-## 플랫폼별 동작 차이
-
-| | Claude Code | Gemini CLI | Codex CLI |
-|---|---|---|---|
-| 배포 | 플러그인 | 파일 복사 | 파일 복사 |
-| 지시문 | CLAUDE.md (목차, ~1KB) | GEMINI.md (목차, ~3KB) | AGENTS.md (목차, ~3KB) |
-| 에이전트 | 런타임이 자동 로드 | AI가 Read로 on-demand 로드 | AI가 Read로 on-demand 로드 |
-| 스킬 | 런타임이 자동 로드 | AI가 Read로 on-demand 로드 | AI가 Read로 on-demand 로드 |
-| deny rules | CLAUDE.md 텍스트 | settings.json | config.json |
-| 업데이트 | 자동 (플러그인) | git pull + hook | git pull + hook |
-
-## 프로젝트별 오버라이드
-
-팀 공통 규칙 위에 프로젝트 고유 규칙을 추가하려면, 프로젝트 레포에 직접 배치:
-
-```
-my-project/
-├── CLAUDE.md    # 프로젝트 전용 추가 지침
-├── GEMINI.md
-└── AGENTS.md
-```
-
-Claude Code는 홈 디렉토리 + 프로젝트 디렉토리의 CLAUDE.md를 자동 병합합니다.
-
-## Git Hooks
-
-| Hook | 트리거 | 동작 |
-|---|---|---|
-| pre-commit | `skills/`, `agents/`, `templates/` 변경 커밋 시 | `npm run build:harness` 후 dist/ 자동 스테이징 |
-| post-merge | `git pull`로 스킬/에이전트 변경 받을 시 | `npm run sync` 자동 실행 |
+공개하면 안 되는 플랫폼 전용 규칙은 이 레포에 넣지 않고 사용자 스킬 폴더(`~/.claude/skills/<이름>/SKILL.md`)에 둔다. `designer`는 이 폴더에서 플랫폼 전용 설계 스킬을 찾아 따른다.
