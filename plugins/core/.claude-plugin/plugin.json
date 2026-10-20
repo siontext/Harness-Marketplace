@@ -1,0 +1,8 @@
+{
+  "name": "core",
+  "description": "공통: 설계(designer), PR 정리(pr-docs), 설계 문서·git 규칙, 위험 명령 차단",
+  "version": "2.0.0",
+  "author": {
+    "name": "siontext"
+  }
+}
