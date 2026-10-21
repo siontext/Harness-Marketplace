@@ -1,7 +1,7 @@
 {
   "name": "java",
   "description": "Java/Kotlin/Spring Boot 구현(backend-dev)·리뷰(java-reviewer)와 스타일·테스트 규칙",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "author": {
     "name": "siontext"
   }

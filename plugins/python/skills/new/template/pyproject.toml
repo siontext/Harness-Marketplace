@@ -1,0 +1,45 @@
+[project]
+name = "agent-app"
+version = "0.1.0"
+requires-python = ">=3.11,<3.12"
+# 운영 플랫폼에 설치된 패키지만 적는다. 버전은 constraints.txt로 고정한다.
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "langchain",
+    "langchain-core",
+    "langgraph",
+    "langchain-openai",
+]
+
+[project.optional-dependencies]
+# 로컬 개발 전용. pytest와 httpx(TestClient)는 운영 플랫폼에도 있어야 한다.
+dev = [
+    "pytest",
+    "pytest-cov",
+    "httpx",
+    "anyio",
+    "ruff",
+    "pyrefly",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "N", "ASYNC", "G", "T20", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # 한글 문장의 전각 문자 경고
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["N802"]  # 한글 테스트 이름
+
+[tool.pyrefly]
+project-includes = ["main.py", "app", "tests"]
+python-version = "3.11"
+
+[tool.pytest.ini_options]
+# 커버리지 옵션(--cov)은 넣지 않는다. 운영 플랫폼에 pytest-cov가 없을 수 있다.
+testpaths = ["tests"]
+pythonpath = ["."]

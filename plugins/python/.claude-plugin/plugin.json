@@ -1,0 +1,8 @@
+{
+  "name": "python",
+  "description": "Python AI 에이전트 구현(python-dev)·리뷰(python-reviewer), 스타일·테스트·아키텍처 규칙, 새 프로젝트·반출·평가 명령",
+  "version": "2.1.0",
+  "author": {
+    "name": "siontext"
+  }
+}
