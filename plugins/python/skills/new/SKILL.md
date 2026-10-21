@@ -30,6 +30,7 @@ argument-hint: "[프로젝트 경로]"
 
 - 사용자 스킬 폴더에서 `~/.claude/skills/*/templates/project/`를 찾는다.
 - 있으면 그 내용을 대상 폴더에 덮어 복사한다. 운영용 연결 창구(`app/platform/<이름>.py`), `run-application.sh`, `constraints.txt` 등이 들어온다.
+- 덮어쓴 파일 중 운영 플랫폼 구현(`app/platform/<이름>.py`, 로컬에 없는 SDK를 import)이 있으면 `pyproject.toml`의 `[tool.pyrefly] project-excludes`와 `[tool.coverage.run] omit`에 그 경로를 넣는다. 로컬 타입 검사와 커버리지가 깨지지 않게 하기 위해서다.
 - 여러 개면 어느 것을 쓸지 사용자에게 묻는다. 없으면 건너뛰고 "운영 플랫폼용 연결 창구는 직접 추가해야 한다"고 알린다.
 - **이 견본의 내용을 공개 저장소나 하네스에 옮기지 않는다.**
 
