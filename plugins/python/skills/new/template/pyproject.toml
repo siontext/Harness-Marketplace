@@ -37,7 +37,13 @@ ignore = ["RUF001", "RUF002", "RUF003"]  # 한글 문장의 전각 문자 경고
 
 [tool.pyrefly]
 project-includes = ["main.py", "app", "tests"]
+# 로컬에 SDK가 없는 운영 플랫폼 구현 파일 (예: "app/platform/<이름>.py")
+project-excludes = []
 python-version = "3.11"
+
+[tool.coverage.run]
+# 로컬에서 테스트할 수 없는 운영 플랫폼 구현 파일. pytest-cov가 있을 때만 읽힌다.
+omit = []
 
 [tool.pytest.ini_options]
 # 커버리지 옵션(--cov)은 넣지 않는다. 운영 플랫폼에 pytest-cov가 없을 수 있다.

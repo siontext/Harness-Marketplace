@@ -26,7 +26,7 @@ COVERAGE_MIN = 80
 # 반출 제외 목록 — python-project 스킬의 표와 같아야 한다.
 EXCLUDE_DIRS = {
     ".git", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache",
-    "htmlcov", ".idea", ".vscode",
+    "htmlcov", ".idea", ".vscode", ".mypy_cache", "dist", "build",
 }
 EXCLUDE_PATHS = {"evals/results", "docs"}
 EXCLUDE_FILES = {".coverage", "coverage.xml", ".DS_Store"}

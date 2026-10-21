@@ -47,6 +47,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 - 버전은 `pyproject.toml`에 적지 않고 `constraints.txt`로 고정한다. 범위만 적는다 (예: `"langgraph"`).
 - 커버리지 도구는 운영 플랫폼에 없을 수 있다. `pyproject.toml`에 `--cov`를 넣으면 운영 플랫폼의 테스트 실행이 깨진다. 커버리지는 python-reviewer와 `/python:export`가 실행할 때만 붙인다.
 - 프로젝트 자체는 패키지로 설치하지 않는다. `pythonpath = ["."]`로 `app`을 찾는다.
+- 로컬에 없는 SDK를 import하는 운영 플랫폼 구현(`app/platform/<이름>.py`)은 `[tool.pyrefly] project-excludes`와 `[tool.coverage.run] omit`에 넣는다. 운영 플랫폼에서는 그대로 쓰인다.
 
 Ruff 설정:
 
@@ -106,7 +107,8 @@ uv pip install --python .venv -r pyproject.toml --extra dev -c constraints.txt
 | `.git/` | 로컬 변경 기록 |
 | `.env`, `.env.*` (`.env.example` 제외) | 키 |
 | `.venv/` | 로컬 가상환경 |
-| `__pycache__/`, `*.pyc`, `.pytest_cache/`, `.ruff_cache/` | 캐시 |
+| `__pycache__/`, `*.pyc`, `.pytest_cache/`, `.ruff_cache/`, `.mypy_cache/` | 캐시 |
+| `dist/`, `build/` | 빌드 결과 |
 | `.coverage`, `htmlcov/`, `coverage.xml` | 커버리지 결과 |
 | `evals/results/` | 평가 결과 |
 | `docs/` | 설계·리뷰 문서 (로컬 git에만 남긴다) |
