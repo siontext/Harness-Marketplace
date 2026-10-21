@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/push-guard.py\"",
+            "statusMessage": "반출 전용 프로젝트 push 검사 중..."
+          }
+        ]
+      }
+    ]
+  }
+}

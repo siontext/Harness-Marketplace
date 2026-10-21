@@ -38,6 +38,38 @@ description: Java 코드 스타일 가이드라인 — 네이밍, 포맷, import
 - 매직 넘버 금지. 상수로 추출.
 - `Optional` 반환은 허용, 파라미터로 전달은 금지.
 - `var` 사용은 타입이 명확한 경우에만 (예: `var list = new ArrayList<String>()`).
+
+## 객체지향 — Java에서 지키는 법
+
+`core:oop-principles`의 원칙을 Java/Kotlin 문법으로 지키는 방법이다.
+
+### DIP
+
+- `new`로 직접 생성하지 말고 생성자 주입 사용.
+- Service가 구체적인 Adapter 구현체가 아닌 Port(인터페이스)에 의존.
+
+### LSP
+
+- `UnsupportedOperationException`을 던지는 메서드가 있으면 LSP 위반 의심.
+
+### 캡슐화
+
+- 모든 필드는 `private`. getter/setter는 필요한 것만 노출.
+- 불변 객체 선호: `final` 필드 + 생성자 초기화.
+- 컬렉션 반환 시 `Collections.unmodifiableList()` 또는 복사본 반환.
+
+### 다형성
+
+- `instanceof` 체크가 반복되면 다형성으로 대체.
+
+### 객체 생성 — 정적 팩토리 메서드
+
+- 객체는 자기 자신을 생성할 책임을 가진다. 생성자를 `private`으로 닫고 정적 팩토리 메서드로 생성한다.
+- 팩토리 메서드는 **생성 의도를 이름으로 표현**한다 (예: `create()`, `restore()`, `of()`).
+- 유효성 검증을 팩토리 메서드 안에서 수행하여, 객체가 존재하는 순간 유효함을 보장한다.
+- DB 복원용 `restore()` 팩토리 메서드를 반드시 함께 정의한다 (Infrastructure → Domain 변환에 필요).
+- Command, Result 등 값 객체도 동일하게 `private constructor` + `companion object of()` 패턴을 적용한다.
+
 ## 주석 및 Javadoc
 
 ### Javadoc 필수 대상
