@@ -121,7 +121,7 @@ flowchart LR
 | 3 | 도구 (`app/tools/`) | 1 |
 | 4 | 프롬프트 (`app/prompts/`) | 0 |
 | 5 | 에이전트 흐름 (`app/agent/`) | 3, 4 |
-| 6 | API (`main.py` — `/chat`, `/health`) | 5 |
+| 6 | API (`app/api/` — `/chat`, `/health`, 새 예외의 오류 대응. `main.py`는 조립만) | 5 |
 | 7 | 평가 질문 (`evals/`) | 6 |
 
 - 단계 하나가 체크포인트 하나에 대응한다 (`implementation-checkpoint` 스킬).

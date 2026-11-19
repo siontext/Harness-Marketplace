@@ -76,6 +76,9 @@ skills:
   - `app/agent`, `app/tools`, `app/domain`에 `os.environ`·`os.getenv`가 없다
   - `app/agent`, `app/tools`, `app/domain`이 운영 플랫폼 SDK나 `app/platform`의 구현 모듈(`local.py` 등)을 import하지 않는다 (Protocol만)
   - `app/domain`이 LangChain·FastAPI·pydantic을 import하지 않는다
+  - `app/agent`, `app/tools`, `app/domain`, `app/platform`이 FastAPI나 `app/api`를 import하지 않는다
+  - `main.py`에 엔드포인트·요청·응답 모델·예외 핸들러 본문이 없다 (`app/api`에 둔다)
+  - `app/errors.py`가 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `main.py` 조립, frozen dataclass, 조합 우선
 - 참조 스킬(`python-style`, `langgraph-conventions`, `fastapi-conventions`)의 규칙. 특히 예전 API 사용, 프롬프트 문장 하드코딩, 로그에 키·개인정보·프롬프트 전문
