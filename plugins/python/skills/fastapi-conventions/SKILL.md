@@ -1,11 +1,23 @@
 ---
 name: fastapi-conventions
-description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py 시작·종료 조립(lifespan), /chat·/health, pydantic 요청·응답, SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 API 코드를 작성하거나 리뷰할 때 참조.
+description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py 조립(lifespan)과 app/api 파일 배치(routes·schemas·errors), /chat·/health, pydantic 요청·응답, SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 app/api 코드를 작성하거나 리뷰할 때 참조.
 ---
 
 # FastAPI Conventions
 
-에이전트는 혼자서는 바깥과 이야기하지 못한다. 호출하는 쪽(앱, 다른 서버)이 `/chat`으로 질문을 보내면 FastAPI가 받아 에이전트에 넘기고 답을 돌려준다. 이 창구는 `main.py` 하나에 둔다.
+에이전트는 혼자서는 바깥과 이야기하지 못한다. 호출하는 쪽(앱, 다른 서버)이 `/chat`으로 질문을 보내면 FastAPI가 받아 에이전트에 넘기고 답을 돌려준다. FastAPI를 아는 코드는 `main.py`와 `app/api/`에만 둔다.
+
+## 파일 배치
+
+| 파일 | 두는 것 |
+|---|---|
+| `main.py` | `FastAPI` 앱 만들기, `lifespan`, 엔드포인트·예외 핸들러 붙이기. 엔드포인트나 모델을 직접 적지 않는다 |
+| `app/api/routes.py` | 엔드포인트 (`APIRouter`) |
+| `app/api/schemas.py` | 요청·응답 pydantic 모델, `ErrorCode`, `ErrorResponse` |
+| `app/api/errors.py` | 예외 → 응답 대응표, 전역 예외 핸들러 (`register_exception_handlers`) |
+
+- `app/api`는 `app/agent`를 부르고, 그 반대는 금지다 (`agent-architecture`).
+- `app/api/` 안에 파일을 더 만들 때는 설계 문서에 적힌 경우만.
 
 ## main.py — 시작·종료 조립
 
@@ -24,6 +36,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(lifespan=lifespan)
+register_exception_handlers(app)
+app.include_router(router)
 ```
 
 - `@app.on_event("startup")`은 쓰지 않는다 (예전 방식).
@@ -103,7 +117,7 @@ class ChatResponse(BaseModel):
     answer: str
 ```
 
-호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ChatResponse`를 JSON으로 돌려주게 바꾼다. 에이전트 코드(`app/agent/`)는 그대로 두고 `main.py`의 엔드포인트만 바꾼다. 그래서 에이전트 쪽에는 스트리밍용 함수와 한 번에 답하는 함수를 함께 둔다.
+호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ChatResponse`를 JSON으로 돌려주게 바꾼다. 에이전트 코드(`app/agent/`)는 그대로 두고 `app/api/routes.py`의 엔드포인트만 바꾼다. 그래서 에이전트 쪽에는 스트리밍용 함수와 한 번에 답하는 함수를 함께 둔다.
 
 ## 오류 응답 통일
 
@@ -116,7 +130,9 @@ class ChatResponse(BaseModel):
 | LLM·외부 시스템 오류 | 502 (스트리밍 중이면 `error` 이벤트) | `UPSTREAM_ERROR` |
 | 그 밖의 오류 | 500 | `INTERNAL_ERROR` |
 
-- 오류 본문은 항상 `{"code": "...", "message": "..."}` 모양이다. `exception_handler`로 한곳에서 만든다.
+- 오류 본문은 항상 `{"code": "...", "message": "..."}` 모양이다. 전역 예외 핸들러(`app/api/errors.py`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
+- 예외 클래스는 `app/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `app/api/errors.py`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
+- 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `/chat`이 스트리밍 함수 안에서 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`find_error_rule`)에서 가져온다.
 - 위 표에 없는 `code`를 새로 만들지 않는다. 필요하면 설계 문서 결정 섹션에 적고 사용자에게 확인한다.
 - `message`는 사용자에게 보여줄 한국어 안내다. 예외 내용, 스택, 내부 주소를 넣지 않는다. 자세한 내용은 로그에 남긴다 (키·개인정보 제외).
 - 가드레일에 막힌 것은 오류가 아니다. 한 번에 응답이면 정상 답으로 안내 문구를 보낸다. 스트리밍 중 출력 검사에 막히면 이미 시작된 응답을 끝내야 해서 `BLOCKED` 이벤트를 쓴다.

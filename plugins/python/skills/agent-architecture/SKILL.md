@@ -1,6 +1,6 @@
 ---
 name: agent-architecture
-description: Python AI 에이전트 아키텍처 규칙 — 의존 방향(main → agent → tools → platform), 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
+description: Python AI 에이전트 아키텍처 규칙 — 의존 방향(main → api → agent → tools → platform), 웹 레이어(app/api)와 공통 예외(app/errors.py) 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
 ---
 
 # Agent Architecture
@@ -8,26 +8,47 @@ description: Python AI 에이전트 아키텍처 규칙 — 의존 방향(main �
 ## 레이어와 의존 방향
 
 ```text
-main.py (FastAPI, 조립)
+main.py (조립)
+   │
+   ▼
+app/api (FastAPI — 엔드포인트, 요청·응답 모델, 전역 예외 핸들러)
    │
    ▼
 app/agent  ──▶  app/tools  ──▶  app/domain (있을 때만)
    │               │
    ▼               ▼
 app/platform (연결 창구 Protocol)  ◀──  local.py / <운영>.py (구현)
+
+app/errors.py (공통 예외)  ◀──  모든 레이어
 ```
 
 | 레이어 | 하는 일 | 부를 수 있는 것 |
 |---|---|---|
-| `main.py` | 구현을 골라 조립, API 열기 | 전부 |
+| `main.py` | 구현을 골라 조립, 엔드포인트·예외 핸들러 붙이기 | 전부 |
+| `app/api` | HTTP 요청을 받아 에이전트에 넘기고, 답과 오류를 HTTP 응답으로 바꾸기 | `agent`, `platform`의 Protocol, FastAPI |
 | `app/agent` | 에이전트 흐름 | `tools`, `prompts`, `platform`의 Protocol |
 | `app/tools` | 도구 함수 | `domain`, `platform`의 Protocol |
 | `app/domain` | 업무 규칙 | 표준 라이브러리만 |
 | `app/platform` | 바깥과의 연결 | 바깥 패키지 |
+| `app/errors.py` | 공통 예외 | 표준 라이브러리만. 모든 레이어가 이 파일을 부를 수 있다 |
 
 - 의존은 한 방향만. 안쪽(`agent`, `tools`, `domain`)은 바깥(FastAPI, 운영 플랫폼 SDK, 환경 변수)을 모른다.
 - **`agent`, `tools`, `domain`에서 운영 플랫폼 SDK를 import하거나 `os.environ`을 읽으면 위반이다.**
+- **`agent`, `tools`, `domain`, `platform`에서 FastAPI나 `app/api`를 import하면 위반이다.** HTTP를 아는 곳은 `main.py`와 `app/api`뿐이다.
 - `agent`, `tools`는 연결 창구의 구현(`local.py` 등)이 아니라 Protocol에만 의존한다.
+
+## 예외 위치
+
+예외는 던진 곳에서 호출한 쪽으로 올라가고, 아무도 잡지 않으면 FastAPI가 잡아 전역 핸들러에 넘긴다. 그래서 던지는 쪽과 응답으로 바꾸는 쪽을 나눈다.
+
+| 무엇 | 위치 | 이유 |
+|---|---|---|
+| 여러 레이어가 던지거나 전역 핸들러가 구분해 답하는 예외 (`AppError`, `UpstreamError`, `AgentTimeoutError`) | `app/errors.py` | 안쪽 레이어가 import해야 하므로 HTTP를 몰라야 한다 |
+| 한 레이어 안에서만 쓰는 예외 (예: `PlatformLoadError`) | 그 레이어 안 | 밖에서 구분할 일이 없다 |
+| 예외 → 상태 코드·`code`·안내 문구 대응표, 전역 핸들러 | `app/api/errors.py` | HTTP 응답을 만드는 일이다 (`fastapi-conventions`) |
+
+- 예외 클래스에 상태 코드나 `code`를 넣지 않는다. 대응은 `app/api/errors.py`의 표 한 곳에만 둔다.
+- 새 예외는 `AppError`나 그 하위 예외를 상속한다. 대응표에 없으면 가장 가까운 부모의 규칙으로 답한다.
 
 ## 연결 창구 (app/platform)
 

@@ -13,13 +13,15 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 
 ```text
 <프로젝트>/
-├── main.py                  FastAPI 앱 — 연결 창구 조립, /chat, /health
+├── main.py                  FastAPI 앱 조립 — 연결 창구 만들기, 엔드포인트·예외 핸들러 붙이기
 ├── run-application.sh       운영 플랫폼에서 서버를 띄우는 스크립트
 ├── pyproject.toml           패키지·도구 설정
 ├── constraints.txt          운영 플랫폼 패키지 버전 고정 파일 (있을 때)
 ├── .env.example             환경 변수 견본 (값 없음) — 공유
 ├── .env                     실제 값 — git·반출 제외
 ├── app/
+│   ├── errors.py            공통 예외 (AppError와 하위 예외)
+│   ├── api/                 웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 모델), errors.py(전역 예외 핸들러)
 │   ├── agent/               에이전트 흐름 (create_agent / StateGraph)
 │   ├── tools/               도구 함수 (@tool)
 │   ├── prompts/             프롬프트 파일 (.md)
@@ -30,6 +32,8 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 ```
 
 - 새 폴더를 만들지 않는다. 필요하면 위 폴더 안에 모듈을 추가한다.
+- FastAPI를 import하는 코드는 `main.py`와 `app/api/`에만 둔다 (`agent-architecture`).
+- `app/` 바로 아래에 두는 모듈은 `errors.py` 하나다. 공통으로 쓸 것이 더 생기면 사용자에게 확인한다.
 - `app/domain/`은 계산·판단·상태 변화 같은 업무 규칙이 있을 때만 만든다 (`agent-architecture`).
 - 각 폴더에 `__init__.py`를 둔다.
 

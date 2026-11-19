@@ -80,6 +80,7 @@ class Money:
 ## 예외 처리
 
 - 의미 있는 예외 클래스를 만든다 (예: `ProductNotFoundError`). 이름은 `Error`로 끝낸다.
+- 예외 클래스를 두는 곳은 `agent-architecture`의 "예외 위치"를 따른다 (공통 예외는 `app/errors.py`).
 - `except:`(아무것도 안 적음) 금지. `except Exception` 남용 금지. 구체적인 예외 타입을 잡는다.
 - 예외를 바꿔 던질 때는 원인을 잇는다: `raise ProductLookupError(...) from e`.
 - 예외 메시지에 맥락을 넣는다 (예: `f"상품을 찾을 수 없다: product_id={product_id}"`). 키·개인정보는 넣지 않는다.

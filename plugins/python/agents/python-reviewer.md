@@ -35,7 +35,7 @@ skills:
 ## 참조 스킬
 
 작업 전 메타데이터에 명시된 스킬 파일들을 읽고 원칙을 숙지한다.
-사용자 스킬 폴더(`~/.claude/skills/*/SKILL.md`)에 이 프로젝트 운영 플랫폼의 전용 스킬이 있으면 `Read`로 읽고 함께 검증 기준으로 쓴다.
+**프로젝트가 운영 플랫폼을 쓸 때만** 사용자 스킬 폴더(`~/.claude/skills/*/SKILL.md`)에서 그 플랫폼의 전용 스킬을 찾아 `Read`로 읽고 함께 검증 기준으로 쓴다. 쓰는지는 `app/platform/`에 `local.py` 말고 운영 구현(`<이름>.py`)이 있는지, `run-application.sh`의 `PLATFORM` 값이 있는지로 판단한다. 둘 다 없으면 스킬 폴더에 플랫폼 스킬이 있어도 검증 기준으로 쓰지 않는다.
 
 ## 인자
 
@@ -69,6 +69,7 @@ skills:
 ### 5. 설계 정합성 + 아키텍처 검증
 - 구현 단계 표의 모든 대상이 구현되었는가
 - 도구 표의 "언제 쓰나 / 쓰지 않나"가 도구 독스트링에, "실패 시"가 도구 코드에 반영되었는가
+- 도구 표의 "사람 확인"이 "필요"인 도구가 실행 전에 사람 확인을 받게 되어 있는가 (`langgraph-conventions`의 "사람 확인")
 - 가드레일이 시퀀스 다이어그램 위치(입력은 LLM 전, 출력은 LLM 후)에 있는가
 - 응답 방식(SSE / 한 번에)과 시간 제한이 설계 문서 개요와 일치하는가
 - 설계에 없는 불필요한 코드가 추가되지 않았는가
@@ -76,6 +77,9 @@ skills:
   - `app/agent`, `app/tools`, `app/domain`에 `os.environ`·`os.getenv`가 없다
   - `app/agent`, `app/tools`, `app/domain`이 운영 플랫폼 SDK나 `app/platform`의 구현 모듈(`local.py` 등)을 import하지 않는다 (Protocol만)
   - `app/domain`이 LangChain·FastAPI·pydantic을 import하지 않는다
+  - `app/agent`, `app/tools`, `app/domain`, `app/platform`이 FastAPI나 `app/api`를 import하지 않는다
+  - `main.py`에 엔드포인트·요청·응답 모델·예외 핸들러 본문이 없다 (`app/api`에 둔다)
+  - `app/errors.py`가 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `main.py` 조립, frozen dataclass, 조합 우선
 - 참조 스킬(`python-style`, `langgraph-conventions`, `fastapi-conventions`)의 규칙. 특히 예전 API 사용, 프롬프트 문장 하드코딩, 로그에 키·개인정보·프롬프트 전문

@@ -1,10 +1,12 @@
-"""FastAPI 앱. 서버 시작 때 연결 창구를 조립하고 API를 연다."""
+"""FastAPI 앱 조립. 연결 창구를 만들고 엔드포인트와 전역 예외 핸들러를 붙인다."""
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.errors import register_exception_handlers
+from app.api.routes import router
 from app.platform import build_platform
 
 
@@ -18,9 +20,5 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/health")
-async def health() -> dict[str, str]:
-    """서버가 살아 있는지 알려 준다. LLM이나 DB는 부르지 않는다."""
-    return {"status": "ok"}
+register_exception_handlers(app)
+app.include_router(router)
