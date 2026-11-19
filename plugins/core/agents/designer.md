@@ -85,7 +85,7 @@ options:
 - `Read`로 프로젝트 구조, 기술 스택, 기존 코드 패턴을 파악한다 (`Glob` 동작 시 함께 사용).
 - `build.gradle.kts`, `settings.gradle.kts`, 패키지 구조를 확인한다.
 - AI 에이전트(Python) 프로젝트면 `pyproject.toml`과 `app/` 아래 기존 에이전트·도구·프롬프트·연결 창구(`app/platform/`)를 확인한다.
-- 사용자 스킬 폴더(`~/.claude/skills/*/SKILL.md`)에 이 프로젝트의 플랫폼 전용 설계 스킬이 있는지 확인하고, 있으면 `Read`로 읽는다.
+- **프로젝트가 운영 플랫폼을 쓸 때만** 사용자 스킬 폴더(`~/.claude/skills/*/SKILL.md`)에서 그 플랫폼의 전용 설계 스킬을 찾아 `Read`로 읽는다. 쓰는지는 `app/platform/`에 `local.py` 말고 운영 구현(`<이름>.py`)이 있는지, `run-application.sh`의 `PLATFORM` 값이 있는지로 판단한다. 둘 다 없으면 스킬 폴더에 플랫폼 스킬이 있어도 읽지 않고 따르지 않는다.
 - `Glob`/`Grep` 미주입 환경이면 메인에게 디렉토리 탐색을 요청한다.
 
 ### 2. 기존 설계 문서 참조
