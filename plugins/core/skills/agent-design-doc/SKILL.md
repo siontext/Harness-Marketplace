@@ -179,7 +179,7 @@ flowchart LR
 | 도구 오류, 결과 없음 | 4. 도구의 "실패 시" 열 |
 | 시간 초과, LLM 출력 형식 깨짐 | 3. 시퀀스 다이어그램의 `alt` |
 | 막아야 할 질문 | 5. 프롬프트·가드레일 |
-| 새 예외 클래스, 새 오류 `code` | 결정 섹션에 이유를 적고, 7. 구현 단계의 대상 열에 넣는다 (`app/errors.py`의 예외, `app/presentation/errors.py`의 대응표) |
+| 새 예외 클래스, 새 오류 `code` | 결정 섹션에 이유를 적고, 7. 구현 단계의 대상 열에 넣는다 (`app/common/errors.py`의 예외, `app/presentation/errors.py`의 대응표) |
 
 - 뼈대에 있는 예외(`AppError`, `UpstreamError`, `AgentTimeoutError`)와 오류 응답 표(`python:fastapi-conventions`)로 충분하면 적지 않는다.
 - 새 오류 `code`는 사용자 확인이 필요하다 (`python:fastapi-conventions`).

@@ -227,7 +227,7 @@ class ChatResponse(BaseModel):
 | 그 밖의 오류 | 500 | `INTERNAL_ERROR` |
 
 - 오류 본문은 항상 `ApiResponse` 실패 모양(`{"code": "...", "message": "...", "data": null}`)이다. 전역 예외 핸들러(`app/presentation/errors.py`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
-- 예외 클래스는 `app/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `app/presentation/errors.py`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
+- 예외 클래스는 `app/common/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `app/presentation/errors.py`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
 - 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `sse_response`가 `except Exception`으로 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`find_error_rule`)에서 가져온다.
 - 스트리밍 중 실패의 로그는 `app/presentation/errors.py`의 `log_failure(request, rule, exc, streaming=True)`로 남긴다. 전역 핸들러와 같은 함수라 로그 규칙이 한곳에 있다. 로그 코드를 `routes.py`에 따로 짜지 않는다.
 - LLM 호출 실패는 에이전트 쪽에서 `UpstreamError`로 바꿔 던진다 (`langgraph-conventions`의 "LLM 호출 실패 → UpstreamError"). 바꾸지 않으면 `INTERNAL_ERROR`로 나간다.
@@ -258,14 +258,14 @@ class ChatResponse(BaseModel):
 
 | 순서 | 파일 | 추가할 것 |
 |---|---|---|
-| 1 | `app/errors.py` | 예외 클래스 (`AppError`나 그 하위 예외를 물려받는다) |
+| 1 | `app/common/errors.py` | 예외 클래스 (`AppError`나 그 하위 예외를 물려받는다) |
 | 2 | `app/presentation/response/error_code.py` | `code` 값 |
 | 3 | `app/presentation/response/messages.py` | 안내 문구 |
 | 4 | `app/presentation/errors.py`의 `ERROR_RULES` | 예외 클래스 → `ErrorRule(상태 코드, code, 안내 문구)` |
 
 - 응답이 기존 예외와 같고 로그에서만 구분하면 되는 예외는 1번만 한다. 표에 없는 하위 예외는 가장 가까운 부모의 규칙을 따른다.
 - 던지는 쪽(도메인, 서비스, 에이전트, 포트 구현)은 예외 클래스만 쓴다: `raise UpstreamError("상품 조회 실패: id=123")`. 규칙 값이나 `ErrorCode`를 가져다 쓰지 않는다.
-- 업무 규칙에 걸려 던지는 예외(예: 취소 불가)는 `app/domain/`에 두고 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않으므로 위 네 단계 중 1번도 `app/errors.py`가 아니라 `app/domain/`에 한다.
+- 업무 규칙에 걸려 던지는 예외(예: 취소 불가)는 `app/domain/`에 두고 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않으므로 위 네 단계 중 1번도 `app/common/errors.py`가 아니라 `app/domain/`에 한다.
 
 ## 시간 제한
 
@@ -283,26 +283,13 @@ class ChatResponse(BaseModel):
 
 답 조각을 내보내는 함수(비동기 제너레이터)에서는 **`yield`를 시간 제한 안에 두지 않는다.** `yield`에서 멈춰 있는 동안 제한이 지나면 취소가 함수 밖에서 걸려, `TimeoutError`로 바뀌지 못하고 연결이 그냥 끊긴다. 사용자는 `TIMEOUT` 안내를 받지 못한다 (Python의 PEP 789가 다루는 문제다).
 
-마감 시각을 한 번 정하고, 다음 조각을 **기다릴 때만** 그 마감으로 제한을 건다.
+마감 시각을 한 번 정하고, 다음 조각을 **기다릴 때만** 그 마감으로 제한을 건다. 이 방식은 뼈대의 `within_time_limit`(`app/application/common/time_limit.py`)에 들어 있다. **직접 짜지 않고 이 함수로 감싼다.**
 
 ```python
-# app/application/agent/service.py — ChatService의 메서드
-async def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]:
-    deadline = asyncio.get_running_loop().time() + self._timeout_seconds
-    sentences = self._stream_checked_sentences(command)
-    try:
-        while True:
-            async with asyncio.timeout_at(deadline):      # 기다릴 때만 건다
-                sentence = await anext(sentences, None)
-            if sentence is None:
-                return
-            yield sentence                                # 제한 밖에서 내보낸다
-    except TimeoutError as e:
-        raise AgentTimeoutError(
-            f"에이전트 실행 시간 초과: timeout_seconds={self._timeout_seconds}"
-        ) from e
-    finally:
-        await sentences.aclose()
+# app/application/agent/service.py — ChatService
+def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]:
+    sentences = self._checked_sentences(command)
+    return within_time_limit(sentences, self._timeout_seconds)    # 넘으면 AgentTimeoutError
 ```
 
 - 마감 시각은 하나다. 조각마다 제한 시간을 새로 주지 않는다.

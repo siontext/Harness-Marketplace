@@ -81,7 +81,8 @@ skills:
   - FastAPI를 import하는 곳이 `main.py`와 `app/presentation`뿐이다
   - `app/application`, `app/domain`에 `os.environ`·`os.getenv`, 운영 플랫폼 SDK import가 없다
   - `main.py`에 엔드포인트·요청·응답 모델·예외 핸들러 본문이 없고(`app/presentation`에 둔다), 조립 코드는 `app/container.py`에 있다
-  - `app/errors.py`가 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
+  - `app/common/`이 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
+  - 기능 폴더끼리 서로 import하지 않는다. 여러 기능이 쓰는 것은 그 계층의 `common/`에 있다
   - `app/presentation` 밖에서 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
 - **채팅 기능과 답 만들기** (`agent-architecture`) — `ChatService`가 `ChatUseCase`를 구현하고 부품을 생성자로 받는가(부품 묶음을 함수에 넘기지 않는가), `/chat`이 `ChatUseCase`에만 의존하는가, 채팅 서비스가 `AnswerGenerator` 포트로 글자만 받는가. 어댑터가 조각(`AIMessageChunk`)과 완성된 답(`AIMessage`)을 둘 다 글자로 바꾸고, 두 경우를 테스트하는가
@@ -97,6 +98,7 @@ skills:
   - 도메인 Enum의 값이 코드이고, 표시용 이름과 안내 문장은 도구의 표에 있다
   - 포트 구현 클래스가 포트를 괄호에 적었고, 포트(`Protocol`) 메서드에 본문이 없다
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `app/container.py` 조립, frozen dataclass, 조합 우선
+- **서비스 메서드의 높이** (`python-style`의 "같은 높이로", `agent-architecture`의 "채팅 기능") — 서비스의 공개 메서드가 업무 단계만 적혀 있는가. 시간 제한·문장 나누기 같은 기술 세부가 섞여 있지 않고, 시간 제한은 뼈대의 `within_time_limit`을 쓰는가
 - **엔드포인트** (`fastapi-conventions`의 "엔드포인트는 세 단계만") — 엔드포인트 함수가 요청 → Command, 유스케이스 부르기, 응답 틀에 담기만 하는가. SSE 이벤트 만들기·`try/except`·실패 로그를 직접 적지 않고 `sse_response`를 쓰는가
 - **응답 틀** (`fastapi-conventions`) — `/health`를 뺀 JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/presentation/response/messages.py`에 있다
 - 참조 스킬(`python-style`, `langgraph-conventions`, `fastapi-conventions`)의 규칙. 특히 예전 API 사용, 프롬프트 문장 하드코딩, 로그에 키·개인정보·프롬프트 전문

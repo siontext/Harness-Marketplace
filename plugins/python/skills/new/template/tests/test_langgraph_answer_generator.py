@@ -4,7 +4,7 @@ import pytest
 from langchain.tools import tool
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 
-from app.errors import UpstreamError
+from app.common.errors import UpstreamError
 from app.infrastructure.agent.langgraph_answer_generator import (
     LangGraphAnswerGenerator,
 )

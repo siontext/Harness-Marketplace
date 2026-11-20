@@ -20,11 +20,12 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 ├── .env.example             환경 변수 견본 (값 없음) — 공유
 ├── .env                     실제 값 — git·반출 제외
 ├── app/
-│   ├── errors.py            공통 예외 (AppError와 하위 예외)
+│   ├── common/              모든 계층이 같이 쓰는 것 — errors.py(공통 예외). 표준 라이브러리만
 │   ├── container.py         조립 — 구현을 골라 서비스·도구·에이전트에 넣어 주기
 │   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), errors.py(전역 예외 핸들러)
 │   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, sse_response, ErrorCode, 안내 문구
 │   ├── application/
+│   │   ├── common/          애플리케이션 안 여러 기능이 같이 쓰는 도우미 — time_limit.py(within_time_limit)
 │   │   ├── agent/           채팅 기능 — usecase.py(ChatUseCase), service.py(ChatService), command.py, port.py(AnswerGenerator·Guardrail). LangChain을 모른다
 │   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, command.py, result.py
 │   ├── domain/
@@ -43,7 +44,8 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 
 - 새 폴더를 만들지 않는다. 필요하면 위 폴더 안에 모듈을 추가한다.
 - FastAPI를 import하는 코드는 `main.py`와 `app/presentation/`에만 둔다 (`agent-architecture`).
-- `app/` 바로 아래에 두는 모듈은 `errors.py`와 `container.py` 둘이다. 더 생기면 사용자에게 확인한다.
+- `app/` 바로 아래에 두는 모듈은 `container.py` 하나다. 더 생기면 사용자에게 확인한다.
+- **공통은 두 단계로 나눈다** (`agent-architecture`의 "공통 영역"). 모든 계층이 쓰는 것은 `app/common/`, 한 계층 안에서 여러 기능이 쓰는 것은 그 계층의 `common/`(presentation은 `response/`)에 둔다.
 - `infrastructure/` 아래는 창구 종류마다 폴더 하나다. 새 종류의 창구가 생기면 폴더를 더한다 (예: `memory/`).
 - 업무 기능이 생기면 `application/<기능>/`, `domain/<기능>/`, `infrastructure/persistence/<기능>/`을 같은 이름으로 만든다 (`agent-architecture`의 "기능 폴더").
 - `app/domain/`은 계산·판단·상태 변화 같은 업무 규칙이 있을 때만 만든다 (`agent-architecture`).

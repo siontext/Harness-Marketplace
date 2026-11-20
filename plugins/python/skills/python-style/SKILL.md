@@ -43,6 +43,7 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 - 한 함수 30줄 이내 권장. 넘으면 분리 검토.
 - 인자 3개 이내 권장. 넘으면 데이터 모델로 묶는다.
 - 하나의 함수는 하나의 책임만 수행.
+- **한 함수 안의 문장은 같은 높이로 적는다 (추상화 수준 통일, SLAP).** 업무 단계(검사한다, 저장한다)와 기술 세부(`asyncio` 사용법, 정규식 반복, 재시도 반복)를 한 함수에 섞지 않는다. 기술 세부는 이름 붙은 함수로 빼고 그 이름으로 부른다.
 - **기본값에 리스트·딕셔너리 같은 변하는 값 금지.** `def f(items: list[str] = [])` ✕ → `items: list[str] | None = None` 후 안에서 만든다.
 
 ## 타입 표시
@@ -80,7 +81,7 @@ class Money:
 ## 예외 처리
 
 - 의미 있는 예외 클래스를 만든다 (예: `ProductNotFoundError`). 이름은 `Error`로 끝낸다.
-- 예외 클래스를 두는 곳은 `agent-architecture`의 "예외 위치"를 따른다 (공통 예외는 `app/errors.py`).
+- 예외 클래스를 두는 곳은 `agent-architecture`의 "예외 위치"를 따른다 (공통 예외는 `app/common/errors.py`).
 - `except:`(아무것도 안 적음) 금지. 구체적인 예외 타입을 잡는다.
 - `except Exception`은 아래 두 곳에서만 쓰고, 그 줄 위에 이유를 주석으로 적는다. 그 밖의 곳에서는 쓰지 않는다.
   - LLM 호출을 감싸 `UpstreamError`로 바꾸는 곳 (`langgraph-conventions`). LLM 구현마다 던지는 예외가 다르다.

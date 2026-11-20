@@ -15,7 +15,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.errors import AgentTimeoutError, AppError, UpstreamError
+from app.common.errors import AgentTimeoutError, AppError, UpstreamError
 from app.presentation.response import messages
 from app.presentation.response.api_response import ApiResponse
 from app.presentation.response.error_code import ErrorCode
@@ -46,7 +46,7 @@ INTERNAL_ERROR_RULE = ErrorRule(
     messages.INTERNAL_ERROR,
 )
 
-# ── 우리가 만든 예외 (app/errors.py) ────────────────────────────────────
+# ── 우리가 만든 예외 (app/common/errors.py) ────────────────────────────────────
 # 예외 → 상태 코드·code·안내 문구 대응은 이 표 한 곳에만 둔다.
 ERROR_RULES: dict[type[AppError], ErrorRule] = {
     AgentTimeoutError: ErrorRule(

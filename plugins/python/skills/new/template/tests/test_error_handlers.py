@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
-from app.errors import UpstreamError
+from app.common.errors import UpstreamError
 from app.presentation.errors import (
     find_error_rule,
     log_failure,
