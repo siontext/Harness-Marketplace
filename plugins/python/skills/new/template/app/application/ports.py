@@ -1,4 +1,9 @@
-"""연결 창구의 모양(Protocol). 에이전트와 도구는 이 모양에만 의존한다."""
+"""연결 창구의 모양(Protocol, 포트). application은 이 모양에만 의존한다.
+
+구현(어댑터)은 app/infrastructure에 두고 app/container.py가 골라 넣어 준다.
+메서드에는 모양만 적고 본문을 넣지 않는다. 구현 클래스는 이 Protocol을 괄호에 적어
+어떤 포트의 구현인지 드러낸다.
+"""
 
 from dataclasses import dataclass
 from typing import Protocol

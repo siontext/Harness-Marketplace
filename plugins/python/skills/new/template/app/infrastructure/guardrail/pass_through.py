@@ -1,0 +1,13 @@
+"""로컬 개발용 가드레일 창구 구현. 검사하지 않고 통과시킨다."""
+
+from app.application.ports import Guardrail, GuardResult
+
+
+class PassThroughGuardrail(Guardrail):
+    """로컬에서는 검사 없이 그대로 통과시킨다. 필수 규칙은 코드에 따로 둔다."""
+
+    async def check_input(self, text: str) -> GuardResult:
+        return GuardResult(text=text)
+
+    async def check_output(self, text: str) -> GuardResult:
+        return GuardResult(text=text)

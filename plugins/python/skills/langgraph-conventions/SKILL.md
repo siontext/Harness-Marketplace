@@ -39,38 +39,44 @@ result = await agent.ainvoke({"messages": messages})
 ```
 
 - `create_agent`는 `from langchain.agents import create_agent`.
-- 에이전트는 `app/agent/`의 함수가 만든다. LLM·프롬프트·도구는 인자로 받는다 (`agent-architecture`의 의존성 주입).
+- 에이전트는 `app/application/agent/`의 함수가 만든다. LLM·프롬프트·도구는 인자로 받는다 (`agent-architecture`의 의존성 주입).
 
 ## 도구 만들기
+
+도구는 `app/infrastructure/tools/`에 둔다. 도구는 업무 서비스를 부르고 결과를 LLM이 읽을 문장으로 바꾸는 일만 한다 (`agent-architecture`의 "업무 서비스와 도구").
 
 - `@tool`을 붙인다 (`from langchain.tools import tool`).
 - **독스트링은 LLM이 읽는 설명서다.** 언제 쓰는지, 언제 쓰면 안 되는지, 인자 형식을 한국어로 쓴다 (`python-style`).
 - 인자에 타입을 적는다. 인자가 많거나 복잡하면 pydantic 모델을 `args_schema`로 쓴다.
-- 도구 안에서 바깥 시스템은 연결 창구로만 부른다. 창구는 클로저나 팩토리 함수로 넣어 준다.
-- **예상할 수 있는 실패(없음, 권한 없음, 외부 시스템 오류)는 예외를 터뜨리지 않고 LLM이 알아들을 문장으로 돌려준다.** LLM이 그 문장을 보고 사용자에게 안내하거나 다른 도구를 고른다.
+- 도구는 팩토리 함수(`build_<이름>_tools(service)`)로 만들고 업무 서비스를 인자로 받는다. 포트(저장소 등)를 직접 받지 않는다.
+- 도구 안에 판단·계산이나 "꺼내기 → 저장" 같은 순서를 적지 않는다. 그것은 도메인과 서비스의 일이다.
+- **예상할 수 있는 실패(없음, 권한 없음, 규칙에 걸림, 외부 시스템 오류)는 예외를 터뜨리지 않고 LLM이 알아들을 문장으로 돌려준다.** 서비스가 던진 예외를 도구가 잡아 문장으로 바꾼다. LLM이 그 문장을 보고 사용자에게 안내하거나 다른 도구를 고른다.
+- 문장에는 무엇이 문제이고 어떻게 하면 되는지를 적는다. 오류 코드나 스택을 그대로 주지 않는다.
 - 예상하지 못한 오류(코드 버그)는 잡지 않는다. 그대로 터져서 드러나야 한다.
 
 ```python
-def build_product_tools(catalog: ProductCatalog) -> list[BaseTool]:
-    """상품 창구를 쓰는 도구 목록을 만든다."""
+def build_order_tools(service: OrderService) -> list[BaseTool]:
+    """주문 서비스를 쓰는 도구 목록을 만든다."""
 
     @tool
-    async def get_product(product_id: str) -> str:
-        """상품 id로 상품 이름, 가격, 재고를 조회한다.
+    async def cancel_order(order_id: str) -> str:
+        """주문 번호의 주문을 취소한다. 취소할 수 있는지는 이 도구가 판단한다.
 
-        사용자가 특정 상품의 조건을 물을 때 쓴다.
-        상품 id를 모르면 쓰지 말고 search_products로 먼저 찾는다.
+        사용자가 특정 주문을 취소해 달라고 분명히 요청했을 때만 쓴다.
+        주문 번호를 모르면 쓰지 말고 사용자에게 주문 번호를 먼저 묻는다.
 
         Args:
-            product_id: 상품 id. 영문 대문자와 숫자 8자리.
+            order_id: 주문 번호. "ORD-"와 숫자 4자리 (예: ORD-1001).
         """
         try:
-            product = await catalog.find(product_id)
-        except ProductNotFoundError:
-            return f"상품 {product_id}을(를) 찾을 수 없습니다. 상품 id를 다시 확인해 주세요."
-        return product.to_summary()
+            await service.cancel_order(order_id)
+        except OrderNotFoundError:
+            return f"주문 {order_id}을(를) 찾을 수 없습니다. 주문 번호를 다시 확인해 주세요."
+        except OrderNotCancellableError as e:
+            return CANCEL_DENIAL_SENTENCES[e.reason].format(order_id=order_id)
+        return f"주문 {order_id}을(를) 취소했습니다."
 
-    return [get_product]
+    return [cancel_order]
 ```
 
 ## 구조화 출력

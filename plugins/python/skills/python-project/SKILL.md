@@ -13,7 +13,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 
 ```text
 <프로젝트>/
-├── main.py                  FastAPI 앱 조립 — 연결 창구 만들기, 엔드포인트·예외 핸들러 붙이기
+├── main.py                  FastAPI 앱 만들기 — lifespan에서 조립 함수 부르기, 엔드포인트·예외 핸들러 붙이기
 ├── run-application.sh       운영 플랫폼에서 서버를 띄우는 스크립트
 ├── pyproject.toml           패키지·도구 설정
 ├── constraints.txt          운영 플랫폼 패키지 버전 고정 파일 (있을 때)
@@ -21,20 +21,29 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 ├── .env                     실제 값 — git·반출 제외
 ├── app/
 │   ├── errors.py            공통 예외 (AppError와 하위 예외)
-│   ├── api/                 웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), errors.py(전역 예외 핸들러)
+│   ├── container.py         조립 — 구현을 골라 서비스·도구·에이전트에 넣어 주기
+│   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), errors.py(전역 예외 핸들러)
 │   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, ErrorCode, 안내 문구
-│   ├── agent/               에이전트 흐름 (create_agent / StateGraph)
-│   ├── tools/               도구 함수 (@tool)
-│   ├── prompts/             프롬프트 파일 (.md)
-│   ├── platform/            연결 창구 — Protocol, 로컬 구현, 설정
-│   └── domain/              업무 규칙 (있을 때만)
+│   ├── application/
+│   │   ├── ports.py         포트 — 바깥에 요구하는 모양 (Protocol)
+│   │   ├── <이름>_service.py 업무 서비스 — 꺼내기 → 도메인 호출 → 저장 순서
+│   │   └── agent/           에이전트 흐름 (create_agent / StateGraph)
+│   ├── domain/              업무 규칙 (있을 때만)
+│   ├── infrastructure/      포트 구현 — __init__.py(구현 선택), local.py(로컬 묶음), settings.py(설정)
+│   │   ├── llm/             LLM 구현
+│   │   ├── persistence/     저장소 구현 (있을 때만)
+│   │   ├── prompt/          프롬프트 창구 구현
+│   │   ├── guardrail/       가드레일 구현
+│   │   └── tools/           도구 함수 (@tool)
+│   └── prompts/             프롬프트 파일 (.md)
 ├── tests/                   pytest — 반출에 포함
 └── evals/                   평가 질문 (results/는 반출 제외)
 ```
 
 - 새 폴더를 만들지 않는다. 필요하면 위 폴더 안에 모듈을 추가한다.
-- FastAPI를 import하는 코드는 `main.py`와 `app/api/`에만 둔다 (`agent-architecture`).
-- `app/` 바로 아래에 두는 모듈은 `errors.py` 하나다. 공통으로 쓸 것이 더 생기면 사용자에게 확인한다.
+- FastAPI를 import하는 코드는 `main.py`와 `app/presentation/`에만 둔다 (`agent-architecture`).
+- `app/` 바로 아래에 두는 모듈은 `errors.py`와 `container.py` 둘이다. 더 생기면 사용자에게 확인한다.
+- `infrastructure/` 아래는 창구 종류마다 폴더 하나다. 새 종류의 창구가 생기면 폴더를 더한다 (예: `memory/`).
 - `app/domain/`은 계산·판단·상태 변화 같은 업무 규칙이 있을 때만 만든다 (`agent-architecture`).
 - 각 폴더에 `__init__.py`를 둔다.
 
@@ -52,7 +61,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 - 버전은 `pyproject.toml`에 적지 않고 `constraints.txt`로 고정한다. 범위만 적는다 (예: `"langgraph"`).
 - 커버리지 도구는 운영 플랫폼에 없을 수 있다. `pyproject.toml`에 `--cov`를 넣으면 운영 플랫폼의 테스트 실행이 깨진다. 커버리지는 python-reviewer와 `/python:export`가 실행할 때만 붙인다.
 - 프로젝트 자체는 패키지로 설치하지 않는다. `pythonpath = ["."]`로 `app`을 찾는다.
-- 로컬에 없는 SDK를 import하는 운영 플랫폼 구현(`app/platform/<이름>.py`)은 `[tool.pyrefly] project-excludes`와 `[tool.coverage.run] omit`에 넣는다. 운영 플랫폼에서는 그대로 쓰인다.
+- 로컬에 없는 SDK를 import하는 운영 플랫폼 구현(`app/infrastructure/<이름>.py`)은 `[tool.pyrefly] project-excludes`와 `[tool.coverage.run] omit`에 넣는다. 운영 플랫폼에서는 그대로 쓰인다.
 
 Ruff 설정:
 
@@ -93,7 +102,7 @@ uv pip install --python .venv -r pyproject.toml --extra dev -c constraints.txt
 | `DATABASE_URL` | 대화 기록 저장소 (PostgreSQL) |
 
 - `.env.example`(값이 빈 견본)만 git에 넣는다. `.env`는 git과 반출에서 뺀다.
-- `.env`는 `app/platform/settings.py`가 로컬에서만 읽는다. 다른 모듈에서 `os.environ`을 읽지 않는다.
+- `.env`는 `app/infrastructure/settings.py`가 로컬에서만 읽는다. 다른 모듈에서 `os.environ`을 읽지 않는다.
 - 테스트는 `.env`를 읽지 않는다. 연결 창구 자리에 가짜를 넣는다 (`python-testing`).
 
 ## 실행

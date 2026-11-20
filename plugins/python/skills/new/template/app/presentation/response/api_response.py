@@ -4,7 +4,7 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-from app.api.response.error_code import ErrorCode
+from app.presentation.response.error_code import ErrorCode
 
 SUCCESS_CODE = "SUCCESS"
 

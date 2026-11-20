@@ -5,9 +5,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.errors import register_exception_handlers
-from app.api.routes import router
-from app.platform import build_platform
+from app.infrastructure import build_platform
+from app.presentation.errors import register_exception_handlers
+from app.presentation.routes import router
 
 
 @asynccontextmanager

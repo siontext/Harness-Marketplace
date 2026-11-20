@@ -1,32 +1,32 @@
 ---
 name: fastapi-conventions
-description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py 조립(lifespan)과 app/api 파일 배치(routes·schemas·errors·response), /chat·/health, pydantic 요청·응답, 공통 응답 틀(ApiResponse·SseEvent), SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 app/api 코드를 작성하거나 리뷰할 때 참조.
+description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py(lifespan)와 app/presentation 파일 배치(routes·schemas·errors·response), /chat·/health, pydantic 요청·응답, 공통 응답 틀(ApiResponse·SseEvent), SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 app/presentation 코드를 작성하거나 리뷰할 때 참조.
 ---
 
 # FastAPI Conventions
 
-에이전트는 혼자서는 바깥과 이야기하지 못한다. 호출하는 쪽(앱, 다른 서버)이 `/chat`으로 질문을 보내면 FastAPI가 받아 에이전트에 넘기고 답을 돌려준다. FastAPI를 아는 코드는 `main.py`와 `app/api/`에만 둔다.
+에이전트는 혼자서는 바깥과 이야기하지 못한다. 호출하는 쪽(앱, 다른 서버)이 `/chat`으로 질문을 보내면 FastAPI가 받아 에이전트에 넘기고 답을 돌려준다. FastAPI를 아는 코드는 `main.py`와 `app/presentation/`에만 둔다.
 
 ## 파일 배치
 
 | 파일 | 두는 것 |
 |---|---|
 | `main.py` | `FastAPI` 앱 만들기, `lifespan`, 엔드포인트·예외 핸들러 붙이기. 엔드포인트나 모델을 직접 적지 않는다 |
-| `app/api/routes.py` | 엔드포인트 (`APIRouter`) |
-| `app/api/schemas.py` | 엔드포인트별 요청·응답 내용 (`ChatRequest`, `HealthStatus` 등). 공통 응답 틀은 두지 않는다 |
-| `app/api/errors.py` | 오류 규칙 값, 예외 → 규칙 대응표, 전역 예외 핸들러 (`register_exception_handlers`) |
-| `app/api/response/api_response.py` | `ApiResponse` — JSON 응답의 공통 틀 |
-| `app/api/response/sse_event.py` | `SseEvent` — 스트리밍 이벤트의 공통 틀 |
-| `app/api/response/error_code.py` | `ErrorCode` — 오류 응답의 `code` 값 |
-| `app/api/response/messages.py` | 사용자에게 보여줄 안내 문구 |
+| `app/presentation/routes.py` | 엔드포인트 (`APIRouter`) |
+| `app/presentation/schemas.py` | 엔드포인트별 요청·응답 내용 (`ChatRequest`, `HealthStatus` 등). 공통 응답 틀은 두지 않는다 |
+| `app/presentation/errors.py` | 오류 규칙 값, 예외 → 규칙 대응표, 전역 예외 핸들러 (`register_exception_handlers`) |
+| `app/presentation/response/api_response.py` | `ApiResponse` — JSON 응답의 공통 틀 |
+| `app/presentation/response/sse_event.py` | `SseEvent` — 스트리밍 이벤트의 공통 틀 |
+| `app/presentation/response/error_code.py` | `ErrorCode` — 오류 응답의 `code` 값 |
+| `app/presentation/response/messages.py` | 사용자에게 보여줄 안내 문구 |
 
-- `app/api`는 `app/agent`를 부르고, 그 반대는 금지다 (`agent-architecture`).
-- 응답 틀은 종류마다 `app/api/response/`에 파일 하나로 둔다. 목록 조회가 생기면 `page_response.py`(`PageResponse`)를 더한다.
-- 그 밖에 `app/api/` 안에 파일을 더 만들 때는 설계 문서에 적힌 경우만.
+- `app/presentation`은 `app/application`을 부르고, 그 반대는 금지다. `app/infrastructure`는 import하지 않는다 (`agent-architecture`).
+- 응답 틀은 종류마다 `app/presentation/response/`에 파일 하나로 둔다. 목록 조회가 생기면 `page_response.py`(`PageResponse`)를 더한다.
+- 그 밖에 `app/presentation/` 안에 파일을 더 만들 때는 설계 문서에 적힌 경우만.
 
 ## main.py — 시작·종료 조립
 
-- 서버가 켜질 때 `lifespan`에서 연결 창구(`build_platform()`)와 에이전트를 **한 번** 만든다. 요청마다 만들지 않는다.
+- 서버가 켜질 때 `lifespan`에서 연결 창구(`build_platform()`)를 만들고 `app/container.py`의 조립 함수로 에이전트를 **한 번** 만든다. 요청마다 만들지 않는다.
 - 만든 것은 `app.state`에 둔다. 엔드포인트는 `request.app.state`에서 꺼내 쓴다.
 - 서버가 꺼질 때 연결(Redis, DB, HTTP 클라이언트)을 닫는다.
 - 연결 창구를 불러오지 못하면 서버가 뜨지 않게 그대로 오류를 낸다 (`agent-architecture`).
@@ -34,8 +34,9 @@ description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 Fast
 ```python
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    platform = build_platform()
-    app.state.ctx = build_agent_context(platform)
+    settings = load_settings()
+    platform = build_platform(settings)
+    app.state.ctx = build_agent_context(platform, settings.agent_timeout_seconds)
     yield
     await platform.aclose()
 
@@ -92,7 +93,7 @@ async def create_order(body: OrderRequest) -> ApiResponse[OrderResult]:
 {"code": "SUCCESS", "message": null, "data": {"order_id": "o-123"}}
 ```
 
-- 엔드포인트의 반환 타입은 `ApiResponse[내용 모델]`로 적는다. 내용 모델은 `app/api/schemas.py`에 둔다.
+- 엔드포인트의 반환 타입은 `ApiResponse[내용 모델]`로 적는다. 내용 모델은 `app/presentation/schemas.py`에 둔다.
 - 성공은 `ApiResponse.success(...)`, 실패는 `ApiResponse.fail(...)`로 만든다. 실패는 전역 예외 핸들러만 만든다.
 - `dict`를 그대로 돌려주지 않는다.
 - 스트리밍 응답은 `ApiResponse`로 감싸지 않고 `SseEvent`를 쓴다 (아래 "SSE 이벤트 모양").
@@ -148,7 +149,7 @@ class ChatResponse(BaseModel):
     answer: str
 ```
 
-호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ApiResponse[ChatResponse]`를 JSON으로 돌려주게 바꾼다. 에이전트 코드(`app/agent/`)는 그대로 두고 `app/api/routes.py`의 엔드포인트만 바꾼다. 그래서 에이전트 쪽에는 스트리밍용 함수와 한 번에 답하는 함수를 함께 둔다.
+호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ApiResponse[ChatResponse]`를 JSON으로 돌려주게 바꾼다. 에이전트 코드(`app/application/agent/`)는 그대로 두고 `app/presentation/routes.py`의 엔드포인트만 바꾼다. 그래서 에이전트 쪽에는 스트리밍용 함수와 한 번에 답하는 함수를 함께 둔다.
 
 ## 오류 응답 통일
 
@@ -161,15 +162,15 @@ class ChatResponse(BaseModel):
 | LLM·외부 시스템 오류 | 502 (스트리밍 중이면 `error` 이벤트) | `UPSTREAM_ERROR` |
 | 그 밖의 오류 | 500 | `INTERNAL_ERROR` |
 
-- 오류 본문은 항상 `ApiResponse` 실패 모양(`{"code": "...", "message": "...", "data": null}`)이다. 전역 예외 핸들러(`app/api/errors.py`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
-- 예외 클래스는 `app/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `app/api/errors.py`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
+- 오류 본문은 항상 `ApiResponse` 실패 모양(`{"code": "...", "message": "...", "data": null}`)이다. 전역 예외 핸들러(`app/presentation/errors.py`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
+- 예외 클래스는 `app/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `app/presentation/errors.py`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
 - 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `/chat`이 스트리밍 함수 안에서 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`find_error_rule`)에서 가져온다.
 - 위 표에 없는 `code`를 새로 만들지 않는다. 필요하면 설계 문서 결정 섹션에 적고 사용자에게 확인한다.
 - `message`는 사용자에게 보여줄 한국어 안내다. 예외 내용, 스택, 내부 주소를 넣지 않는다. 자세한 내용은 로그에 남긴다 (키·개인정보 제외).
-- 안내 문구는 `app/api/response/messages.py`에 상수로 모은다. 규칙이나 핸들러 안에 문장을 직접 적지 않는다.
+- 안내 문구는 `app/presentation/response/messages.py`에 상수로 모은다. 규칙이나 핸들러 안에 문장을 직접 적지 않는다.
 - 가드레일에 막힌 것은 오류가 아니다. 한 번에 응답이면 정상 답으로 안내 문구를 보낸다. 스트리밍 중 출력 검사에 막히면 이미 시작된 응답을 끝내야 해서 `BLOCKED` 이벤트를 쓴다.
 
-### app/api/errors.py 안의 순서
+### app/presentation/errors.py 안의 순서
 
 값과 함수를 묶음별로 모으고 구분 주석(`# ── 이름 ──`)을 단다.
 
@@ -192,12 +193,13 @@ class ChatResponse(BaseModel):
 | 순서 | 파일 | 추가할 것 |
 |---|---|---|
 | 1 | `app/errors.py` | 예외 클래스 (`AppError`나 그 하위 예외를 물려받는다) |
-| 2 | `app/api/response/error_code.py` | `code` 값 |
-| 3 | `app/api/response/messages.py` | 안내 문구 |
-| 4 | `app/api/errors.py`의 `ERROR_RULES` | 예외 클래스 → `ErrorRule(상태 코드, code, 안내 문구)` |
+| 2 | `app/presentation/response/error_code.py` | `code` 값 |
+| 3 | `app/presentation/response/messages.py` | 안내 문구 |
+| 4 | `app/presentation/errors.py`의 `ERROR_RULES` | 예외 클래스 → `ErrorRule(상태 코드, code, 안내 문구)` |
 
 - 응답이 기존 예외와 같고 로그에서만 구분하면 되는 예외는 1번만 한다. 표에 없는 하위 예외는 가장 가까운 부모의 규칙을 따른다.
-- 던지는 쪽(도구, 에이전트)은 예외 클래스만 쓴다: `raise UpstreamError("상품 조회 실패: id=123")`. 규칙 값이나 `ErrorCode`를 가져다 쓰지 않는다.
+- 던지는 쪽(도메인, 서비스, 에이전트, 포트 구현)은 예외 클래스만 쓴다: `raise UpstreamError("상품 조회 실패: id=123")`. 규칙 값이나 `ErrorCode`를 가져다 쓰지 않는다.
+- 업무 규칙에 걸려 던지는 예외(예: 취소 불가)는 `app/domain/`에 두고 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않으므로 위 네 단계 중 1번도 `app/errors.py`가 아니라 `app/domain/`에 한다.
 
 ## 시간 제한
 
