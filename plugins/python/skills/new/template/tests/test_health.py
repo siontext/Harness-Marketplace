@@ -12,4 +12,8 @@ def test_health는_ok를_돌려준다() -> None:
 
     # Then
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {
+        "code": "SUCCESS",
+        "message": None,
+        "data": {"status": "ok"},
+    }

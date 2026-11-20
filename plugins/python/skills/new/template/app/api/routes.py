@@ -2,10 +2,13 @@
 
 from fastapi import APIRouter
 
+from app.api.response.api_response import ApiResponse
+from app.api.schemas import HealthStatus
+
 router = APIRouter()
 
 
 @router.get("/health")
-async def health() -> dict[str, str]:
+async def health() -> ApiResponse[HealthStatus]:
     """서버가 살아 있는지 알려 준다. LLM이나 DB는 부르지 않는다."""
-    return {"status": "ok"}
+    return ApiResponse.success(HealthStatus(status="ok"))

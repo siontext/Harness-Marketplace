@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 from app.api.errors import find_error_rule
-from app.api.schemas import ErrorCode
+from app.api.response.error_code import ErrorCode
 from app.errors import AgentTimeoutError, AppError, UpstreamError
 
 

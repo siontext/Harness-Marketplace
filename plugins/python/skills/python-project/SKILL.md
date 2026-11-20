@@ -21,7 +21,8 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 ├── .env                     실제 값 — git·반출 제외
 ├── app/
 │   ├── errors.py            공통 예외 (AppError와 하위 예외)
-│   ├── api/                 웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 모델), errors.py(전역 예외 핸들러)
+│   ├── api/                 웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), errors.py(전역 예외 핸들러)
+│   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, ErrorCode, 안내 문구
 │   ├── agent/               에이전트 흐름 (create_agent / StateGraph)
 │   ├── tools/               도구 함수 (@tool)
 │   ├── prompts/             프롬프트 파일 (.md)

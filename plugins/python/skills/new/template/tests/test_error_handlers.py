@@ -85,6 +85,7 @@ def test_프로젝트_예외가_올라오면_대응표의_상태_코드와_본�
         "message": (
             "연결된 시스템에 문제가 있어 답하지 못했습니다. 잠시 후 다시 시도해 주세요."
         ),
+        "data": None,
     }
 
 
@@ -113,6 +114,7 @@ def test_없는_주소는_404와_통일된_본문으로_답한다() -> None:
     assert response.json() == {
         "code": "INVALID_REQUEST",
         "message": "요청한 주소를 찾을 수 없습니다.",
+        "data": None,
     }
 
 
@@ -129,6 +131,7 @@ def test_허용_안_된_방식은_405와_Allow_헤더를_그대로_돌려준다(
     assert response.json() == {
         "code": "INVALID_REQUEST",
         "message": "지원하지 않는 요청 방식입니다.",
+        "data": None,
     }
 
 
@@ -173,7 +176,8 @@ def test_오류_응답에_예외_내용이_새지_않는다(client: TestClient, 
 
     # Then
     assert LEAK_MARKER not in response.text
-    assert set(response.json()) == {"code", "message"}
+    assert set(response.json()) == {"code", "message", "data"}
+    assert response.json()["data"] is None
 
 
 def test_서버_오류는_ERROR_수준으로_스택과_함께_남는다(
