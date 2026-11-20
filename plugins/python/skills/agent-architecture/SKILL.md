@@ -28,7 +28,7 @@ app/errors.py (공통 예외)  ◀──  모든 레이어
 | 레이어 | 두는 것 | import할 수 있는 프로젝트 코드 |
 |---|---|---|
 | `app/presentation` | 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러 | `application`, `app/errors.py` |
-| `app/application/agent/` | 채팅 기능 — `usecase.py`(`ChatUseCase`), `service.py`(`ChatService`: 입력 검사 → 답 글자 받기 → 문장별 출력 검사, 시간 제한), `chat_command.py`, `port.py`(`AnswerGenerator`·`Guardrail`) | `application` 안, `domain`, `app/errors.py` |
+| `app/application/agent/` | 채팅 기능 — `usecase.py`(`ChatUseCase`), `service.py`(`ChatService`: 입력 검사 → 답 글자 받기 → 문장별 출력 검사, 시간 제한), `command.py`, `port.py`(`AnswerGenerator`·`Guardrail`) | `application` 안, `domain`, `app/errors.py` |
 | `app/application/<기능>/` | 업무 기능 하나 — `usecase.py`(들어오는 포트), `port.py`(나가는 포트), `service.py`, `command.py`, `result.py` | 같은 기능 폴더, `domain`, `app/errors.py` |
 | `app/domain/<기능>/` | 업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 | `app/errors.py`만 |
 | `app/infrastructure` | 포트 구현(어댑터) — 답 만들기(`agent/`), 저장소, 가드레일, 도구. LLM·프롬프트 창구(`llm/`, `prompt/`)와 그 모양(`port.py`), 설정, 구현 선택 | `application`, `domain`, `app/errors.py` |
@@ -57,7 +57,7 @@ LangChain·LangGraph는 프레임워크라 바깥(`infrastructure`)에만 둔다
 `presentation`은 요청 모델을 그대로 넘기지 않고 Command로 바꿔 넘긴다. Java 하네스의 Command와 같은 역할이다.
 
 ```python
-# app/application/agent/chat_command.py
+# app/application/agent/command.py
 @dataclass(frozen=True)
 class ChatCommand:
     """에이전트에 넘기는 질문 한 건."""
@@ -144,6 +144,7 @@ class OrderService(OrderUseCase):
 
 - **유스케이스(`usecase.py`)는 `Protocol`이고 메서드에 본문을 넣지 않는다.** 서비스는 `class OrderService(OrderUseCase):`로 구현임을 적는다.
 - **유스케이스 메서드는 Command/Query를 받고 Result를 돌려준다.** 상태를 바꾸지 않는 요청은 `...Query`, 바꾸는 요청은 `...Command`로 이름 붙이고 둘 다 `command.py` 한 파일에 둔다. 셋 다 `@dataclass(frozen=True)`이고 pydantic을 쓰지 않는다.
+- **DTO(Command·Query·Result)는 그 기능 폴더의 `command.py`·`result.py`에 둔다.** 채팅 기능도 `agent/command.py`다. 모든 기능의 DTO를 모으는 폴더(`application/dto/` 등)를 따로 만들지 않는다. 한 기능의 Command가 많아 파일이 길어지면 `command.py`를 `command/` 패키지로 바꾼다.
 - **서비스는 엔티티를 밖으로 돌려주지 않는다.** Result로 옮겨 담아 돌려준다. Result에는 부르는 쪽이 필요한 값만 담는다. 도메인의 코드값 Enum은 그대로 써도 되고, 엔티티는 담지 않는다. 엔티티가 바뀌어도 옮겨 담는 곳(서비스·`from_<엔티티>`)에서 멈추고 도구까지 번지지 않는다.
 - **대상이 없을 때: 저장소(나가는 포트)는 `None`을 돌려주고, 서비스가 업무 예외(`OrderNotFoundError`)로 바꿔 던진다.** 유스케이스의 반환 타입에 `None`을 넣지 않는다.
 - **도구는 유스케이스(`OrderUseCase`)에만 의존한다.** 서비스 구현(`OrderService`)과 엔티티(`Order`)를 import하지 않는다. 도메인에서 가져와도 되는 것은 코드값 Enum과 업무 예외뿐이다.
