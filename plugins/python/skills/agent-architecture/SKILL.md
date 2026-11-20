@@ -11,7 +11,7 @@ description: Python AI 에이전트 아키텍처 규칙 — 의존 방향(main �
 main.py (조립)
    │
    ▼
-app/api (FastAPI — 엔드포인트, 요청·응답 모델, 전역 예외 핸들러)
+app/api (FastAPI — 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러)
    │
    ▼
 app/agent  ──▶  app/tools  ──▶  app/domain (있을 때만)
@@ -46,6 +46,7 @@ app/errors.py (공통 예외)  ◀──  모든 레이어
 | 여러 레이어가 던지거나 전역 핸들러가 구분해 답하는 예외 (`AppError`, `UpstreamError`, `AgentTimeoutError`) | `app/errors.py` | 안쪽 레이어가 import해야 하므로 HTTP를 몰라야 한다 |
 | 한 레이어 안에서만 쓰는 예외 (예: `PlatformLoadError`) | 그 레이어 안 | 밖에서 구분할 일이 없다 |
 | 예외 → 상태 코드·`code`·안내 문구 대응표, 전역 핸들러 | `app/api/errors.py` | HTTP 응답을 만드는 일이다 (`fastapi-conventions`) |
+| `code` 값(`ErrorCode`), 안내 문구 | `app/api/response/` | 호출하는 쪽에 보이는 응답의 일부다 |
 
 - 예외 클래스에 상태 코드나 `code`를 넣지 않는다. 대응은 `app/api/errors.py`의 표 한 곳에만 둔다.
 - 새 예외는 `AppError`나 그 하위 예외를 상속한다. 대응표에 없으면 가장 가까운 부모의 규칙으로 답한다.

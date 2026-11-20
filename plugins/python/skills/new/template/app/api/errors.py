@@ -1,6 +1,7 @@
-"""전역 예외 핸들러. 올라온 예외를 {"code", "message"} 오류 응답으로 바꾼다.
+"""전역 예외 핸들러. 올라온 예외를 ApiResponse 실패 응답으로 바꾼다.
 
 예외 → 상태 코드·code·안내 문구 대응은 이 파일의 표 한 곳에만 둔다.
+안내 문구 자체는 app/api/response/messages.py에 모아 둔다.
 스트리밍 중 오류(SSE error 이벤트)도 find_error_rule로 같은 표를 쓴다.
 """
 
@@ -14,7 +15,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.schemas import ErrorCode, ErrorResponse
+from app.api.response import messages
+from app.api.response.api_response import ApiResponse
+from app.api.response.error_code import ErrorCode
 from app.errors import AgentTimeoutError, AppError, UpstreamError
 
 logger = logging.getLogger(__name__)
@@ -35,45 +38,52 @@ class ErrorRule:
     message: str
 
 
+# ── 예상하지 못한 오류 (기본값) ─────────────────────────────────────────
+# 아래 어디에도 해당하지 않는 오류는 모두 이 규칙으로 답한다.
 INTERNAL_ERROR_RULE = ErrorRule(
     HTTPStatus.INTERNAL_SERVER_ERROR,
     ErrorCode.INTERNAL_ERROR,
-    "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+    messages.INTERNAL_ERROR,
 )
 
+# ── 우리가 만든 예외 (app/errors.py) ────────────────────────────────────
 # 예외 → 상태 코드·code·안내 문구 대응은 이 표 한 곳에만 둔다.
 ERROR_RULES: dict[type[AppError], ErrorRule] = {
     AgentTimeoutError: ErrorRule(
         HTTPStatus.GATEWAY_TIMEOUT,
         ErrorCode.TIMEOUT,
-        "응답이 늦어지고 있습니다. 잠시 후 다시 시도해 주세요.",
+        messages.TIMEOUT,
     ),
     UpstreamError: ErrorRule(
         HTTPStatus.BAD_GATEWAY,
         ErrorCode.UPSTREAM_ERROR,
-        "연결된 시스템에 문제가 있어 답하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        messages.UPSTREAM_ERROR,
     ),
     AppError: INTERNAL_ERROR_RULE,
 }
 
+# ── FastAPI가 던지는 예외 ───────────────────────────────────────────────
+# 요청 형식 오류(RequestValidationError).
 INVALID_REQUEST_RULE = ErrorRule(
     HTTPStatus.UNPROCESSABLE_ENTITY,
     ErrorCode.INVALID_REQUEST,
-    "요청 형식이 올바르지 않습니다. 보낸 내용을 확인해 주세요.",
+    messages.INVALID_REQUEST,
 )
 
 # HTTPException은 상태 코드를 그대로 쓰므로 4xx의 안내 문구만 상태 코드로 고른다.
 HTTP_CLIENT_ERROR_MESSAGES: dict[int, str] = {
-    HTTPStatus.NOT_FOUND: "요청한 주소를 찾을 수 없습니다.",
-    HTTPStatus.METHOD_NOT_ALLOWED: "지원하지 않는 요청 방식입니다.",
+    HTTPStatus.NOT_FOUND: messages.NOT_FOUND,
+    HTTPStatus.METHOD_NOT_ALLOWED: messages.METHOD_NOT_ALLOWED,
 }
-DEFAULT_CLIENT_ERROR_MESSAGE = "요청을 처리할 수 없습니다. 요청 내용을 확인해 주세요."
 
+# ── 오류 규칙이 아닌 설정 ───────────────────────────────────────────────
+# 본문을 실을 수 없는 상태 코드.
 NO_BODY_STATUS_CODES: frozenset[int] = frozenset(
     {HTTPStatus.NO_CONTENT, HTTPStatus.RESET_CONTENT, HTTPStatus.NOT_MODIFIED}
 )
 
 
+# ── 핸들러가 불러 쓰는 함수 ─────────────────────────────────────────────
 def find_error_rule(exc: Exception) -> ErrorRule:
     """예외에 맞는 오류 규칙을 찾는다.
 
@@ -96,7 +106,7 @@ def _find_http_error_rule(status_code: int) -> ErrorRule:
     """HTTPException의 상태 코드는 그대로 두고 code와 안내 문구를 고른다."""
     if status_code >= HTTPStatus.INTERNAL_SERVER_ERROR:
         return replace(INTERNAL_ERROR_RULE, status_code=status_code)
-    message = HTTP_CLIENT_ERROR_MESSAGES.get(status_code, DEFAULT_CLIENT_ERROR_MESSAGE)
+    message = HTTP_CLIENT_ERROR_MESSAGES.get(status_code, messages.CLIENT_ERROR)
     return ErrorRule(status_code, ErrorCode.INVALID_REQUEST, message)
 
 
@@ -131,12 +141,13 @@ def _to_response(rule: ErrorRule, headers: Mapping[str, str] | None = None) -> R
     status_code = rule.status_code
     if status_code < HTTPStatus.OK or status_code in NO_BODY_STATUS_CODES:
         return Response(status_code=status_code, headers=headers)
-    body = ErrorResponse(code=rule.code, message=rule.message)
+    body = ApiResponse[None].fail(rule.code, rule.message)
     return JSONResponse(
         body.model_dump(mode="json"), status_code=status_code, headers=headers
     )
 
 
+# ── 핸들러 함수 ─────────────────────────────────────────────────────────
 async def _handle_error(request: Request, exc: Exception) -> Response:
     """프로젝트 예외와 처리하지 못한 예외를 대응표의 규칙으로 답한다."""
     rule = find_error_rule(exc)
@@ -170,8 +181,9 @@ async def _handle_http_exception(
     return _to_response(rule, exc.headers)
 
 
+# ── 핸들러 등록 (어떤 예외를 어느 핸들러가 잡는지) ──────────────────────
 def register_exception_handlers(app: FastAPI) -> None:
-    """모든 오류 응답을 {"code", "message"} 모양으로 통일하는 핸들러를 붙인다.
+    """모든 오류 응답을 ApiResponse 실패 응답으로 통일하는 핸들러를 붙인다.
 
     Args:
         app: 핸들러를 붙일 FastAPI 앱.

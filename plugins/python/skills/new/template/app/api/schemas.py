@@ -1,21 +1,9 @@
-"""요청·응답 모양. 호출하는 쪽과 주고받는 pydantic 모델을 모은다."""
-
-from enum import StrEnum
+"""엔드포인트별 요청·응답 내용. 공통 응답 틀은 app/api/response에 둔다."""
 
 from pydantic import BaseModel, Field
 
 
-class ErrorCode(StrEnum):
-    """오류 응답의 code 값. fastapi-conventions 표에 있는 값만 둔다."""
+class HealthStatus(BaseModel):
+    """/health가 돌려주는 내용."""
 
-    INVALID_REQUEST = "INVALID_REQUEST"
-    TIMEOUT = "TIMEOUT"
-    UPSTREAM_ERROR = "UPSTREAM_ERROR"
-    INTERNAL_ERROR = "INTERNAL_ERROR"
-
-
-class ErrorResponse(BaseModel):
-    """모든 실패 응답의 본문. 칸은 code와 message 둘뿐이다."""
-
-    code: ErrorCode = Field(description="오류 종류")
-    message: str = Field(description="사용자에게 보여줄 안내 문구")
+    status: str = Field(description="서버 상태. 살아 있으면 ok")

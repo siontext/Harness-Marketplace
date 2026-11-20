@@ -1,6 +1,6 @@
 ---
 name: fastapi-conventions
-description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py 조립(lifespan)과 app/api 파일 배치(routes·schemas·errors), /chat·/health, pydantic 요청·응답, SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 app/api 코드를 작성하거나 리뷰할 때 참조.
+description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py 조립(lifespan)과 app/api 파일 배치(routes·schemas·errors·response), /chat·/health, pydantic 요청·응답, 공통 응답 틀(ApiResponse·SseEvent), SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 app/api 코드를 작성하거나 리뷰할 때 참조.
 ---
 
 # FastAPI Conventions
@@ -13,11 +13,16 @@ description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 Fast
 |---|---|
 | `main.py` | `FastAPI` 앱 만들기, `lifespan`, 엔드포인트·예외 핸들러 붙이기. 엔드포인트나 모델을 직접 적지 않는다 |
 | `app/api/routes.py` | 엔드포인트 (`APIRouter`) |
-| `app/api/schemas.py` | 요청·응답 pydantic 모델, `ErrorCode`, `ErrorResponse` |
-| `app/api/errors.py` | 예외 → 응답 대응표, 전역 예외 핸들러 (`register_exception_handlers`) |
+| `app/api/schemas.py` | 엔드포인트별 요청·응답 내용 (`ChatRequest`, `HealthStatus` 등). 공통 응답 틀은 두지 않는다 |
+| `app/api/errors.py` | 오류 규칙 값, 예외 → 규칙 대응표, 전역 예외 핸들러 (`register_exception_handlers`) |
+| `app/api/response/api_response.py` | `ApiResponse` — JSON 응답의 공통 틀 |
+| `app/api/response/sse_event.py` | `SseEvent` — 스트리밍 이벤트의 공통 틀 |
+| `app/api/response/error_code.py` | `ErrorCode` — 오류 응답의 `code` 값 |
+| `app/api/response/messages.py` | 사용자에게 보여줄 안내 문구 |
 
 - `app/api`는 `app/agent`를 부르고, 그 반대는 금지다 (`agent-architecture`).
-- `app/api/` 안에 파일을 더 만들 때는 설계 문서에 적힌 경우만.
+- 응답 틀은 종류마다 `app/api/response/`에 파일 하나로 둔다. 목록 조회가 생기면 `page_response.py`(`PageResponse`)를 더한다.
+- 그 밖에 `app/api/` 안에 파일을 더 만들 때는 설계 문서에 적힌 경우만.
 
 ## main.py — 시작·종료 조립
 
@@ -51,6 +56,7 @@ app.include_router(router)
 | GET | `/health` | 서버가 살아 있는지 알려 준다. `{"status": "ok"}` |
 
 - `/health`는 LLM이나 DB를 부르지 않는다. 서버 프로세스가 응답하는지만 본다.
+- `/health`는 `ApiResponse`로 감싸지 않는다. 운영 플랫폼이 본문을 읽어 판단할 수 있다.
 - 주소를 더 만들 때는 설계 문서에 적힌 경우만.
 
 ## 요청·응답 모양
@@ -65,6 +71,31 @@ class ChatRequest(BaseModel):
 
 - 요청 모델에서 길이·형식을 검사한다. 검사 실패는 FastAPI가 422로 돌려준다.
 - 호출하는 쪽과 다른 모양이 필요하면 설계 문서 개요에 적고 그에 맞춘다.
+
+## 공통 응답 틀
+
+JSON으로 답하는 엔드포인트는 성공이든 실패든 `ApiResponse` 하나로 감싼다. `/health`만 예외다.
+
+| 칸 | 성공 | 실패 |
+|---|---|---|
+| `code` | `"SUCCESS"` | 오류 종류 (`ErrorCode`) |
+| `message` | `null` | 사용자에게 보여줄 안내 문구 |
+| `data` | 돌려줄 내용 | `null` |
+
+```python
+@router.post("/orders")
+async def create_order(body: OrderRequest) -> ApiResponse[OrderResult]:
+    return ApiResponse.success(OrderResult(order_id="o-123"))
+```
+
+```json
+{"code": "SUCCESS", "message": null, "data": {"order_id": "o-123"}}
+```
+
+- 엔드포인트의 반환 타입은 `ApiResponse[내용 모델]`로 적는다. 내용 모델은 `app/api/schemas.py`에 둔다.
+- 성공은 `ApiResponse.success(...)`, 실패는 `ApiResponse.fail(...)`로 만든다. 실패는 전역 예외 핸들러만 만든다.
+- `dict`를 그대로 돌려주지 않는다.
+- 스트리밍 응답은 `ApiResponse`로 감싸지 않고 `SseEvent`를 쓴다 (아래 "SSE 이벤트 모양").
 
 ## 응답 방식 — 기본은 SSE
 
@@ -94,9 +125,9 @@ data: {"conversation_id": "c-123"}
 | `done` | `{"conversation_id": "..."}` | 답 끝 |
 | `error` | `{"code": "...", "message": "..."}` | 실패. 이 뒤로 아무것도 보내지 않는다 |
 
+- 이벤트는 `SseEvent.token(...)`, `SseEvent.done(...)`, `SseEvent.error(...)`로 만들고 `encode()`로 보낼 글자를 얻는다. 이벤트 글자를 직접 이어 붙이지 않는다.
 - `StreamingResponse(..., media_type="text/event-stream")`로 보낸다. 헤더에 `Cache-Control: no-cache`를 넣는다.
-- `data`는 JSON 한 줄로 쓴다 (`json.dumps(..., ensure_ascii=False)`). 줄바꿈이 들어간 글자를 그대로 쓰면 이벤트가 깨진다.
-- 이벤트 하나는 빈 줄(`\n\n`)로 끝낸다.
+- `data`는 JSON 한 줄이고 이벤트 하나는 빈 줄(`\n\n`)로 끝난다. 줄바꿈이 들어간 글자를 그대로 쓰면 이벤트가 깨진다. `encode()`가 이 모양을 맞춘다.
 - 스트리밍이 시작된 뒤에는 HTTP 상태 코드를 바꿀 수 없다. 실패는 `error` 이벤트로 알린다.
 - 대화 기억·기록 저장은 `done`을 보내기 직전에 한다.
 
@@ -117,7 +148,7 @@ class ChatResponse(BaseModel):
     answer: str
 ```
 
-호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ChatResponse`를 JSON으로 돌려주게 바꾼다. 에이전트 코드(`app/agent/`)는 그대로 두고 `app/api/routes.py`의 엔드포인트만 바꾼다. 그래서 에이전트 쪽에는 스트리밍용 함수와 한 번에 답하는 함수를 함께 둔다.
+호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ApiResponse[ChatResponse]`를 JSON으로 돌려주게 바꾼다. 에이전트 코드(`app/agent/`)는 그대로 두고 `app/api/routes.py`의 엔드포인트만 바꾼다. 그래서 에이전트 쪽에는 스트리밍용 함수와 한 번에 답하는 함수를 함께 둔다.
 
 ## 오류 응답 통일
 
@@ -130,12 +161,43 @@ class ChatResponse(BaseModel):
 | LLM·외부 시스템 오류 | 502 (스트리밍 중이면 `error` 이벤트) | `UPSTREAM_ERROR` |
 | 그 밖의 오류 | 500 | `INTERNAL_ERROR` |
 
-- 오류 본문은 항상 `{"code": "...", "message": "..."}` 모양이다. 전역 예외 핸들러(`app/api/errors.py`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
+- 오류 본문은 항상 `ApiResponse` 실패 모양(`{"code": "...", "message": "...", "data": null}`)이다. 전역 예외 핸들러(`app/api/errors.py`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
 - 예외 클래스는 `app/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `app/api/errors.py`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
 - 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `/chat`이 스트리밍 함수 안에서 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`find_error_rule`)에서 가져온다.
 - 위 표에 없는 `code`를 새로 만들지 않는다. 필요하면 설계 문서 결정 섹션에 적고 사용자에게 확인한다.
 - `message`는 사용자에게 보여줄 한국어 안내다. 예외 내용, 스택, 내부 주소를 넣지 않는다. 자세한 내용은 로그에 남긴다 (키·개인정보 제외).
+- 안내 문구는 `app/api/response/messages.py`에 상수로 모은다. 규칙이나 핸들러 안에 문장을 직접 적지 않는다.
 - 가드레일에 막힌 것은 오류가 아니다. 한 번에 응답이면 정상 답으로 안내 문구를 보낸다. 스트리밍 중 출력 검사에 막히면 이미 시작된 응답을 끝내야 해서 `BLOCKED` 이벤트를 쓴다.
+
+### app/api/errors.py 안의 순서
+
+값과 함수를 묶음별로 모으고 구분 주석(`# ── 이름 ──`)을 단다.
+
+| 순서 | 묶음 | 들어가는 것 |
+|---|---|---|
+| 1 | 예상하지 못한 오류 (기본값) | `INTERNAL_ERROR_RULE` |
+| 2 | 우리가 만든 예외 | `ERROR_RULES` (예외 클래스 → 규칙) |
+| 3 | FastAPI가 던지는 예외 | `INVALID_REQUEST_RULE`, `HTTP_CLIENT_ERROR_MESSAGES` |
+| 4 | 오류 규칙이 아닌 설정 | `NO_BODY_STATUS_CODES` |
+| 5 | 핸들러가 불러 쓰는 함수 | `find_error_rule`, 로그·응답 만들기 |
+| 6 | 핸들러 함수 | `_handle_...` |
+| 7 | 핸들러 등록 | `register_exception_handlers` |
+
+- 규칙(`ErrorRule`)은 상태 코드, `code`, 안내 문구 세 가지를 묶은 값이다. 핸들러 함수는 올라온 예외에 맞는 규칙을 골라 응답으로 만든다.
+- 예외마다 핸들러 함수를 따로 만들지 않는다. 예외마다 달라지는 것은 규칙 값뿐이다.
+- 핸들러 함수를 클래스로 묶지 않는다. 묶는 단위는 파일이다.
+
+### 새 예외를 추가할 때
+
+| 순서 | 파일 | 추가할 것 |
+|---|---|---|
+| 1 | `app/errors.py` | 예외 클래스 (`AppError`나 그 하위 예외를 물려받는다) |
+| 2 | `app/api/response/error_code.py` | `code` 값 |
+| 3 | `app/api/response/messages.py` | 안내 문구 |
+| 4 | `app/api/errors.py`의 `ERROR_RULES` | 예외 클래스 → `ErrorRule(상태 코드, code, 안내 문구)` |
+
+- 응답이 기존 예외와 같고 로그에서만 구분하면 되는 예외는 1번만 한다. 표에 없는 하위 예외는 가장 가까운 부모의 규칙을 따른다.
+- 던지는 쪽(도구, 에이전트)은 예외 클래스만 쓴다: `raise UpstreamError("상품 조회 실패: id=123")`. 규칙 값이나 `ErrorCode`를 가져다 쓰지 않는다.
 
 ## 시간 제한
 
