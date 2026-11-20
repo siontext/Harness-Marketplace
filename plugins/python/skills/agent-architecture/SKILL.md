@@ -39,7 +39,7 @@ app/common/errors.py (공통 예외)  ◀──  모든 레이어
 
 - **`application`과 `domain`은 `infrastructure`와 `presentation`을 import하지 않는다.** 위반이면 불통과다.
 - `presentation`은 `infrastructure`를 import하지 않는다. 필요한 것은 `container.py`가 만들어 `app.state`에 둔다.
-- `infrastructure`와 `application`을 함께 아는 곳은 `container.py`(와 그것을 부르는 `main.py`)뿐이다.
+- **구현을 골라 끼우는 곳은 `container.py`(와 그것을 부르는 `main.py`)뿐이다.** 서비스 구현(`OrderService`, `ChatService`)과 어댑터 구현을 만들어 서로 넣어 주는 일은 여기서만 한다. `infrastructure`는 `application`의 포트·유스케이스·DTO를 import할 수 있지만 서비스 구현을 만들지 않는다.
 - `application`, `domain`에서 운영 플랫폼 SDK를 import하거나 `os.environ`을 읽으면 위반이다.
 
 ### 공통 영역
@@ -162,7 +162,12 @@ class OrderService(OrderUseCase):
 - **DTO(Command·Query·Result)는 그 기능 폴더의 `command.py`·`result.py`에 둔다.** 채팅 기능도 `agent/command.py`다. 모든 기능의 DTO를 모으는 폴더(`application/dto/` 등)를 따로 만들지 않는다. 한 기능의 Command가 많아 파일이 길어지면 `command.py`를 `command/` 패키지로 바꾼다.
 - **서비스는 엔티티를 밖으로 돌려주지 않는다.** Result로 옮겨 담아 돌려준다. Result에는 부르는 쪽이 필요한 값만 담는다. 도메인의 코드값 Enum은 그대로 써도 되고, 엔티티는 담지 않는다. 엔티티가 바뀌어도 옮겨 담는 곳(서비스·`from_<엔티티>`)에서 멈추고 도구까지 번지지 않는다.
 - **대상이 없을 때: 저장소(나가는 포트)는 `None`을 돌려주고, 서비스가 업무 예외(`OrderNotFoundError`)로 바꿔 던진다.** 유스케이스의 반환 타입에 `None`을 넣지 않는다.
-- **도구는 유스케이스(`OrderUseCase`)에만 의존한다.** 서비스 구현(`OrderService`)과 엔티티(`Order`)를 import하지 않는다. 도메인에서 가져와도 되는 것은 코드값 Enum과 업무 예외뿐이다.
+- **도구는 유스케이스를 통해서만 기능을 쓴다.** 도구가 import할 수 있는 것은 아래 표가 전부다.
+
+| import할 수 있다 | import하지 않는다 |
+|---|---|
+| 유스케이스(`OrderUseCase`), 그 기능의 Command·Query(`command.py`)·Result(`result.py`) | 서비스 구현(`OrderService`) |
+| 도메인의 코드값 Enum(`OrderStatus`), 업무 예외(`OrderNotFoundError`) | 엔티티(`Order`), 나가는 포트(`OrderRepository`) |
 - **포트는 그것을 쓰는 폴더에 둔다.** 기능의 나가는 포트는 `application/<기능>/port.py`, 답 흐름이 쓰는 `AnswerGenerator`·`Guardrail`은 `application/agent/port.py`. LLM·프롬프트 창구는 답 만들기 어댑터와 조립만 쓰므로 `infrastructure/llm/port.py`, `infrastructure/prompt/port.py`에 둔다. 모든 포트를 한 파일에 모으지 않는다.
 - **도메인은 코드값만 갖고, 사용자에게 보이는 이름과 문장은 도구가 갖는다.** 상태·사유 같은 Enum의 값은 코드(`PAID`, `SHIPPING_STARTED`)로 두고, 표시용 이름("결제 완료")과 안내 문장은 도구의 표(`STATUS_LABELS`, `CANCEL_DENIAL_SENTENCES`)에 둔다. 문구를 바꿔도 도메인과 저장된 값은 그대로다.
 
