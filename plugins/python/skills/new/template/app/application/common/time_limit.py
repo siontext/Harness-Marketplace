@@ -4,7 +4,7 @@ import asyncio
 from collections.abc import AsyncGenerator
 from typing import TypeVar
 
-from app.errors import AgentTimeoutError
+from app.common.errors import AgentTimeoutError
 
 T = TypeVar("T")
 

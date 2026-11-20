@@ -5,8 +5,8 @@ from collections.abc import AsyncGenerator
 
 import pytest
 
-from app.application.agent.time_limit import within_time_limit
-from app.errors import AgentTimeoutError
+from app.application.common.time_limit import within_time_limit
+from app.common.errors import AgentTimeoutError
 
 pytestmark = pytest.mark.anyio
 

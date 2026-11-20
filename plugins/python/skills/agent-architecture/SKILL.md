@@ -1,6 +1,6 @@
 ---
 name: agent-architecture
-description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 답 만들기 포트(AnswerGenerator)와 LangGraph 어댑터, 조립(app/container.py), 공통 예외(app/errors.py) 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
+description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 답 만들기 포트(AnswerGenerator)와 LangGraph 어댑터, 조립(app/container.py), 공통 영역(app/common, 계층별 common)과 공통 예외 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
 ---
 
 # Agent Architecture
@@ -22,24 +22,38 @@ app/domain            업무 규칙     │
                                    │
 app/infrastructure    답 만들기 어댑터(agent/), LLM·저장소·프롬프트·가드레일 구현, 도구(tools/)
 
-app/errors.py (공통 예외)  ◀──  모든 레이어
+app/common/errors.py (공통 예외)  ◀──  모든 레이어
 ```
 
 | 레이어 | 두는 것 | import할 수 있는 프로젝트 코드 |
 |---|---|---|
-| `app/presentation` | 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러 | `application`, `app/errors.py` |
-| `app/application/agent/` | 채팅 기능 — `usecase.py`(`ChatUseCase`), `service.py`(`ChatService`: 입력 검사 → 답 글자 받기 → 문장별 출력 검사, 시간 제한), `command.py`, `port.py`(`AnswerGenerator`·`Guardrail`) | `application` 안, `domain`, `app/errors.py` |
-| `app/application/<기능>/` | 업무 기능 하나 — `usecase.py`(들어오는 포트), `port.py`(나가는 포트), `service.py`, `command.py`, `result.py` | 같은 기능 폴더, `domain`, `app/errors.py` |
-| `app/domain/<기능>/` | 업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 | `app/errors.py`만 |
-| `app/infrastructure` | 포트 구현(어댑터) — 답 만들기(`agent/`), 저장소, 가드레일, 도구. LLM·프롬프트 창구(`llm/`, `prompt/`)와 그 모양(`port.py`), 설정, 구현 선택 | `application`, `domain`, `app/errors.py` |
+| `app/presentation` | 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러 | `application`, `app/common/errors.py` |
+| `app/application/agent/` | 채팅 기능 — `usecase.py`(`ChatUseCase`), `service.py`(`ChatService`: 입력 검사 → 답 글자 받기 → 문장별 출력 검사, 시간 제한), `command.py`, `port.py`(`AnswerGenerator`·`Guardrail`) | `application` 안, `domain`, `app/common/errors.py` |
+| `app/application/<기능>/` | 업무 기능 하나 — `usecase.py`(들어오는 포트), `port.py`(나가는 포트), `service.py`, `command.py`, `result.py` | 같은 기능 폴더, `domain`, `app/common/errors.py` |
+| `app/domain/<기능>/` | 업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 | `app/common/errors.py`만 |
+| `app/infrastructure` | 포트 구현(어댑터) — 답 만들기(`agent/`), 저장소, 가드레일, 도구. LLM·프롬프트 창구(`llm/`, `prompt/`)와 그 모양(`port.py`), 설정, 구현 선택 | `application`, `domain`, `app/common/errors.py` |
 | `app/container.py` | 조립 — 구현을 서비스·도구·에이전트에 넣어 주기 | 전부 |
 | `main.py` | `FastAPI` 앱 만들기, `lifespan`에서 조립 함수 부르기 | 전부 |
-| `app/errors.py` | 공통 예외 | 표준 라이브러리만 |
+| `app/common/` | 모든 계층이 쓰는 것 — `errors.py`(공통 예외) | 표준 라이브러리만 |
+| `app/application/common/` | 애플리케이션 안 여러 기능이 쓰는 도우미 — `time_limit.py` | `app/common/`, 표준 라이브러리 |
 
 - **`application`과 `domain`은 `infrastructure`와 `presentation`을 import하지 않는다.** 위반이면 불통과다.
 - `presentation`은 `infrastructure`를 import하지 않는다. 필요한 것은 `container.py`가 만들어 `app.state`에 둔다.
 - `infrastructure`와 `application`을 함께 아는 곳은 `container.py`(와 그것을 부르는 `main.py`)뿐이다.
 - `application`, `domain`에서 운영 플랫폼 SDK를 import하거나 `os.environ`을 읽으면 위반이다.
+
+### 공통 영역
+
+"공통"은 누가 쓰느냐에 따라 두 단계로 나눈다. 기능 폴더(`agent/`, `<기능>/`)에는 그 기능만의 것을 둔다.
+
+| 단계 | 둘 곳 | 지금 있는 것 | 조건 |
+|---|---|---|---|
+| 모든 계층이 쓰는 것 | `app/common/` | `errors.py` | 표준 라이브러리만 쓴다. `domain`도 import할 수 있으므로 기술(asyncio, FastAPI 등)을 넣지 않는다 |
+| 한 계층 안에서 여러 기능이 쓰는 것 | 그 계층의 `common/` (presentation은 `response/`) | `application/common/time_limit.py`, `presentation/response/sse_response.py` | 그 계층의 규칙(쓸 수 있는 패키지)을 따른다 |
+
+- 기능 폴더끼리 서로 import하지 않는다. 두 기능이 같이 쓸 것이 생기면 그 계층의 `common/`으로 옮긴다.
+- `common/`을 아무거나 넣는 곳(utils)으로 쓰지 않는다. 한 기능만 쓰는 것은 그 기능 폴더에 둔다.
+- 에이전트가 여럿이 되면 `app/<에이전트>/` 아래에 계층을 두고 공통은 `app/common/<계층>/`로 옮긴다. 그때 구조는 사용자와 정한다.
 
 ### 바깥 패키지를 쓸 수 있는 곳
 
@@ -198,7 +212,7 @@ class ChatService(ChatUseCase):
             yield await self._check_output(sentence)
 ```
 
-- **서비스의 공개 메서드는 업무 단계만 적는다.** `OrderService.cancel_order`(꺼내기 → 판단 맡기기 → 저장 → 결과)처럼 몇 줄로 읽혀야 한다. 시간 제한(`within_time_limit`, 뼈대의 `app/application/agent/time_limit.py`), 글자를 문장으로 모으기(`_sentences`) 같은 기술은 함수로 빼고 이름으로 부른다.
+- **서비스의 공개 메서드는 업무 단계만 적는다.** `OrderService.cancel_order`(꺼내기 → 판단 맡기기 → 저장 → 결과)처럼 몇 줄로 읽혀야 한다. 시간 제한(`within_time_limit`, 뼈대의 `app/application/common/time_limit.py`), 글자를 문장으로 모으기(`_sentences`) 같은 기술은 함수로 빼고 이름으로 부른다.
 - 서비스가 쓰는 부품(답 만들기 창구, 가드레일, 시간 제한)은 생성자로 받아 필드로 둔다. 부품을 따로 묶은 값(`AgentContext` 같은 것)을 만들어 함수에 넘기지 않는다.
 - `/chat`은 `ChatUseCase`에만 의존한다. 조립 함수가 만든 서비스를 `app.state.chat`에 두고 꺼내 쓴다.
 - Command(`ChatCommand`)는 요청마다 새로 만드는 값(DTO)이고, 서비스는 서버 시작 때 한 번 만드는 객체다.
@@ -262,7 +276,7 @@ def build_chat_service(platform: Platform, timeout_seconds: float) -> ChatUseCas
 
 | 무엇 | 위치 | 이유 |
 |---|---|---|
-| 여러 레이어가 던지거나 전역 핸들러가 구분해 답하는 예외 (`AppError`, `UpstreamError`, `AgentTimeoutError`) | `app/errors.py` | 안쪽 레이어가 import해야 하므로 HTTP를 몰라야 한다 |
+| 여러 레이어가 던지거나 전역 핸들러가 구분해 답하는 예외 (`AppError`, `UpstreamError`, `AgentTimeoutError`) | `app/common/errors.py` | 안쪽 레이어가 import해야 하므로 HTTP를 몰라야 한다 |
 | 한 레이어 안에서만 쓰는 예외 (예: `PlatformLoadError`) | 그 레이어 안 | 밖에서 구분할 일이 없다 |
 | 업무 규칙에 걸렸을 때 던지는 예외 (예: `OrderNotCancellableError`, `OrderNotFoundError`) | `app/domain/<기능>/` (규칙 옆) | 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않는다 |
 | 출력이 가드레일에 막혔을 때 던지는 예외 (`OutputBlockedError`) | `app/application/agent/errors.py` (뼈대) | `sse_response`가 잡아 `BLOCKED` 이벤트로 바꾼다. 전역 핸들러까지 가지 않는다 |

@@ -81,7 +81,8 @@ skills:
   - FastAPI를 import하는 곳이 `main.py`와 `app/presentation`뿐이다
   - `app/application`, `app/domain`에 `os.environ`·`os.getenv`, 운영 플랫폼 SDK import가 없다
   - `main.py`에 엔드포인트·요청·응답 모델·예외 핸들러 본문이 없고(`app/presentation`에 둔다), 조립 코드는 `app/container.py`에 있다
-  - `app/errors.py`가 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
+  - `app/common/`이 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
+  - 기능 폴더끼리 서로 import하지 않는다. 여러 기능이 쓰는 것은 그 계층의 `common/`에 있다
   - `app/presentation` 밖에서 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
 - **채팅 기능과 답 만들기** (`agent-architecture`) — `ChatService`가 `ChatUseCase`를 구현하고 부품을 생성자로 받는가(부품 묶음을 함수에 넘기지 않는가), `/chat`이 `ChatUseCase`에만 의존하는가, 채팅 서비스가 `AnswerGenerator` 포트로 글자만 받는가. 어댑터가 조각(`AIMessageChunk`)과 완성된 답(`AIMessage`)을 둘 다 글자로 바꾸고, 두 경우를 테스트하는가

@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
 from app.application.agent.errors import OutputBlockedError
-from app.errors import UpstreamError
+from app.common.errors import UpstreamError
 from app.presentation.response.sse_response import sse_response
 
 HANDLER_LOGGER = "app.presentation.errors"

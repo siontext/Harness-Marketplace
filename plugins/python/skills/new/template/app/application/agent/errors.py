@@ -1,6 +1,6 @@
 """에이전트 흐름 안에서 던지고 /chat이 이름을 적어 잡는 예외."""
 
-from app.errors import AppError
+from app.common.errors import AppError
 
 
 class OutputBlockedError(AppError):

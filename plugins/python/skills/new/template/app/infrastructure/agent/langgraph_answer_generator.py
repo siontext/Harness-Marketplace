@@ -14,7 +14,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langchain_core.tools import BaseTool
 
 from app.application.agent.port import AnswerGenerator
-from app.errors import UpstreamError
+from app.common.errors import UpstreamError
 
 
 class LangGraphAnswerGenerator(AnswerGenerator):

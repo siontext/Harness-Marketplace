@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from app.errors import AgentTimeoutError, AppError, UpstreamError
+from app.common.errors import AgentTimeoutError, AppError, UpstreamError
 from app.presentation.errors import find_error_rule
 from app.presentation.response.error_code import ErrorCode
 
