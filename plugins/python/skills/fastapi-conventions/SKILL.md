@@ -193,7 +193,7 @@ class ChatResponse(BaseModel):
     answer: str
 ```
 
-호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ApiResponse[ChatResponse]`를 JSON으로 돌려주게 바꾼다. 이때 `app/application/agent/`에 한 번에 답하는 함수를 더하고 `app/presentation/routes.py`의 엔드포인트를 바꾼다. 에이전트 조립, 도구, 서비스는 그대로다.
+호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ApiResponse[ChatResponse]`를 JSON으로 돌려주게 바꾼다. 이때 `app/application/agent/`에 한 번에 답하는 함수를 더하고 `app/presentation/routes.py`의 엔드포인트를 바꾼다. 답 만들기 어댑터, 도구, 서비스는 그대로다.
 
 - 설계 문서의 응답 방식에 해당하는 함수만 만든다. 쓰지 않는 방식의 함수를 미리 만들어 두지 않는다.
 

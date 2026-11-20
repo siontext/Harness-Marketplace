@@ -1,6 +1,6 @@
 ---
 name: agent-architecture
-description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 조립(app/container.py), 공통 예외(app/errors.py) 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
+description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 답 만들기 포트(AnswerGenerator)와 LangGraph 어댑터, 조립(app/container.py), 공통 예외(app/errors.py) 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
 ---
 
 # Agent Architecture
@@ -20,7 +20,7 @@ app/application       에이전트 흐름(agent/), 기능별 유스케이스·�
         ▼                          │ 포트를 구현 · 서비스를 호출
 app/domain            업무 규칙     │
                                    │
-app/infrastructure    LLM·저장소·프롬프트·가드레일 구현, 도구(tools/)
+app/infrastructure    답 만들기 어댑터(agent/), LLM·저장소·프롬프트·가드레일 구현, 도구(tools/)
 
 app/errors.py (공통 예외)  ◀──  모든 레이어
 ```
@@ -28,10 +28,10 @@ app/errors.py (공통 예외)  ◀──  모든 레이어
 | 레이어 | 두는 것 | import할 수 있는 프로젝트 코드 |
 |---|---|---|
 | `app/presentation` | 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러 | `application`, `app/errors.py` |
-| `app/application/agent/` | 에이전트 조립과 실행 흐름 (입력 검사 → 실행 → 출력 검사, 시간 제한), `ChatCommand`, 에이전트의 나가는 포트(`port.py`: LLM·프롬프트·가드레일) | `application` 안, `domain`, `app/errors.py` |
+| `app/application/agent/` | 답 흐름 (입력 검사 → 답 글자 받기 → 문장별 출력 검사, 시간 제한), `ChatCommand`, 나가는 포트(`port.py`: `AnswerGenerator`·`Guardrail`) | `application` 안, `domain`, `app/errors.py` |
 | `app/application/<기능>/` | 업무 기능 하나 — `usecase.py`(들어오는 포트), `port.py`(나가는 포트), `service.py`, `command.py`, `result.py` | 같은 기능 폴더, `domain`, `app/errors.py` |
 | `app/domain/<기능>/` | 업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 | `app/errors.py`만 |
-| `app/infrastructure` | 포트 구현(어댑터), 도구, 설정, 구현 선택 | `application`, `domain`, `app/errors.py` |
+| `app/infrastructure` | 포트 구현(어댑터) — 답 만들기(`agent/`), 저장소, 가드레일, 도구. LLM·프롬프트 창구(`llm/`, `prompt/`)와 그 모양(`port.py`), 설정, 구현 선택 | `application`, `domain`, `app/errors.py` |
 | `app/container.py` | 조립 — 구현을 서비스·도구·에이전트에 넣어 주기 | 전부 |
 | `main.py` | `FastAPI` 앱 만들기, `lifespan`에서 조립 함수 부르기 | 전부 |
 | `app/errors.py` | 공통 예외 | 표준 라이브러리만 |
@@ -46,11 +46,11 @@ app/errors.py (공통 예외)  ◀──  모든 레이어
 | 패키지 | 쓸 수 있는 곳 |
 |---|---|
 | FastAPI | `main.py`, `app/presentation` |
-| LangChain·LangGraph | `app/application/agent/`, `app/infrastructure` |
+| LangChain·LangGraph | `app/infrastructure` |
 | 운영 플랫폼 SDK, DB·Redis 클라이언트 | `app/infrastructure` |
-| 없음 (표준 라이브러리만) | `app/domain`, `app/application/<기능>/` |
+| 없음 (표준 라이브러리만) | `app/domain`, `app/application` |
 
-에이전트 루프는 LangChain이 돌려 주므로 에이전트 폴더는 LangChain을 쓴다. 기능 폴더와 도메인은 LangChain을 모르게 두어, 프레임워크를 바꾸거나 같은 기능을 다른 창구(REST 등)로 열어도 그대로 쓸 수 있게 한다.
+LangChain·LangGraph는 프레임워크라 바깥(`infrastructure`)에만 둔다. `application`은 답을 글자로만 주고받는다 (아래 "답 만들기"). 그래서 프레임워크를 바꾸거나 LLM이 답을 보내는 방식이 달라져도 `application`과 `domain`은 그대로다.
 
 ## Command — presentation에서 application으로 넘기는 값
 
@@ -147,7 +147,7 @@ class OrderService(OrderUseCase):
 - **서비스는 엔티티를 밖으로 돌려주지 않는다.** Result로 옮겨 담아 돌려준다. Result에는 부르는 쪽이 필요한 값만 담는다. 도메인의 코드값 Enum은 그대로 써도 되고, 엔티티는 담지 않는다. 엔티티가 바뀌어도 옮겨 담는 곳(서비스·`from_<엔티티>`)에서 멈추고 도구까지 번지지 않는다.
 - **대상이 없을 때: 저장소(나가는 포트)는 `None`을 돌려주고, 서비스가 업무 예외(`OrderNotFoundError`)로 바꿔 던진다.** 유스케이스의 반환 타입에 `None`을 넣지 않는다.
 - **도구는 유스케이스(`OrderUseCase`)에만 의존한다.** 서비스 구현(`OrderService`)과 엔티티(`Order`)를 import하지 않는다. 도메인에서 가져와도 되는 것은 코드값 Enum과 업무 예외뿐이다.
-- **포트는 그것을 쓰는 기능 폴더에 둔다.** 기능의 나가는 포트는 `application/<기능>/port.py`, 에이전트가 쓰는 LLM·프롬프트·가드레일 포트는 `application/agent/port.py`. 모든 포트를 한 파일에 모으지 않는다.
+- **포트는 그것을 쓰는 폴더에 둔다.** 기능의 나가는 포트는 `application/<기능>/port.py`, 답 흐름이 쓰는 `AnswerGenerator`·`Guardrail`은 `application/agent/port.py`. LLM·프롬프트 창구는 답 만들기 어댑터와 조립만 쓰므로 `infrastructure/llm/port.py`, `infrastructure/prompt/port.py`에 둔다. 모든 포트를 한 파일에 모으지 않는다.
 - **도메인은 코드값만 갖고, 사용자에게 보이는 이름과 문장은 도구가 갖는다.** 상태·사유 같은 Enum의 값은 코드(`PAID`, `SHIPPING_STARTED`)로 두고, 표시용 이름("결제 완료")과 안내 문장은 도구의 표(`STATUS_LABELS`, `CANCEL_DENIAL_SENTENCES`)에 둔다. 문구를 바꿔도 도메인과 저장된 값은 그대로다.
 
 ```python
@@ -168,20 +168,56 @@ STATUS_LABELS: dict[OrderStatus, str] = {
 - 서비스는 나가는 포트와 "지금 시각" 같은 바뀌는 값을 생성자로 받는다. 안에서 시계를 읽거나 구현을 만들지 않는다.
 - 도구가 예외를 문장으로 바꾸는 규칙은 `langgraph-conventions`의 "도구 만들기"를 따른다.
 
+## 답 만들기 — AnswerGenerator 포트와 LangGraph 어댑터
+
+답 흐름(`application/agent/answer.py`)은 LLM·LangGraph를 모르고 **답 글자만** 받는다. LangGraph로 에이전트를 돌리고 그 메시지를 글자로 바꾸는 일은 어댑터가 한다.
+
+```python
+# app/application/agent/port.py — 포트: 프레임워크 모양을 드러내지 않는다
+class AnswerGenerator(Protocol):
+    def stream(self, question: str) -> AsyncIterator[str]: ...
+
+# app/infrastructure/agent/langgraph_answer_generator.py — 어댑터 (뼈대에 있다)
+class LangGraphAnswerGenerator(AnswerGenerator):
+    def __init__(self, model: BaseChatModel, tools: Sequence[BaseTool], system_prompt: str) -> None:
+        self._agent = create_agent(..., middleware=[_raise_upstream_error_on_llm_failure])
+
+    async def stream(self, question: str) -> AsyncIterator[str]:
+        async for message, _ in self._agent.astream(..., stream_mode="messages"):
+            text = _answer_text(message)       # 조각이든 완성된 답이든 글자만
+            if text:
+                yield text
+
+# app/application/agent/answer.py — 답 흐름: 글자만 받는다
+async for text in ctx.answers.stream(checked.text):
+    ...                                        # 문장 나누기, 출력 검사, 시간 제한
+```
+
+| 어댑터가 바꾸는 것 | 바깥 모양 | 우리 모양 |
+|---|---|---|
+| 질문 | `HumanMessage` | `str` |
+| 답 | `AIMessageChunk`(조각으로 보내는 LLM) 또는 `AIMessage`(한 번에 보내는 LLM) | 글자 조각 `str` |
+| 도구 호출·도구 결과 | `AIMessage(tool_calls=...)`, `ToolMessage` | 내보내지 않음 |
+| LLM 호출 실패 | LLM 라이브러리의 예외 | `UpstreamError` |
+
+- **어댑터는 조각(`AIMessageChunk`)과 완성된 답(`AIMessage`)을 둘 다 받는다.** LLM이 조각 보내기를 지원하지 않거나 꺼져 있으면 완성된 답 하나만 온다. 조각만 받으면 이때 빈 답이 나간다.
+- 뼈대의 `LangGraphAnswerGenerator`를 그대로 쓴다. 새로 만들지 않는다. `StateGraph`로 만드는 에이전트는 같은 `AnswerGenerator`를 구현하는 어댑터를 `infrastructure/agent/`에 더한다.
+- `application`에서 LangChain·LangGraph를 import하면 위반이다.
+
 ## 조립 (app/container.py)
 
 ```python
 def build_agent_context(platform: Platform, timeout_seconds: float) -> AgentContext:
     service = OrderService(platform.orders, _read_utc_now)
-    agent = build_order_agent(
+    answers = LangGraphAnswerGenerator(
         model=platform.llm.chat_model(),
         tools=build_order_tools(service),          # 도구에는 OrderUseCase로 넘어간다
         system_prompt=platform.prompts.get("system"),
     )
-    return AgentContext(agent, platform.guardrail, timeout_seconds)
+    return AgentContext(answers, platform.guardrail, timeout_seconds)
 ```
 
-- 구현 → 서비스 → 도구 → 에이전트 순서로 넣어 준다. 조립 함수는 `container.py`에만 둔다. 서비스 구현을 아는 곳은 `container.py`뿐이다.
+- 구현 → 서비스 → 도구 → 답 만들기 어댑터 순서로 넣어 준다. 조립 함수는 `container.py`에만 둔다. 서비스 구현을 아는 곳은 `container.py`뿐이다.
 - `main.py`의 `lifespan`이 `build_platform()`으로 구현 묶음을 만들고 조립 함수를 불러 결과를 `app.state`에 둔다.
 - 테스트는 가짜 구현 묶음을 같은 조립 함수에 넣는다. 테스트용 조립 코드를 따로 만들지 않는다.
 
@@ -204,7 +240,7 @@ def build_agent_context(platform: Platform, timeout_seconds: float) -> AgentCont
 
 ## 연결 창구 — 포트와 구현
 
-바깥 시스템에 닿는 일은 모두 연결 창구를 거친다. 창구 하나는 `Protocol` 하나다. 모양(포트)은 그것을 쓰는 폴더(기능은 `app/application/<기능>/port.py`, 에이전트 부품은 `app/application/agent/port.py`)에, 구현(어댑터)은 `app/infrastructure/`에 둔다.
+바깥 시스템에 닿는 일은 모두 연결 창구를 거친다. 창구 하나는 `Protocol` 하나다. 모양(포트)은 그것을 쓰는 폴더(기능은 `app/application/<기능>/port.py`, 답 흐름은 `app/application/agent/port.py`, 답 만들기 어댑터가 쓰는 LLM·프롬프트는 `app/infrastructure/llm/port.py`·`prompt/port.py`)에, 구현(어댑터)은 `app/infrastructure/`에 둔다.
 
 | 창구 | 하는 일 | 로컬 구현 |
 |---|---|---|
@@ -218,7 +254,7 @@ def build_agent_context(platform: Platform, timeout_seconds: float) -> AgentCont
 | 대화 기록 | 질문·답을 빠짐없이 남김 (감사) | PostgreSQL (가드레일을 거친 뒤 내용) |
 
 - 쓰지 않는 창구는 만들지 않는다. 설계 문서의 전체 아키텍처에 있는 것만 만든다.
-- 구현은 창구 종류마다 폴더 하나에 둔다: `infrastructure/llm/`, `persistence/<기능>/`, `prompt/`, `guardrail/`. 도구는 `infrastructure/tools/`.
+- 구현은 창구 종류마다 폴더 하나에 둔다: `infrastructure/agent/`, `llm/`, `persistence/<기능>/`, `prompt/`, `guardrail/`. 도구는 `infrastructure/tools/`.
 - **구현 클래스는 포트를 괄호에 적는다** (`class InMemoryOrderRepository(OrderRepository):`). Java의 `implements`처럼 어떤 포트의 구현인지 드러나고 IDE에서 구현을 찾을 수 있다.
 - **포트의 메서드에는 본문을 넣지 않는다** (`...`만). 본문을 넣으면 구현 클래스가 그 동작을 물려받아 상속이 된다.
 - 운영 플랫폼용 구현은 공개 하네스에 없다. 사용자 스킬 폴더의 플랫폼 전용 스킬에 견본이 있으면 그것을 따른다.

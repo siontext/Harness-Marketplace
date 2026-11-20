@@ -25,14 +25,15 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 │   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), errors.py(전역 예외 핸들러)
 │   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, ErrorCode, 안내 문구
 │   ├── application/
-│   │   ├── agent/           에이전트 흐름 (create_agent / StateGraph), ChatCommand, port.py(LLM·프롬프트·가드레일 포트)
+│   │   ├── agent/           답 흐름(answer.py), ChatCommand, port.py(AnswerGenerator·Guardrail 포트). LangChain을 모른다
 │   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, command.py, result.py
 │   ├── domain/
 │   │   └── <기능>/          업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 (있을 때만)
 │   ├── infrastructure/      포트 구현 — __init__.py(구현 선택), local.py(로컬 묶음), settings.py(설정)
-│   │   ├── llm/             LLM 구현
+│   │   ├── agent/           답 만들기 어댑터 — create_agent 조립, LangGraph 메시지를 글자로 번역
+│   │   ├── llm/             LLM 창구 모양(port.py)과 구현
 │   │   ├── persistence/     저장소 구현 — <기능>/ 폴더마다 (있을 때만)
-│   │   ├── prompt/          프롬프트 창구 구현
+│   │   ├── prompt/          프롬프트 창구 모양(port.py)과 구현
 │   │   ├── guardrail/       가드레일 구현
 │   │   └── tools/           도구 함수 (@tool)
 │   └── prompts/             프롬프트 파일 (.md)
