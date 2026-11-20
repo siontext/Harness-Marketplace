@@ -23,7 +23,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 │   ├── errors.py            공통 예외 (AppError와 하위 예외)
 │   ├── container.py         조립 — 구현을 골라 서비스·도구·에이전트에 넣어 주기
 │   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), errors.py(전역 예외 핸들러)
-│   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, ErrorCode, 안내 문구
+│   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, sse_response, ErrorCode, 안내 문구
 │   ├── application/
 │   │   ├── agent/           채팅 기능 — usecase.py(ChatUseCase), service.py(ChatService), command.py, port.py(AnswerGenerator·Guardrail). LangChain을 모른다
 │   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, command.py, result.py

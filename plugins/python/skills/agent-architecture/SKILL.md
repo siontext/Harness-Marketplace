@@ -254,7 +254,7 @@ def build_chat_service(platform: Platform, timeout_seconds: float) -> ChatUseCas
 | 여러 레이어가 던지거나 전역 핸들러가 구분해 답하는 예외 (`AppError`, `UpstreamError`, `AgentTimeoutError`) | `app/errors.py` | 안쪽 레이어가 import해야 하므로 HTTP를 몰라야 한다 |
 | 한 레이어 안에서만 쓰는 예외 (예: `PlatformLoadError`) | 그 레이어 안 | 밖에서 구분할 일이 없다 |
 | 업무 규칙에 걸렸을 때 던지는 예외 (예: `OrderNotCancellableError`, `OrderNotFoundError`) | `app/domain/<기능>/` (규칙 옆) | 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않는다 |
-| 출력이 가드레일에 막혔을 때 던지는 예외 (`OutputBlockedError`) | `app/application/agent/` | `/chat`이 잡아 `BLOCKED` 이벤트로 바꾼다. 전역 핸들러까지 가지 않는다 |
+| 출력이 가드레일에 막혔을 때 던지는 예외 (`OutputBlockedError`) | `app/application/agent/errors.py` (뼈대) | `sse_response`가 잡아 `BLOCKED` 이벤트로 바꾼다. 전역 핸들러까지 가지 않는다 |
 | 예외 → 상태 코드·`code`·안내 문구 대응표, 전역 핸들러 | `app/presentation/errors.py` | HTTP 응답을 만드는 일이다 (`fastapi-conventions`) |
 | `code` 값(`ErrorCode`), 안내 문구 | `app/presentation/response/` | 호출하는 쪽에 보이는 응답의 일부다 |
 
