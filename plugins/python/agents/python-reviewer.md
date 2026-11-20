@@ -97,6 +97,7 @@ skills:
   - 도메인 Enum의 값이 코드이고, 표시용 이름과 안내 문장은 도구의 표에 있다
   - 포트 구현 클래스가 포트를 괄호에 적었고, 포트(`Protocol`) 메서드에 본문이 없다
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `app/container.py` 조립, frozen dataclass, 조합 우선
+- **엔드포인트** (`fastapi-conventions`의 "엔드포인트는 세 단계만") — 엔드포인트 함수가 요청 → Command, 유스케이스 부르기, 응답 틀에 담기만 하는가. SSE 이벤트 만들기·`try/except`·실패 로그를 직접 적지 않고 `sse_response`를 쓰는가
 - **응답 틀** (`fastapi-conventions`) — `/health`를 뺀 JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/presentation/response/messages.py`에 있다
 - 참조 스킬(`python-style`, `langgraph-conventions`, `fastapi-conventions`)의 규칙. 특히 예전 API 사용, 프롬프트 문장 하드코딩, 로그에 키·개인정보·프롬프트 전문
 - 불일치 발견 시 수정한 뒤 **2(정적 검사)로 돌아간다**. 수정 → 재검증 루프가 3회 반복되면 미해결 이슈로 기록하고 다음으로 넘어간다.

@@ -1,6 +1,6 @@
 ---
 name: fastapi-conventions
-description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py(lifespan)와 app/presentation 파일 배치(routes·schemas·errors·response), /chat·/health, pydantic 요청·응답, 공통 응답 틀(ApiResponse·SseEvent), SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 app/presentation 코드를 작성하거나 리뷰할 때 참조.
+description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py(lifespan)와 app/presentation 파일 배치(routes·schemas·errors·response), /chat·/health, pydantic 요청·응답, 공통 응답 틀(ApiResponse·SseEvent·sse_response), 엔드포인트는 세 단계만, SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 app/presentation 코드를 작성하거나 리뷰할 때 참조.
 ---
 
 # FastAPI Conventions
@@ -16,12 +16,29 @@ description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 Fast
 | `app/presentation/schemas.py` | 엔드포인트별 요청·응답 내용 (`ChatRequest`, `HealthStatus` 등). 공통 응답 틀은 두지 않는다 |
 | `app/presentation/errors.py` | 오류 규칙 값, 예외 → 규칙 대응표, 전역 예외 핸들러 (`register_exception_handlers`) |
 | `app/presentation/response/api_response.py` | `ApiResponse` — JSON 응답의 공통 틀 |
-| `app/presentation/response/sse_event.py` | `SseEvent` — 스트리밍 이벤트의 공통 틀 |
+| `app/presentation/response/sse_event.py` | `SseEvent` — 스트리밍 이벤트 하나의 공통 틀 |
+| `app/presentation/response/sse_response.py` | `sse_response` — 문장 흐름을 SSE 응답(`token`들 → `done`, 실패하면 `error`)으로 바꾼다. 뼈대에 있다 |
 | `app/presentation/response/error_code.py` | `ErrorCode` — 오류 응답의 `code` 값 |
 | `app/presentation/response/messages.py` | 사용자에게 보여줄 안내 문구 |
 
 - `app/presentation`은 `app/application`을 부르고, 그 반대는 금지다. `app/infrastructure`는 import하지 않는다 (`agent-architecture`).
 - 응답 틀은 종류마다 `app/presentation/response/`에 파일 하나로 둔다. 목록 조회가 생기면 `page_response.py`(`PageResponse`)를 더한다.
+
+### 엔드포인트는 세 단계만
+
+엔드포인트 함수는 **요청 → Command, 유스케이스 부르기, 응답 틀에 담기** 세 단계만 한다. 응답 모양을 만드는 일과 오류 처리는 응답 틀(`app/presentation/response/`)과 전역 핸들러가 맡는다.
+
+```python
+@router.post("/chat")
+async def chat(body: ChatRequest, request: Request) -> StreamingResponse:
+    command = ChatCommand(conversation_id=body.conversation_id, message=body.message)
+    chat: ChatUseCase = request.app.state.chat
+    return sse_response(chat.stream_answer(command), command.conversation_id, request)
+```
+
+- 엔드포인트가 아는 `application`의 것은 Command와 유스케이스(인터페이스)뿐이다.
+- SSE 이벤트 글자 만들기, 스트리밍 중 `try/except`, 실패 로그를 엔드포인트에 직접 적지 않는다. `sse_response`가 한다.
+- `sse_response`는 뼈대의 것을 쓴다. 새로 만들지 않는다.
 - 그 밖에 `app/presentation/` 안에 파일을 더 만들 때는 설계 문서에 적힌 경우만.
 
 ## main.py — 시작·종료 조립
@@ -158,14 +175,15 @@ _SENTENCE_END = re.compile(r"(?<![0-9])[.!?。！？]+\s+|\n+")
 
 #### 막혔을 때 알리는 방법
 
-| 막힌 곳 | 채팅 서비스(`application`)가 하는 일 | `/chat`이 보내는 것 |
+| 막힌 곳 | 채팅 서비스(`application`)가 하는 일 | `/chat`(`sse_response`)이 보내는 것 |
 |---|---|---|
 | 입력 | LLM을 부르지 않고 가드레일의 안내 문구를 답으로 내보낸다 (예외 없음) | `token`(안내 문구) → `done` |
 | 출력 | `OutputBlockedError`를 던진다. 더 진행할 수 없으므로 무시할 수 없게 한다 | `error` · `BLOCKED` |
 
 ```python
+# app/presentation/response/sse_response.py의 _stream_events (뼈대에 있다)
 try:
-    async for sentence in chat.stream_answer(command):      # chat: ChatUseCase
+    async for sentence in sentences:          # 유스케이스가 내놓은 문장 흐름
         yield SseEvent.token(sentence).encode()
 except OutputBlockedError as e:        # 의도된 결과: 이름을 적어 따로 잡는다
     logger.warning("출력 가드레일 차단: %s %s", request.method, request.url.path)
@@ -177,10 +195,10 @@ except Exception as exc:
     log_failure(request, rule, exc, streaming=True)
     yield SseEvent.error(rule.code, rule.message).encode()
     return
-yield SseEvent.done(command.conversation_id).encode()
+yield SseEvent.done(conversation_id).encode()
 ```
 
-- `OutputBlockedError`는 `app/application/agent/`에 두고 가드레일이 준 안내 문구를 담는다. 문구가 비어 있으면 `/chat`이 `messages.BLOCKED`를 쓴다.
+- `OutputBlockedError`는 `app/application/agent/errors.py`(뼈대에 있다)에 있고 가드레일이 준 안내 문구를 담는다. 문구가 비어 있으면 `sse_response`가 `messages.BLOCKED`를 쓴다.
 - **`OutputBlockedError`를 오류 대응표(`ERROR_RULES`)에 넣지 않는다.** 막힌 것은 오류가 아니라서 상태 코드가 없다. LLM 실패 같은 오류와 같은 `except`에서 처리하지 않는다.
 - 로그에는 막혔다는 사실만 남기고 막힌 내용은 남기지 않는다.
 - 한 번에 응답 방식에서는 엔드포인트가 `OutputBlockedError`를 잡아 안내 문구를 정상 답(200)으로 돌려준다.
@@ -210,7 +228,7 @@ class ChatResponse(BaseModel):
 
 - 오류 본문은 항상 `ApiResponse` 실패 모양(`{"code": "...", "message": "...", "data": null}`)이다. 전역 예외 핸들러(`app/presentation/errors.py`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
 - 예외 클래스는 `app/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `app/presentation/errors.py`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
-- 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `/chat`이 스트리밍 함수 안에서 `except Exception`으로 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`find_error_rule`)에서 가져온다.
+- 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `sse_response`가 `except Exception`으로 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`find_error_rule`)에서 가져온다.
 - 스트리밍 중 실패의 로그는 `app/presentation/errors.py`의 `log_failure(request, rule, exc, streaming=True)`로 남긴다. 전역 핸들러와 같은 함수라 로그 규칙이 한곳에 있다. 로그 코드를 `routes.py`에 따로 짜지 않는다.
 - LLM 호출 실패는 에이전트 쪽에서 `UpstreamError`로 바꿔 던진다 (`langgraph-conventions`의 "LLM 호출 실패 → UpstreamError"). 바꾸지 않으면 `INTERNAL_ERROR`로 나간다.
 - 위 표에 없는 `code`를 새로 만들지 않는다. 필요하면 설계 문서 결정 섹션에 적고 사용자에게 확인한다.
