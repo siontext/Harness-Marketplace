@@ -101,6 +101,22 @@ class OrderService:
         return cancelled
 ```
 
+- **도메인은 코드값만 갖고, 사용자에게 보이는 이름과 문장은 도구가 갖는다.** 상태·사유 같은 Enum의 값은 코드(`PAID`, `SHIPPING_STARTED`)로 두고, 표시용 이름("결제 완료")과 안내 문장은 도구의 표(`STATUS_LABELS`, `CANCEL_DENIAL_SENTENCES`)에 둔다. 문구를 바꿔도 도메인과 저장된 값은 그대로다.
+
+```python
+# app/domain/order.py
+class OrderStatus(StrEnum):
+    PAID = "PAID"
+    SHIPPING = "SHIPPING"
+
+# app/infrastructure/tools/order_tools.py
+STATUS_LABELS: dict[OrderStatus, str] = {
+    OrderStatus.PAID: "결제 완료",
+    OrderStatus.SHIPPING: "배송 중",
+}
+```
+
+- 날짜·시각을 읽기 좋은 표기로 바꾸는 것(시간대, 날짜 형식)도 문장 만들기로 보고 도구가 한다.
 - 조회처럼 전달만 하는 기능도 서비스를 거친다. 서비스가 한 줄이어도 도구가 포트를 직접 부르지 않는다. 기준이 하나여야 도구마다 판단이 갈리지 않는다.
 - 서비스는 포트와 "지금 시각" 같은 바뀌는 값을 생성자로 받는다. 안에서 시계를 읽거나 구현을 만들지 않는다.
 - 도구가 예외를 문장으로 바꾸는 규칙은 `langgraph-conventions`의 "도구 만들기"를 따른다.

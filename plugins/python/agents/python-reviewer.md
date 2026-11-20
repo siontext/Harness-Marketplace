@@ -89,6 +89,7 @@ skills:
   - 도구(`app/infrastructure/tools/`)가 포트를 직접 부르지 않고 업무 서비스를 거친다
   - 도구 안에 판단·계산·저장 순서가 없다 (서비스 호출과 문장 변환만)
   - 업무 서비스가 LLM용 문장을 만들지 않는다 (값이나 예외로 알린다)
+  - 도메인 Enum의 값이 코드이고, 표시용 이름과 안내 문장은 도구의 표에 있다
   - 포트 구현 클래스가 포트를 괄호에 적었고, 포트(`Protocol`) 메서드에 본문이 없다
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `app/container.py` 조립, frozen dataclass, 조합 우선
 - **응답 틀** (`fastapi-conventions`) — `/health`를 뺀 JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/presentation/response/messages.py`에 있다
