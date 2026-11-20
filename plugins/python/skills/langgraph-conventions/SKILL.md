@@ -5,7 +5,7 @@ description: LangChain 1.x / LangGraph 1.x로 에이전트를 만드는 규칙 �
 
 # LangGraph / LangChain Conventions
 
-LangChain 1.3, LangGraph 1.2 기준이다. LangChain은 1.0에서 에이전트 만드는 방법이 크게 바뀌었다. **예전 방식(맨 아래 표)으로 짜지 않는다.**
+LangChain 1.x, LangGraph 1.x 기준이다 (확인한 버전: langchain 1.5, langchain-core 1.8, langgraph 1.2). 설치된 버전이 다르면 아래 예시를 그대로 믿지 말고 설치된 패키지 소스를 확인한다. LangChain은 1.0에서 에이전트 만드는 방법이 크게 바뀌었다. **예전 방식(맨 아래 표)으로 짜지 않는다.**
 
 ## 에이전트 만드는 방법 고르기
 
