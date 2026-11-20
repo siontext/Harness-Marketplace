@@ -28,7 +28,7 @@ app/errors.py (공통 예외)  ◀──  모든 레이어
 | 레이어 | 두는 것 | import할 수 있는 프로젝트 코드 |
 |---|---|---|
 | `app/presentation` | 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러 | `application`, `app/errors.py` |
-| `app/application/agent/` | 답 흐름 (입력 검사 → 답 글자 받기 → 문장별 출력 검사, 시간 제한), `ChatCommand`, 나가는 포트(`port.py`: `AnswerGenerator`·`Guardrail`) | `application` 안, `domain`, `app/errors.py` |
+| `app/application/agent/` | 채팅 기능 — `usecase.py`(`ChatUseCase`), `service.py`(`ChatService`: 입력 검사 → 답 글자 받기 → 문장별 출력 검사, 시간 제한), `chat_command.py`, `port.py`(`AnswerGenerator`·`Guardrail`) | `application` 안, `domain`, `app/errors.py` |
 | `app/application/<기능>/` | 업무 기능 하나 — `usecase.py`(들어오는 포트), `port.py`(나가는 포트), `service.py`, `command.py`, `result.py` | 같은 기능 폴더, `domain`, `app/errors.py` |
 | `app/domain/<기능>/` | 업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 | `app/errors.py`만 |
 | `app/infrastructure` | 포트 구현(어댑터) — 답 만들기(`agent/`), 저장소, 가드레일, 도구. LLM·프롬프트 창구(`llm/`, `prompt/`)와 그 모양(`port.py`), 설정, 구현 선택 | `application`, `domain`, `app/errors.py` |
@@ -168,9 +168,32 @@ STATUS_LABELS: dict[OrderStatus, str] = {
 - 서비스는 나가는 포트와 "지금 시각" 같은 바뀌는 값을 생성자로 받는다. 안에서 시계를 읽거나 구현을 만들지 않는다.
 - 도구가 예외를 문장으로 바꾸는 규칙은 `langgraph-conventions`의 "도구 만들기"를 따른다.
 
+## 채팅 기능 — ChatUseCase와 ChatService
+
+에이전트에 질문하고 답을 받는 일도 업무 기능처럼 **유스케이스 + 서비스**로 둔다. 주문 기능과 모양이 같다.
+
+```python
+# app/application/agent/usecase.py
+class ChatUseCase(Protocol):
+    def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]: ...
+
+# app/application/agent/service.py
+class ChatService(ChatUseCase):
+    def __init__(self, answers: AnswerGenerator, guardrail: Guardrail, timeout_seconds: float) -> None:
+        self._answers = answers
+        self._guardrail = guardrail
+        self._timeout_seconds = timeout_seconds
+
+    async def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]: ...
+```
+
+- 서비스가 쓰는 부품(답 만들기 창구, 가드레일, 시간 제한)은 생성자로 받아 필드로 둔다. 부품을 따로 묶은 값(`AgentContext` 같은 것)을 만들어 함수에 넘기지 않는다.
+- `/chat`은 `ChatUseCase`에만 의존한다. 조립 함수가 만든 서비스를 `app.state.chat`에 두고 꺼내 쓴다.
+- Command(`ChatCommand`)는 요청마다 새로 만드는 값(DTO)이고, 서비스는 서버 시작 때 한 번 만드는 객체다.
+
 ## 답 만들기 — AnswerGenerator 포트와 LangGraph 어댑터
 
-답 흐름(`application/agent/answer.py`)은 LLM·LangGraph를 모르고 **답 글자만** 받는다. LangGraph로 에이전트를 돌리고 그 메시지를 글자로 바꾸는 일은 어댑터가 한다.
+채팅 서비스(`application/agent/service.py`)는 LLM·LangGraph를 모르고 **답 글자만** 받는다. LangGraph로 에이전트를 돌리고 그 메시지를 글자로 바꾸는 일은 어댑터가 한다.
 
 ```python
 # app/application/agent/port.py — 포트: 프레임워크 모양을 드러내지 않는다
@@ -188,8 +211,8 @@ class LangGraphAnswerGenerator(AnswerGenerator):
             if text:
                 yield text
 
-# app/application/agent/answer.py — 답 흐름: 글자만 받는다
-async for text in ctx.answers.stream(checked.text):
+# app/application/agent/service.py — 채팅 서비스: 글자만 받는다
+async for text in self._answers.stream(checked.text):
     ...                                        # 문장 나누기, 출력 검사, 시간 제한
 ```
 
@@ -207,17 +230,17 @@ async for text in ctx.answers.stream(checked.text):
 ## 조립 (app/container.py)
 
 ```python
-def build_agent_context(platform: Platform, timeout_seconds: float) -> AgentContext:
-    service = OrderService(platform.orders, _read_utc_now)
+def build_chat_service(platform: Platform, timeout_seconds: float) -> ChatUseCase:
+    orders = OrderService(platform.orders, _read_utc_now)
     answers = LangGraphAnswerGenerator(
         model=platform.llm.chat_model(),
-        tools=build_order_tools(service),          # 도구에는 OrderUseCase로 넘어간다
+        tools=build_order_tools(orders),           # 도구에는 OrderUseCase로 넘어간다
         system_prompt=platform.prompts.get("system"),
     )
-    return AgentContext(answers, platform.guardrail, timeout_seconds)
+    return ChatService(answers, platform.guardrail, timeout_seconds)
 ```
 
-- 구현 → 서비스 → 도구 → 답 만들기 어댑터 순서로 넣어 준다. 조립 함수는 `container.py`에만 둔다. 서비스 구현을 아는 곳은 `container.py`뿐이다.
+- 구현 → 기능 서비스 → 도구 → 답 만들기 어댑터 → 채팅 서비스 순서로 넣어 준다. 돌려주는 타입은 유스케이스(`ChatUseCase`)다. 조립 함수는 `container.py`에만 둔다. 서비스 구현을 아는 곳은 `container.py`뿐이다.
 - `main.py`의 `lifespan`이 `build_platform()`으로 구현 묶음을 만들고 조립 함수를 불러 결과를 `app.state`에 둔다.
 - 테스트는 가짜 구현 묶음을 같은 조립 함수에 넣는다. 테스트용 조립 코드를 따로 만들지 않는다.
 

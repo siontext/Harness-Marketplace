@@ -88,10 +88,11 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
     catalog = AsyncMock(spec=ProductCatalog)
     catalog.find.return_value = Product(id="AB123456", name="커피", stock=3)
     platform = fake_platform(fake_llm(...), catalog=catalog)
-    ctx = build_agent_context(platform, timeout_seconds=30)
+    chat = build_chat_service(platform, timeout_seconds=30)
 
     # When
-    answer = "".join([t async for t in ctx.answers.stream("AB123456 재고 있어?")])
+    command = ChatCommand(conversation_id="c-1", message="AB123456 재고 있어?")
+    answer = "".join([s async for s in chat.stream_answer(command)])
 
     # Then
     catalog.find.assert_awaited_once_with("AB123456")
@@ -124,7 +125,7 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 
 ## 엔드포인트 테스트
 
-- `TestClient(app)`로 서버를 띄우지 않고 부른다. `app.state.ctx`에 가짜로 조립한 것을 넣는다.
+- `TestClient(app)`로 서버를 띄우지 않고 부른다. `app.state.chat`에 가짜 창구로 조립한 채팅 서비스(`build_chat_service(fake_platform(...), ...)`)를 넣는다.
 - 엔드포인트마다 정상 1개 이상, 요청 형식 오류(422) 1개.
 - SSE는 본문을 빈 줄로 나눠 이벤트 목록으로 만든 뒤 `token`들 → `done` 순서와 `data` JSON을 확인한다. 실패 경로는 `error` 이벤트로 끝나는지 확인한다.
 

@@ -127,14 +127,14 @@ class ChatCommand:
     message: str
 
 
-# app/application/agent/answer.py (한 번에 응답할 때. 스트리밍은 fastapi-conventions)
-async def answer(command: ChatCommand, ctx: AgentContext) -> str:
+# app/application/agent/service.py — ChatService의 메서드 (한 번에 응답할 때. 스트리밍은 fastapi-conventions)
+async def answer(self, command: ChatCommand) -> str:
     """입력 검사 → 답 만들기 → 출력 검사 순서로 답을 만든다."""
-    checked = await ctx.guardrail.check_input(command.message)
+    checked = await self._guardrail.check_input(command.message)
     if checked.blocked:
         return checked.message
-    reply = "".join([text async for text in ctx.answers.stream(checked.text)])
-    return (await ctx.guardrail.check_output(reply)).text
+    reply = "".join([text async for text in self._answers.stream(checked.text)])
+    return (await self._guardrail.check_output(reply)).text
 ```
 
 - 에이전트 흐름은 요청 모델(`ChatRequest`)이 아니라 Command를 받는다. `ChatRequest`는 `app/presentation`에 있어 `application`이 import할 수 없다 (`agent-architecture`의 "Command").
