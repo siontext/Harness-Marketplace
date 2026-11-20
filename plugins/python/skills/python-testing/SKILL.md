@@ -87,15 +87,18 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
     # Given
     catalog = AsyncMock(spec=ProductCatalog)
     catalog.find.return_value = Product(id="AB123456", name="커피", stock=3)
-    agent = build_product_agent(llm=fake_llm(...), catalog=catalog)
+    platform = fake_platform(fake_llm(...), catalog=catalog)
+    ctx = build_agent_context(platform, timeout_seconds=30)
 
     # When
-    result = await agent.ainvoke({"messages": [HumanMessage("AB123456 재고 있어?")]})
+    result = await ctx.agent.ainvoke({"messages": [HumanMessage("AB123456 재고 있어?")]})
 
     # Then
     catalog.find.assert_awaited_once_with("AB123456")
     assert "3개" in result["messages"][-1].text
 ```
+
+- 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립 함수(`app/container.py`)가 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다.
 
 ### 실패 경로 — 필수
 

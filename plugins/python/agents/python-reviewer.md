@@ -76,6 +76,7 @@ skills:
 - **의존 방향** (`agent-architecture`) — 위반이면 불통과:
   - `app/application`, `app/domain`이 `app/infrastructure`, `app/presentation`, `app/container.py`를 import하지 않는다
   - `app/presentation`이 `app/infrastructure`를 import하지 않는다
+  - `app/presentation`이 요청 모델을 Command로 바꿔 넘기고, `app/application`이 요청 모델(`ChatRequest` 등)을 받지 않는다
   - `app/domain`과 업무 서비스(`app/application/<이름>_service.py`)가 LangChain·LangGraph·FastAPI·pydantic을 import하지 않는다
   - FastAPI를 import하는 곳이 `main.py`와 `app/presentation`뿐이다
   - `app/application`, `app/domain`에 `os.environ`·`os.getenv`, 운영 플랫폼 SDK import가 없다

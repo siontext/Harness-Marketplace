@@ -71,6 +71,7 @@ class ChatRequest(BaseModel):
 ```
 
 - 요청 모델에서 길이·형식을 검사한다. 검사 실패는 FastAPI가 422로 돌려준다.
+- 엔드포인트는 요청 모델을 Command(`ChatCommand`)로 바꿔 에이전트에 넘긴다. 요청 모델을 `application`에 그대로 넘기지 않는다 (`agent-architecture`의 "Command").
 - 호출하는 쪽과 다른 모양이 필요하면 설계 문서 개요에 적고 그에 맞춘다.
 
 ## 공통 응답 틀

@@ -90,18 +90,30 @@ def build_order_tools(service: OrderService) -> list[BaseTool]:
 ## 가드레일 연결
 
 ```python
-async def answer(request: ChatRequest, ctx: AgentContext) -> str:
+# app/application/agent/chat_command.py
+@dataclass(frozen=True)
+class ChatCommand:
+    """에이전트에 넘기는 질문 한 건."""
+
+    conversation_id: str
+    message: str
+
+
+# app/application/agent/answer.py
+async def answer(command: ChatCommand, ctx: AgentContext) -> str:
     """입력 검사 → 에이전트 → 출력 검사 순서로 답을 만든다."""
-    checked = await ctx.guardrail.check_input(request.message)
+    checked = await ctx.guardrail.check_input(command.message)
     if checked.blocked:
         return checked.message
-    history = await ctx.memory.load(request.conversation_id)
+    history = await ctx.memory.load(command.conversation_id)
     messages = [*history, HumanMessage(checked.text)]
     result = await ctx.agent.ainvoke({"messages": messages})
     reply = await ctx.guardrail.check_output(result["messages"][-1].text)
-    await ctx.memory.save(request.conversation_id, [*messages, AIMessage(reply.text)])
+    await ctx.memory.save(command.conversation_id, [*messages, AIMessage(reply.text)])
     return reply.text
 ```
+
+- 에이전트 흐름은 요청 모델(`ChatRequest`)이 아니라 Command를 받는다. `ChatRequest`는 `app/presentation`에 있어 `application`이 import할 수 없다 (`agent-architecture`의 "Command").
 
 - 입력 검사는 에이전트 실행 전 한 번, 출력 검사는 최종 답에 한 번 한다.
 - 도구 호출 사이마다 검사가 필요하면 미들웨어(`@before_model`, `@after_model`)를 쓴다. 설계 문서에 적힌 경우만.

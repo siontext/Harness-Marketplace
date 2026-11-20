@@ -53,6 +53,28 @@ app/errors.py (공통 예외)  ◀──  모든 레이어
 
 에이전트 루프는 LangChain이 돌려 주므로 에이전트 조립 코드는 LangChain을 쓴다. 업무 서비스와 도메인은 LangChain을 모르게 두어, 프레임워크를 바꾸거나 같은 기능을 다른 창구(REST 등)로 열어도 그대로 쓸 수 있게 한다.
 
+## Command — presentation에서 application으로 넘기는 값
+
+`presentation`은 요청 모델을 그대로 넘기지 않고 Command로 바꿔 넘긴다. Java 하네스의 Command와 같은 역할이다.
+
+```python
+# app/application/agent/chat_command.py
+@dataclass(frozen=True)
+class ChatCommand:
+    """에이전트에 넘기는 질문 한 건."""
+
+    conversation_id: str
+    message: str
+
+
+# app/presentation/routes.py
+command = ChatCommand(conversation_id=body.conversation_id, message=body.message)
+```
+
+- Command는 `app/application`에 두는 변하지 않는 값 묶음이다 (`@dataclass(frozen=True)`). pydantic을 쓰지 않는다. 형식 검사는 요청 모델이 이미 했다.
+- `application`은 요청 모델(`ChatRequest`)을 모른다. 넘길 값이 늘면 Command에 칸을 더하고 함수 모양은 그대로 둔다.
+- 바꾸는 곳은 `app/presentation/routes.py`다.
+
 ## 업무 서비스와 도구
 
 도구는 LLM이 시스템을 부르는 창구다. 도구 안에 업무 순서를 직접 적지 않고 **항상 업무 서비스를 거친다.**
