@@ -283,26 +283,13 @@ class ChatResponse(BaseModel):
 
 답 조각을 내보내는 함수(비동기 제너레이터)에서는 **`yield`를 시간 제한 안에 두지 않는다.** `yield`에서 멈춰 있는 동안 제한이 지나면 취소가 함수 밖에서 걸려, `TimeoutError`로 바뀌지 못하고 연결이 그냥 끊긴다. 사용자는 `TIMEOUT` 안내를 받지 못한다 (Python의 PEP 789가 다루는 문제다).
 
-마감 시각을 한 번 정하고, 다음 조각을 **기다릴 때만** 그 마감으로 제한을 건다.
+마감 시각을 한 번 정하고, 다음 조각을 **기다릴 때만** 그 마감으로 제한을 건다. 이 방식은 뼈대의 `within_time_limit`(`app/application/agent/time_limit.py`)에 들어 있다. **직접 짜지 않고 이 함수로 감싼다.**
 
 ```python
-# app/application/agent/service.py — ChatService의 메서드
-async def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]:
-    deadline = asyncio.get_running_loop().time() + self._timeout_seconds
-    sentences = self._stream_checked_sentences(command)
-    try:
-        while True:
-            async with asyncio.timeout_at(deadline):      # 기다릴 때만 건다
-                sentence = await anext(sentences, None)
-            if sentence is None:
-                return
-            yield sentence                                # 제한 밖에서 내보낸다
-    except TimeoutError as e:
-        raise AgentTimeoutError(
-            f"에이전트 실행 시간 초과: timeout_seconds={self._timeout_seconds}"
-        ) from e
-    finally:
-        await sentences.aclose()
+# app/application/agent/service.py — ChatService
+def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]:
+    sentences = self._checked_sentences(command)
+    return within_time_limit(sentences, self._timeout_seconds)    # 넘으면 AgentTimeoutError
 ```
 
 - 마감 시각은 하나다. 조각마다 제한 시간을 새로 주지 않는다.

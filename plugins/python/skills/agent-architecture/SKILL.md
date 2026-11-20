@@ -185,9 +185,20 @@ class ChatService(ChatUseCase):
         self._guardrail = guardrail
         self._timeout_seconds = timeout_seconds
 
-    async def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]: ...
+    def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]:
+        sentences = self._checked_sentences(command)
+        return within_time_limit(sentences, self._timeout_seconds)
+
+    async def _checked_sentences(self, command: ChatCommand) -> AsyncGenerator[str]:
+        checked = await self._guardrail.check_input(command.message)
+        if checked.blocked:
+            yield checked.message            # 입력이 막히면 안내 문구가 답이다
+            return
+        async for sentence in _sentences(self._answers.stream(checked.text)):
+            yield await self._check_output(sentence)
 ```
 
+- **서비스의 공개 메서드는 업무 단계만 적는다.** `OrderService.cancel_order`(꺼내기 → 판단 맡기기 → 저장 → 결과)처럼 몇 줄로 읽혀야 한다. 시간 제한(`within_time_limit`, 뼈대의 `app/application/agent/time_limit.py`), 글자를 문장으로 모으기(`_sentences`) 같은 기술은 함수로 빼고 이름으로 부른다.
 - 서비스가 쓰는 부품(답 만들기 창구, 가드레일, 시간 제한)은 생성자로 받아 필드로 둔다. 부품을 따로 묶은 값(`AgentContext` 같은 것)을 만들어 함수에 넘기지 않는다.
 - `/chat`은 `ChatUseCase`에만 의존한다. 조립 함수가 만든 서비스를 `app.state.chat`에 두고 꺼내 쓴다.
 - Command(`ChatCommand`)는 요청마다 새로 만드는 값(DTO)이고, 서비스는 서버 시작 때 한 번 만드는 객체다.
