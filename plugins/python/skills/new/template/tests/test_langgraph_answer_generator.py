@@ -15,7 +15,7 @@ pytestmark = pytest.mark.anyio
 SYSTEM_PROMPT = "테스트용 시스템 프롬프트"
 
 
-@tool
+@tool(parse_docstring=True)
 def get_item(item_id: str) -> str:
     """상품 번호로 상품 이름을 알려 준다.
 
@@ -25,7 +25,7 @@ def get_item(item_id: str) -> str:
     return f"상품 {item_id}: 커피"
 
 
-@tool
+@tool(parse_docstring=True)
 def broken_tool(item_id: str) -> str:
     """코드 버그가 있는 도구.
 

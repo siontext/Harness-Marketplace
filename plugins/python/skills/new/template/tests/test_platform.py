@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -14,19 +15,7 @@ from app.infrastructure.settings import (
     Settings,
     load_settings,
 )
-
-
-def _settings(platform: str = "") -> Settings:
-    """테스트용 설정. 칸이 늘어도 바꿀 값만 인자로 받는다.
-
-    dict를 **로 풀어 넣으면 숫자 칸(시간 제한 등)이 생길 때 타입 검사에 걸린다.
-    """
-    return Settings(
-        platform=platform,
-        llm_base_url="http://localhost:9999/v1",
-        llm_api_key="test-key",
-        llm_model="test-model",
-    )
+from tests.fakes import fake_settings
 
 
 def test_env_파일_값을_읽고_환경_변수가_우선한다(
@@ -85,7 +74,7 @@ def test_시간_제한이_숫자가_아니거나_0_이하면_서버가_뜨지_�
 
 def test_PLATFORM이_비어_있으면_로컬_창구를_만든다() -> None:
     # When
-    platform = build_platform(_settings(platform=""))
+    platform = build_platform(fake_settings(platform=""))
 
     # Then
     assert isinstance(platform, Platform)
@@ -95,7 +84,7 @@ def test_PLATFORM이_비어_있으면_로컬_창구를_만든다() -> None:
 def test_없는_PLATFORM이면_로컬로_바꾸지_않고_오류를_낸다() -> None:
     # When / Then
     with pytest.raises(PlatformLoadError):
-        build_platform(_settings(platform="nowhere"))
+        build_platform(fake_settings(platform="nowhere"))
 
 
 def test_프롬프트_파일을_이름으로_읽는다(tmp_path: Path) -> None:
@@ -117,7 +106,7 @@ def test_없는_프롬프트를_찾으면_오류를_낸다(tmp_path: Path) -> No
 
 def test_LLM_창구는_설정의_모델_이름으로_채팅_모델을_만든다() -> None:
     # When
-    model = OpenAiCompatibleLlm(_settings()).chat_model()
+    model = OpenAiCompatibleLlm(fake_settings()).chat_model()
 
     # Then
     assert getattr(model, "model_name", None) == "test-model"
@@ -145,8 +134,8 @@ async def test_창구를_닫으면_등록한_닫기_함수를_모두_부른다()
     async def close() -> None:
         closed.append("done")
 
-    base = build_platform(_settings())
-    platform = Platform(base.llm, base.prompts, base.guardrail, closers=(close,))
+    # 칸 이름으로 바꿔 만든다. Platform에 업무 저장소 칸이 늘어도 깨지지 않는다.
+    platform = replace(build_platform(fake_settings()), closers=(close,))
 
     # When
     await platform.aclose()
