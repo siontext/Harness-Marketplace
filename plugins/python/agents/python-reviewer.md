@@ -84,6 +84,7 @@ skills:
   - `app/errors.py`가 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
   - `app/presentation` 밖에서 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
+- **예외** — LLM 호출 실패가 `UpstreamError`로 바뀌는가 (`langgraph-conventions`). `except Exception`이 허용된 두 곳(`python-style`)에만 있고 이유 주석이 있는가
 - **업무 서비스와 도구** (`agent-architecture`):
   - 도구(`app/infrastructure/tools/`)가 포트를 직접 부르지 않고 업무 서비스를 거친다
   - 도구 안에 판단·계산·저장 순서가 없다 (서비스 호출과 문장 변환만)
