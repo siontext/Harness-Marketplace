@@ -102,6 +102,7 @@ uv pip install --python .venv -r pyproject.toml --extra dev -c constraints.txt
 | `LLM_BASE_URL` | 로컬 LLM 주소 (OpenAI 호환) |
 | `LLM_API_KEY` | 로컬 LLM 키 |
 | `LLM_MODEL` | 모델 이름 |
+| `AGENT_TIMEOUT_SECONDS` | 질문 하나의 전체 시간 제한(초). 비우면 30. 0 이하면 서버가 뜨지 않는다 (`fastapi-conventions`의 "시간 제한") |
 | `REDIS_URL` | 대화 기억 저장소 |
 | `DATABASE_URL` | 대화 기록 저장소 (PostgreSQL) |
 
