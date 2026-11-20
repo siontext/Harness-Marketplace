@@ -156,6 +156,35 @@ _SENTENCE_END = re.compile(r"(?<![0-9])[.!?。！？]+\s+|\n+")
 - 검사에서 막히면 그 자리에서 `error` 이벤트(`code`: `BLOCKED`, `message`: 안내 문구)를 보내고 끝낸다. 막힌 내용은 대화 기록에 "차단됨"으로 남긴다.
 - 입력 가드레일은 스트리밍과 상관없이 LLM을 부르기 전에 한 번 한다.
 
+#### 막혔을 때 알리는 방법
+
+| 막힌 곳 | 에이전트 흐름(`application`)이 하는 일 | `/chat`이 보내는 것 |
+|---|---|---|
+| 입력 | LLM을 부르지 않고 가드레일의 안내 문구를 답으로 내보낸다 (예외 없음) | `token`(안내 문구) → `done` |
+| 출력 | `OutputBlockedError`를 던진다. 더 진행할 수 없으므로 무시할 수 없게 한다 | `error` · `BLOCKED` |
+
+```python
+try:
+    async for sentence in stream_answer(command, ctx):
+        yield SseEvent.token(sentence).encode()
+except OutputBlockedError as e:        # 의도된 결과: 이름을 적어 따로 잡는다
+    logger.warning("출력 가드레일 차단: %s %s", request.method, request.url.path)
+    yield SseEvent.error(ErrorCode.BLOCKED, e.guard_message or messages.BLOCKED).encode()
+    return
+# 스트리밍이 시작된 뒤의 마지막 경계다. 전역 핸들러와 같은 대응표로 답한다.
+except Exception as exc:
+    rule = find_error_rule(exc)
+    log_failure(request, rule, exc, streaming=True)
+    yield SseEvent.error(rule.code, rule.message).encode()
+    return
+yield SseEvent.done(command.conversation_id).encode()
+```
+
+- `OutputBlockedError`는 `app/application/agent/`에 두고 가드레일이 준 안내 문구를 담는다. 문구가 비어 있으면 `/chat`이 `messages.BLOCKED`를 쓴다.
+- **`OutputBlockedError`를 오류 대응표(`ERROR_RULES`)에 넣지 않는다.** 막힌 것은 오류가 아니라서 상태 코드가 없다. LLM 실패 같은 오류와 같은 `except`에서 처리하지 않는다.
+- 로그에는 막혔다는 사실만 남기고 막힌 내용은 남기지 않는다.
+- 한 번에 응답 방식에서는 엔드포인트가 `OutputBlockedError`를 잡아 안내 문구를 정상 답(200)으로 돌려준다.
+
 ### 한 번에 응답 (대안)
 
 ```python
@@ -187,7 +216,7 @@ class ChatResponse(BaseModel):
 - 위 표에 없는 `code`를 새로 만들지 않는다. 필요하면 설계 문서 결정 섹션에 적고 사용자에게 확인한다.
 - `message`는 사용자에게 보여줄 한국어 안내다. 예외 내용, 스택, 내부 주소를 넣지 않는다. 자세한 내용은 로그에 남긴다 (키·개인정보 제외).
 - 안내 문구는 `app/presentation/response/messages.py`에 상수로 모은다. 규칙이나 핸들러 안에 문장을 직접 적지 않는다.
-- 가드레일에 막힌 것은 오류가 아니다. 한 번에 응답이면 정상 답으로 안내 문구를 보낸다. 스트리밍 중 출력 검사에 막히면 이미 시작된 응답을 끝내야 해서 `BLOCKED` 이벤트를 쓴다.
+- 가드레일에 막힌 것은 오류가 아니다. 한 번에 응답이면 정상 답으로 안내 문구를 보낸다. 스트리밍 중 출력 검사에 막히면 이미 시작된 응답을 끝내야 해서 `BLOCKED` 이벤트를 쓴다. 알리는 방법은 위 "막혔을 때 알리는 방법"을 따른다.
 
 ### app/presentation/errors.py 안의 순서
 
