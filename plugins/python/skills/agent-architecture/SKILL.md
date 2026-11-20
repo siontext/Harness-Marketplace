@@ -44,15 +44,16 @@ app/common/errors.py (공통 예외)  ◀──  모든 레이어
 
 ### 공통 영역
 
-"공통"은 누가 쓰느냐에 따라 두 단계로 나눈다. 기능 폴더(`agent/`, `<기능>/`)에는 그 기능만의 것을 둔다.
+"공통"은 누가 쓰느냐에 따라 두 단계로 나눈다. 기능 폴더(`agent/`, `<기능>/`)에는 **그 기능의 규칙이나 결정이 들어 있는 것**을 둔다.
 
 | 단계 | 둘 곳 | 지금 있는 것 | 조건 |
 |---|---|---|---|
 | 모든 계층이 쓰는 것 | `app/common/` | `errors.py` | 표준 라이브러리만 쓴다. `domain`도 import할 수 있으므로 기술(asyncio, FastAPI 등)을 넣지 않는다 |
-| 한 계층 안에서 여러 기능이 쓰는 것 | 그 계층의 `common/` (presentation은 `response/`) | `application/common/time_limit.py`, `presentation/response/sse_response.py` | 그 계층의 규칙(쓸 수 있는 패키지)을 따른다 |
+| 한 계층 안에서, 기능의 규칙·결정 없이 쓸 수 있는 기술 도우미 | 그 계층의 `common/` (presentation은 `response/`) | `application/common/time_limit.py`, `application/common/sentences.py`, `presentation/response/sse_response.py` | 그 계층의 규칙(쓸 수 있는 패키지)을 따른다 |
 
-- 기능 폴더끼리 서로 import하지 않는다. 두 기능이 같이 쓸 것이 생기면 그 계층의 `common/`으로 옮긴다.
-- `common/`을 아무거나 넣는 곳(utils)으로 쓰지 않는다. 한 기능만 쓰는 것은 그 기능 폴더에 둔다.
+- **나누는 기준은 "기능의 규칙이나 결정이 들어 있느냐"다.** 시간 제한 걸기, 조각을 문장으로 모으기처럼 채팅·주문을 몰라도 쓸 수 있는 기술은 지금 한 기능만 써도 `common/`에 둔다. 주문 도구가 결제 시각을 어떤 모양으로 보여 줄지처럼 기능의 결정이 들어 있으면 기능 폴더에 둔다.
+- 기능 폴더끼리 서로 import하지 않는다. 두 기능이 같이 쓸 것이 생기면 기능의 결정을 떼어 내고 그 계층의 `common/`으로 옮긴다.
+- **폴더 이름은 위치를, 파일 이름은 하는 일을 말한다.** 공유 자리는 어느 계층이든 `common/`이라고 부른다. `common/` 안은 기술 하나당 파일 하나로, 하는 일로 이름 붙인다 (`time_limit.py`, `sentences.py`). `util`·`utils`·`helpers`처럼 무엇이 들어 있는지 말하지 않는 이름의 폴더·파일을 만들지 않는다.
 - 에이전트가 여럿이 되면 `app/<에이전트>/` 아래에 계층을 두고 공통은 `app/common/<계층>/`로 옮긴다. 그때 구조는 사용자와 정한다.
 
 ### 바깥 패키지를 쓸 수 있는 곳
@@ -208,11 +209,11 @@ class ChatService(ChatUseCase):
         if checked.blocked:
             yield checked.message            # 입력이 막히면 안내 문구가 답이다
             return
-        async for sentence in _sentences(self._answers.stream(checked.text)):
+        async for sentence in stream_sentences(self._answers.stream(checked.text)):
             yield await self._check_output(sentence)
 ```
 
-- **서비스의 공개 메서드는 업무 단계만 적는다.** `OrderService.cancel_order`(꺼내기 → 판단 맡기기 → 저장 → 결과)처럼 몇 줄로 읽혀야 한다. 시간 제한(`within_time_limit`, 뼈대의 `app/application/common/time_limit.py`), 글자를 문장으로 모으기(`_sentences`) 같은 기술은 함수로 빼고 이름으로 부른다.
+- **서비스의 공개 메서드는 업무 단계만 적는다.** `OrderService.cancel_order`(꺼내기 → 판단 맡기기 → 저장 → 결과)처럼 몇 줄로 읽혀야 한다. 시간 제한(`within_time_limit`), 글자 조각을 문장으로 모으기(`stream_sentences`) 같은 기술은 함수로 빼고 이름으로 부른다. 둘 다 뼈대의 `app/application/common/`에 있다.
 - 서비스가 쓰는 부품(답 만들기 창구, 가드레일, 시간 제한)은 생성자로 받아 필드로 둔다. 부품을 따로 묶은 값(`AgentContext` 같은 것)을 만들어 함수에 넘기지 않는다.
 - `/chat`은 `ChatUseCase`에만 의존한다. 조립 함수가 만든 서비스를 `app.state.chat`에 두고 꺼내 쓴다.
 - Command(`ChatCommand`)는 요청마다 새로 만드는 값(DTO)이고, 서비스는 서버 시작 때 한 번 만드는 객체다.
