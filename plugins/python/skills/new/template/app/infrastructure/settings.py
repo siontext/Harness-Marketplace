@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ENV_FILE = Path(".env")
-# 설계 문서 개요의 시간 제한. AGENT_TIMEOUT_SECONDS를 비우면 이 값을 쓴다.
+# 설계 문서 개요 "시간 제한"의 우리 쪽 값. AGENT_TIMEOUT_SECONDS를 비우면 이 값을 쓴다.
 DEFAULT_AGENT_TIMEOUT_SECONDS = 30.0
 
 

@@ -29,11 +29,12 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 │   │   ├── agent/           채팅 기능 — usecase.py(ChatUseCase), service.py(ChatService), command.py, port.py(AnswerGenerator·Guardrail). LangChain을 모른다
 │   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, command.py, result.py
 │   ├── domain/
-│   │   └── <기능>/          업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 (있을 때만)
+│   │   └── <기능>/          도메인 객체(규칙이 없으면 값만), 업무 규칙, 코드값 Enum, 업무 예외
 │   ├── infrastructure/      포트 구현 — __init__.py(구현 선택), local.py(로컬 묶음), settings.py(설정)
 │   │   ├── agent/           답 만들기 어댑터 — create_agent 조립, LangGraph 메시지를 글자로 번역
 │   │   ├── llm/             LLM 창구 모양(port.py)과 구현
-│   │   ├── persistence/     저장소 구현 — <기능>/ 폴더마다 (있을 때만)
+│   │   ├── persistence/     저장소 구현(DB·메모리) — <기능>/ 폴더마다 (있을 때만)
+│   │   ├── client/          외부 API를 부르는 구현 — <기능>/ 폴더마다 (있을 때만)
 │   │   ├── prompt/          프롬프트 창구 모양(port.py)과 구현
 │   │   ├── guardrail/       가드레일 구현
 │   │   └── tools/           도구 함수 (@tool)
@@ -47,8 +48,8 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 - `app/` 바로 아래에 두는 모듈은 `container.py` 하나다. 더 생기면 사용자에게 확인한다.
 - **공통은 두 단계로 나눈다** (`agent-architecture`의 "공통 영역"). 모든 계층이 쓰는 것은 `app/common/`, 한 계층 안에서 여러 기능이 쓰는 것은 그 계층의 `common/`(presentation은 `response/`)에 둔다.
 - `infrastructure/` 아래는 창구 종류마다 폴더 하나다. 새 종류의 창구가 생기면 폴더를 더한다 (예: `memory/`).
-- 업무 기능이 생기면 `application/<기능>/`, `domain/<기능>/`, `infrastructure/persistence/<기능>/`을 같은 이름으로 만든다 (`agent-architecture`의 "기능 폴더").
-- `app/domain/`은 계산·판단·상태 변화 같은 업무 규칙이 있을 때만 만든다 (`agent-architecture`).
+- 업무 기능이 생기면 `application/<기능>/`, `domain/<기능>/`, 구현 폴더(`infrastructure/persistence/<기능>/` 또는 `infrastructure/client/<기능>/`)를 같은 이름으로 만든다 (`agent-architecture`의 "기능 폴더").
+- `domain/<기능>/`은 업무 규칙이 없어도 만든다. 규칙이 없으면 값만 갖는 도메인 객체와 업무 예외(대상 없음)를 둔다 (`agent-architecture`의 "DDD").
 - 각 폴더에 `__init__.py`를 둔다.
 
 ## pyproject.toml
@@ -73,6 +74,8 @@ Ruff 설정:
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+# Ruff 0.17은 .md 안의 파이썬 코드 블록도 포맷한다. 설계 문서와 프롬프트는 건드리지 않는다.
+extend-exclude = ["docs", "app/prompts"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "N", "ASYNC", "G", "T20", "RUF"]

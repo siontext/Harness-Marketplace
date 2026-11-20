@@ -30,7 +30,7 @@ app/common/errors.py (공통 예외)  ◀──  모든 레이어
 | `app/presentation` | 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러 | `application`, `app/common/errors.py` |
 | `app/application/agent/` | 채팅 기능 — `usecase.py`(`ChatUseCase`), `service.py`(`ChatService`: 입력 검사 → 답 글자 받기 → 문장별 출력 검사, 시간 제한), `command.py`, `port.py`(`AnswerGenerator`·`Guardrail`) | `application` 안, `domain`, `app/common/errors.py` |
 | `app/application/<기능>/` | 업무 기능 하나 — `usecase.py`(들어오는 포트), `port.py`(나가는 포트), `service.py`, `command.py`, `result.py` | 같은 기능 폴더, `domain`, `app/common/errors.py` |
-| `app/domain/<기능>/` | 업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 | `app/common/errors.py`만 |
+| `app/domain/<기능>/` | 도메인 객체(엔티티·값 객체)와 업무 규칙, 코드값 Enum, 업무 예외 | `app/common/errors.py`만 |
 | `app/infrastructure` | 포트 구현(어댑터) — 답 만들기(`agent/`), 저장소, 가드레일, 도구. LLM·프롬프트 창구(`llm/`, `prompt/`)와 그 모양(`port.py`), 설정, 구현 선택 | `application`, `domain`, `app/common/errors.py` |
 | `app/container.py` | 조립 — 구현을 서비스·도구·에이전트에 넣어 주기 | 전부 |
 | `main.py` | `FastAPI` 앱 만들기, `lifespan`에서 조립 함수 부르기 | 전부 |
@@ -108,7 +108,7 @@ app/infrastructure/tools/order_tools.py  OrderUseCase를 받아 결과를 문장
 
 | 파일 | 맡는 일 | 모르는 것 |
 |---|---|---|
-| `app/domain/<기능>/` | 판단·계산 (예: 취소할 수 있는가) | 저장소, LLM, 문장 |
+| `app/domain/<기능>/` | 도메인 객체와 판단·계산 (예: 취소할 수 있는가). 규칙이 없으면 값만 갖는다 | 저장소, LLM, 문장 |
 | `app/application/<기능>/service.py` | 순서 (꺼내기 → 도메인에 판단 맡기기 → 저장). 결과는 Result나 업무 예외로 알린다 | LangChain, LLM이 읽을 문장 |
 | `app/infrastructure/tools/` | 유스케이스 호출, Result와 예외를 LLM이 읽을 문장으로 바꾸기 | 판단, 순서, 엔티티, 서비스 구현 |
 
@@ -161,7 +161,7 @@ class OrderService(OrderUseCase):
 - **유스케이스 메서드는 Command/Query를 받고 Result를 돌려준다.** 상태를 바꾸지 않는 요청은 `...Query`, 바꾸는 요청은 `...Command`로 이름 붙이고 둘 다 `command.py` 한 파일에 둔다. 셋 다 `@dataclass(frozen=True)`이고 pydantic을 쓰지 않는다.
 - **DTO(Command·Query·Result)는 그 기능 폴더의 `command.py`·`result.py`에 둔다.** 채팅 기능도 `agent/command.py`다. 모든 기능의 DTO를 모으는 폴더(`application/dto/` 등)를 따로 만들지 않는다. 한 기능의 Command가 많아 파일이 길어지면 `command.py`를 `command/` 패키지로 바꾼다.
 - **서비스는 엔티티를 밖으로 돌려주지 않는다.** Result로 옮겨 담아 돌려준다. Result에는 부르는 쪽이 필요한 값만 담는다. 도메인의 코드값 Enum은 그대로 써도 되고, 엔티티는 담지 않는다. 엔티티가 바뀌어도 옮겨 담는 곳(서비스·`from_<엔티티>`)에서 멈추고 도구까지 번지지 않는다.
-- **대상이 없을 때: 저장소(나가는 포트)는 `None`을 돌려주고, 서비스가 업무 예외(`OrderNotFoundError`)로 바꿔 던진다.** 유스케이스의 반환 타입에 `None`을 넣지 않는다.
+- **대상이 없을 때: 저장소(나가는 포트)는 `None`을 돌려주고, 서비스가 업무 예외(`OrderNotFoundError`)로 바꿔 던진다.** 유스케이스의 반환 타입에 `None`을 넣지 않는다. 예외에는 대상 값만 넘긴다 (`raise OrderNotFoundError(order_id)`). 메시지는 예외가 만든다 (아래 "예외 위치").
 - **도구는 유스케이스를 통해서만 기능을 쓴다.** 도구가 import할 수 있는 것은 아래 표가 전부다.
 
 | import할 수 있다 | import하지 않는다 |
@@ -187,7 +187,7 @@ STATUS_LABELS: dict[OrderStatus, str] = {
 - 날짜·시각을 읽기 좋은 표기로 바꾸는 것(시간대, 날짜 형식)도 문장 만들기로 보고 도구가 한다.
 - 조회처럼 전달만 하는 기능도 유스케이스를 거친다. 서비스가 한 줄이어도 도구가 포트를 직접 부르지 않는다. 기준이 하나여야 도구마다 판단이 갈리지 않는다.
 - 서비스는 나가는 포트와 "지금 시각" 같은 바뀌는 값을 생성자로 받는다. 안에서 시계를 읽거나 구현을 만들지 않는다.
-- 도구가 예외를 문장으로 바꾸는 규칙은 `langgraph-conventions`의 "도구 만들기"를 따른다.
+- 도구가 예외를 문장으로 바꾸는 규칙은 `langgraph-conventions`의 "도구 만들기"를 따른다. **문장으로 바꾸는 것은 업무 예외(대상 없음, 규칙에 걸림)뿐이다.** 포트 구현이 외부 시스템(DB, 외부 API) 고장으로 던지는 `UpstreamError`는 도구가 잡지 않는다. 그대로 올라가 `UPSTREAM_ERROR`로 끝난다 (Fail Fast). 고장을 문장으로 바꾸면 LLM이 그 문장을 보고 답을 지어낼 수 있다.
 
 ## 채팅 기능 — ChatUseCase와 ChatService
 
@@ -215,6 +215,12 @@ class ChatService(ChatUseCase):
             raise InputBlockedError(checked.message)    # 안내 문구는 sse_response가 보낸다
         async for sentence in stream_sentences(self._answers.stream(checked.text)):
             yield await self._check_output(sentence)
+
+    async def _check_output(self, sentence: str) -> str:
+        checked = await self._guardrail.check_output(sentence)
+        if checked.blocked:
+            raise OutputBlockedError(checked.message)   # 막힌 문장은 내보내지 않는다
+        return checked.text                             # 가려졌을 수 있는 문장
 ```
 
 - **서비스의 공개 메서드는 업무 단계만 적는다.** `OrderService.cancel_order`(꺼내기 → 판단 맡기기 → 저장 → 결과)처럼 몇 줄로 읽혀야 한다. 시간 제한(`within_time_limit`), 글자 조각을 문장으로 모으기(`stream_sentences`) 같은 기술은 함수로 빼고 이름으로 부른다. 둘 다 뼈대의 `app/application/common/`에 있다.
@@ -283,12 +289,29 @@ def build_chat_service(platform: Platform, timeout_seconds: float) -> ChatUseCas
 |---|---|---|
 | 여러 레이어가 던지거나 전역 핸들러가 구분해 답하는 예외 (`AppError`, `UpstreamError`, `AgentTimeoutError`) | `app/common/errors.py` | 안쪽 레이어가 import해야 하므로 HTTP를 몰라야 한다 |
 | 한 레이어 안에서만 쓰는 예외 (예: `PlatformLoadError`) | 그 레이어 안 | 밖에서 구분할 일이 없다 |
-| 업무 규칙에 걸렸을 때 던지는 예외 (예: `OrderNotCancellableError`, `OrderNotFoundError`) | `app/domain/<기능>/` (규칙 옆) | 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않는다 |
+| 업무 예외 — 대상이 없을 때(`OrderNotFoundError`), 업무 규칙에 걸렸을 때(`OrderNotCancellableError`) | `app/domain/<기능>/` (도메인 객체 옆) | 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않는다 |
+| 외부 시스템(DB, 외부 API) 고장 | 포트 구현이 `UpstreamError`(`app/common/errors.py`)를 던진다 | 도구가 잡지 않는다. `UPSTREAM_ERROR`로 끝난다 |
 | 가드레일에 막혔을 때 던지는 예외 (`InputBlockedError`, `OutputBlockedError`) | `app/application/agent/errors.py` (뼈대) | `sse_response`가 잡아 입력 막힘은 안내 문구 답으로, 출력 막힘은 `BLOCKED` 이벤트로 바꾼다. 전역 핸들러까지 가지 않는다 |
 | 예외 → 상태 코드·`code`·안내 문구 대응표, 전역 핸들러 | `app/presentation/errors.py` | HTTP 응답을 만드는 일이다 (`fastapi-conventions`) |
 | `code` 값(`ErrorCode`), 안내 문구 | `app/presentation/response/` | 호출하는 쪽에 보이는 응답의 일부다 |
 
 - 예외 클래스에 상태 코드나 `code`를 넣지 않는다. 대응은 `app/presentation/errors.py`의 표 한 곳에만 둔다.
+- **업무 예외는 대상 값을 생성자로 받아 메시지를 스스로 만든다.** 던지는 쪽은 값만 넘긴다. 문구가 예외 한 곳에만 있어 던지는 곳마다 달라지지 않고, 잡는 쪽은 값(`e.order_id`)을 속성으로 쓴다.
+
+```python
+# app/domain/order/order.py
+class OrderNotFoundError(AppError):
+    """주문 번호에 해당하는 주문이 없을 때.
+
+    Attributes:
+        order_id: 찾지 못한 주문 번호.
+    """
+
+    def __init__(self, order_id: str) -> None:
+        super().__init__(f"주문을 찾을 수 없다: order_id={order_id}")
+        self.order_id = order_id
+```
+
 - 새 예외는 `AppError`나 그 하위 예외를 상속한다. 대응표에 없으면 가장 가까운 부모의 규칙으로 답한다.
 - **의도된 결과라도 흐름을 끝내는 것은 예외로 던지고, 가까운 곳에서 이름을 적어 잡는다** (취소 불가는 도구가, 입력·출력 막힘은 `sse_response`가). 값에 표시를 달아 넘기면 받는 쪽이 확인을 빠뜨려도 조용히 지나간다. 이런 예외는 오류가 아니므로 대응표(`ERROR_RULES`)에 넣지 않는다. 잡는 곳을 빠뜨리면 `INTERNAL_ERROR`로 드러난다.
 
@@ -308,7 +331,8 @@ def build_chat_service(platform: Platform, timeout_seconds: float) -> ChatUseCas
 | 대화 기록 | 질문·답을 빠짐없이 남김 (감사) | PostgreSQL (가드레일을 거친 뒤 내용) |
 
 - 쓰지 않는 창구는 만들지 않는다. 설계 문서의 전체 아키텍처에 있는 것만 만든다.
-- 구현은 창구 종류마다 폴더 하나에 둔다: `infrastructure/agent/`, `llm/`, `persistence/<기능>/`, `prompt/`, `guardrail/`. 도구는 `infrastructure/tools/`.
+- 구현은 창구 종류마다 폴더 하나에 둔다: `infrastructure/agent/`, `llm/`, `persistence/<기능>/`(DB·메모리 저장소), `client/<기능>/`(외부 API를 부르는 구현), `prompt/`, `guardrail/`. 도구는 `infrastructure/tools/`.
+- **업무 기능의 나가는 포트(저장소, 외부 API)도 연결 창구다.** 기능이 생기면 `Platform`(`app/infrastructure/__init__.py`)에 칸을 더하고(예: `orders: OrderRepository`), 같은 변경에서 `local.py`의 `create_platform()`과 `tests/fakes.py`의 `fake_platform`도 고친다. 조립 함수는 `platform.orders`처럼 꺼내 서비스에 넣는다.
 - **구현 클래스는 포트를 괄호에 적는다** (`class InMemoryOrderRepository(OrderRepository):`). Java의 `implements`처럼 어떤 포트의 구현인지 드러나고 IDE에서 구현을 찾을 수 있다.
 - **포트의 메서드에는 본문을 넣지 않는다** (`...`만). 본문을 넣으면 구현 클래스가 그 동작을 물려받아 상속이 된다.
 - 운영 플랫폼용 구현은 공개 하네스에 없다. 사용자 스킬 폴더의 플랫폼 전용 스킬에 견본이 있으면 그것을 따른다.
@@ -391,9 +415,13 @@ def build_platform(settings: Settings | None = None) -> Platform:
 
 Python에는 `private`, `final`, `new`가 없다. Java 문법을 흉내 내지 않는다 (예: 생성자를 막으려고 `__new__`를 건드리지 않는다).
 
-## DDD — 업무 규칙이 있을 때만
+## DDD — 업무 규칙이 없어도 도메인 객체를 둔다
 
-에이전트는 보통 "질문 → LLM 판단 → 도구로 외부 시스템 호출 → 답" 흐름이라 내 코드 안의 업무 규칙이 얇다. 그래서 **계산·판단·상태 변화 같은 규칙이 있을 때만** `app/domain/<기능>/`을 만든다. 외부 시스템을 불러 주기만 하는 도구뿐이면 만들지 않는다. 이때도 기능 폴더(`app/application/<기능>/`의 유스케이스·서비스·Command/Query·Result)는 둔다. designer가 설계 문서에 업무 규칙 유무를 적는다.
+**기능의 나가는 포트(저장소, 외부 API)가 업무 데이터를 주고받으면, 업무 규칙이 없어도 `app/domain/<기능>/`에 도메인 객체와 업무 예외를 둔다.** 규칙이 없으면 값만 갖는 `@dataclass(frozen=True)` 클래스다 (예: 조회만 하는 상품의 `Product`). 포트는 늘 도메인 객체를 돌려주고, 서비스가 Result로 옮겨 담는다.
+
+- 그래서 기능마다 폴더 모양(`domain/<기능>/`, `application/<기능>/`, 구현 폴더)이 같다. 규칙이 생기면 그 클래스에 메서드를 더하면 되고, 포트와 서비스의 모양은 그대로다.
+- 계산·판단·상태 변화 같은 규칙은 도메인 객체의 메서드로 둔다. 도구나 서비스에 두지 않는다.
+- designer가 설계 문서에 도메인 객체와 업무 규칙 유무를 적는다.
 
 | DDD 개념 | Python에서 |
 |---|---|

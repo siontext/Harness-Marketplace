@@ -27,6 +27,8 @@ dev = [
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+# Ruff 0.17은 .md 안의 파이썬 코드 블록도 포맷한다. 설계 문서와 프롬프트는 건드리지 않는다.
+extend-exclude = ["docs", "app/prompts"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "SIM", "N", "ASYNC", "G", "T20", "RUF"]

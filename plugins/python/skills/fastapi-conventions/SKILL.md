@@ -82,12 +82,18 @@ app.include_router(router)
 pydantic 모델로 정한다. 필드 설명은 한국어 `Field(description=...)`.
 
 ```python
+# app/presentation/schemas.py
+# 질문 하나의 최대 글자 수. 설계 문서 개요에 다른 값이 없으면 1000.
+MAX_MESSAGE_LENGTH = 1000
+
+
 class ChatRequest(BaseModel):
     conversation_id: str = Field(min_length=1, description="대화 id. 같은 대화는 같은 값")
     message: str = Field(min_length=1, max_length=MAX_MESSAGE_LENGTH, description="사용자 질문")
 ```
 
 - 요청 모델에서 길이·형식을 검사한다. 검사 실패는 FastAPI가 422로 돌려준다.
+- `MAX_MESSAGE_LENGTH`는 `app/presentation/schemas.py` 위쪽에 상수로 둔다. 호출하는 쪽이 다른 값을 쓰면 설계 문서 개요에 적고 그 값을 쓴다.
 - 엔드포인트는 요청 모델을 Command(`ChatCommand`)로 바꿔 에이전트에 넘긴다. 요청 모델을 `application`에 그대로 넘기지 않는다 (`agent-architecture`의 "Command").
 - 호출하는 쪽과 다른 모양이 필요하면 설계 문서 개요에 적고 그에 맞춘다.
 
@@ -230,6 +236,7 @@ class ChatResponse(BaseModel):
 - 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `sse_response`가 `except Exception`으로 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`find_error_rule`)에서 가져온다.
 - 스트리밍 중 실패의 로그는 `app/presentation/errors.py`의 `log_failure(request, rule, exc, streaming=True)`로 남긴다. 전역 핸들러와 같은 함수라 로그 규칙이 한곳에 있다. 로그 코드를 `routes.py`에 따로 짜지 않는다.
 - LLM 호출 실패는 에이전트 쪽에서 `UpstreamError`로 바꿔 던진다 (`langgraph-conventions`의 "LLM 호출 실패 → UpstreamError"). 바꾸지 않으면 `INTERNAL_ERROR`로 나간다.
+- 도구가 부르는 외부 시스템(DB, 외부 API)의 고장도 같다. 포트 구현이 `UpstreamError`를 던지고, 도구는 잡지 않는다. 그래서 `UPSTREAM_ERROR`로 끝난다 (`agent-architecture`의 "예외 위치").
 - 위 표에 없는 `code`를 새로 만들지 않는다. 필요하면 설계 문서 결정 섹션에 적고 사용자에게 확인한다.
 - `message`는 사용자에게 보여줄 한국어 안내다. 예외 내용, 스택, 내부 주소를 넣지 않는다. 자세한 내용은 로그에 남긴다 (키·개인정보 제외).
 - 안내 문구는 `app/presentation/response/messages.py`에 상수로 모은다. 규칙이나 핸들러 안에 문장을 직접 적지 않는다.
@@ -264,14 +271,14 @@ class ChatResponse(BaseModel):
 
 - 응답이 기존 예외와 같고 로그에서만 구분하면 되는 예외는 1번만 한다. 표에 없는 하위 예외는 가장 가까운 부모의 규칙을 따른다.
 - 던지는 쪽(도메인, 서비스, 에이전트, 포트 구현)은 예외 클래스만 쓴다: `raise UpstreamError("상품 조회 실패: id=123")`. 규칙 값이나 `ErrorCode`를 가져다 쓰지 않는다.
-- 업무 규칙에 걸려 던지는 예외(예: 취소 불가)는 `app/domain/`에 두고 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않으므로 위 네 단계 중 1번도 `app/common/errors.py`가 아니라 `app/domain/`에 한다.
+- 업무 예외(대상 없음, 규칙에 걸림)는 `app/domain/<기능>/`에 두고 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않으므로 예외 클래스만 `app/domain/<기능>/`에 만들고 2~4번은 하지 않는다.
 
 ## 시간 제한
 
 호출하는 쪽(게이트웨이 등)은 정해진 시간까지만 기다린다. 그 시간이 지나면 사용자는 아무 답도 못 받는다. 그래서 **그보다 먼저 끊고 안내한다.**
 
-- 시간 제한 값은 설계 문서 개요의 "시간 제한"을 환경 변수 `AGENT_TIMEOUT_SECONDS`로 둔다. 뼈대의 `Settings.agent_timeout_seconds`가 읽는다 (비우면 30초). 코드에 숫자를 적지 않는다.
-- 우리 쪽 제한은 호출하는 쪽 제한보다 여유 있게 짧게 잡는다 (예: 2~3초 먼저).
+- 설계 문서 개요의 "시간 제한"에는 두 값을 적는다: 호출하는 쪽이 기다려 주는 시간과 우리 쪽 제한. **우리 쪽 제한을 환경 변수 `AGENT_TIMEOUT_SECONDS`로 둔다.** 뼈대의 `Settings.agent_timeout_seconds`가 읽는다 (비우면 30초). 코드에 숫자를 적지 않는다.
+- 우리 쪽 제한은 호출하는 쪽 제한보다 여유 있게 짧게 잡는다 (예: 2~3초 먼저). 호출하는 쪽 제한이 없거나 모르면 기본값 30초를 쓰고 "확인 필요"로 적는다.
 - 시간 제한은 에이전트 흐름(`app/application/agent/`)에서 걸고, 초과하면 `AgentTimeoutError`를 던진다. 기준은 질문 하나의 전체 실행이다.
 - 한 번에 응답: 3.11의 `asyncio.timeout(...)`으로 에이전트 실행을 감싼다.
 - 스트리밍: 아래 "스트리밍의 시간 제한"을 따른다. `yield`를 `asyncio.timeout` 안에 두지 않는다.
@@ -296,4 +303,4 @@ def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]:
 
 ## 테스트
 
-엔드포인트 테스트는 `python-testing`을 따른다. 서버를 띄우지 않고 `TestClient`로 `/chat`, `/health`를 부른다. SSE는 받은 본문을 이벤트 단위로 나눠 `token` → `done` 순서를 확인한다.
+엔드포인트 테스트는 `python-testing`을 따른다. 서버를 띄우지 않고 `TestClient`로 `/chat`, `/health`를 부른다. SSE는 받은 본문을 이벤트 단위로 나눠 `token` → `done` 순서를 확인한다. `lifespan`은 `python-testing`의 "서버 시작(lifespan) 테스트"로 따로 확인한다.

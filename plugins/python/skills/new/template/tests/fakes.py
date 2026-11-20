@@ -18,6 +18,7 @@ from app.application.agent.port import Guardrail, GuardResult
 from app.infrastructure import Platform
 from app.infrastructure.llm.port import LlmProvider
 from app.infrastructure.prompt.port import PromptStore
+from app.infrastructure.settings import Settings
 
 FAKE_SYSTEM_PROMPT = "테스트용 시스템 프롬프트"
 
@@ -144,6 +145,22 @@ def fake_platform(llm: BaseChatModel, guardrail: Guardrail | None = None) -> Pla
         llm=FakeLlmProvider(llm),
         prompts=FakePromptStore(),
         guardrail=guardrail or FakeGuardrail(),
+    )
+
+
+def fake_settings(platform: str = "") -> Settings:
+    """.env 대신 쓰는 테스트용 설정. 칸이 늘어도 바꿀 값만 인자로 받는다.
+
+    dict를 **로 풀어 넣으면 숫자 칸(시간 제한 등)이 생길 때 타입 검사에 걸린다.
+
+    Args:
+        platform: PLATFORM 값. 비우면 로컬.
+    """
+    return Settings(
+        platform=platform,
+        llm_base_url="http://localhost:9999/v1",
+        llm_api_key="test-key",
+        llm_model="test-model",
     )
 
 

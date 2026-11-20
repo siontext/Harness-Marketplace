@@ -36,7 +36,7 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 
 - `*` import 금지. 쓰지 않는 import 제거.
 - 순서: 표준 라이브러리 → 외부 패키지 → 내 프로젝트(`app`). 그룹 사이 빈 줄. Ruff(`I` 규칙)가 정리한다.
-- 내 프로젝트는 절대 경로로 가져온다 (`from app.tools.product import get_product`). 상대 경로(`from ..tools`) 금지.
+- 내 프로젝트는 절대 경로로 가져온다 (`from app.infrastructure.tools.product_tools import build_product_tools`). 상대 경로(`from ..tools`) 금지.
 
 ## 함수
 
@@ -87,7 +87,22 @@ class Money:
   - LLM 호출을 감싸 `UpstreamError`로 바꾸는 곳 (`langgraph-conventions`). LLM 구현마다 던지는 예외가 다르다.
   - `/chat`의 스트리밍 함수가 `error` 이벤트로 바꾸는 곳 (`fastapi-conventions`). 스트리밍이 시작된 뒤에는 전역 핸들러가 잡지 못해 여기가 마지막 경계다.
 - 예외를 바꿔 던질 때는 원인을 잇는다: `raise ProductLookupError(...) from e`.
-- 예외 메시지에 맥락을 넣는다 (예: `f"상품을 찾을 수 없다: product_id={product_id}"`). 키·개인정보는 넣지 않는다.
+- 예외 메시지에 맥락을 넣는다 (예: `"상품을 찾을 수 없다: product_id=P001"`). 키·개인정보는 넣지 않는다.
+- **업무 예외는 대상 값을 생성자로 받아 메시지를 스스로 만든다.** 던지는 쪽은 `raise ProductNotFoundError(product_id)`처럼 값만 넘긴다. 문구를 던지는 곳마다 적지 않는다 (`agent-architecture`의 "예외 위치").
+
+```python
+class ProductNotFoundError(AppError):
+    """상품 번호에 해당하는 상품이 없을 때.
+
+    Attributes:
+        product_id: 찾지 못한 상품 번호.
+    """
+
+    def __init__(self, product_id: str) -> None:
+        super().__init__(f"상품을 찾을 수 없다: product_id={product_id}")
+        self.product_id = product_id
+```
+
 - 도구 함수의 예외 처리는 `langgraph-conventions`를 따른다 (LLM이 읽을 문장으로 돌려준다).
 
 ## 비동기
@@ -145,25 +160,30 @@ def find_product(product_id: str) -> Product:
 
 LLM은 이 독스트링을 읽고 도구를 쓸지 정한다. 사람용 설명이 아니다.
 
+- 도구는 `@tool(parse_docstring=True)`로 만든다 (`langgraph-conventions`의 "도구 만들기"). 본문은 도구 설명으로, `Args:`는 인자 설명 칸으로 LLM에게 간다.
 - 첫 문장: 무엇을 하는 도구인지.
 - **언제 쓰는지, 언제 쓰면 안 되는지**를 적는다.
-- `Args:`에 각 인자의 뜻과 형식(예: "8자리 숫자")을 적는다.
-- 반환 형식을 적는다.
+- 돌려주는 내용을 본문에 적는다. `Returns:`는 LLM에게 가지 않으므로 쓰지 않는다.
+- `Args:`에 각 인자의 뜻과 형식(예: "8자리 숫자")을 적는다. 인자 이름과 맞지 않으면 도구를 만들 때 오류가 난다.
 
 ```python
-@tool
-def get_product(product_id: str) -> str:
-    """상품 id로 상품 이름, 가격, 재고를 조회한다.
+def build_product_tools(products: ProductUseCase) -> list[BaseTool]:
+    """상품 유스케이스를 쓰는 도구 목록을 만든다."""
 
-    사용자가 특정 상품의 조건을 물을 때 쓴다.
-    상품 id를 모르면 쓰지 말고 search_products로 먼저 찾는다.
+    @tool(parse_docstring=True)
+    async def get_product(product_id: str) -> str:
+        """상품 번호로 상품 이름과 가격을 조회한다.
 
-    Args:
-        product_id: 상품 id. 영문 대문자와 숫자 8자리.
+        사용자가 특정 상품의 가격을 물을 때 쓴다.
+        상품 번호를 모르면 쓰지 말고 사용자에게 번호를 먼저 묻는다.
+        상품 정보 문장을 돌려준다. 상품이 없으면 없다는 안내 문장을 돌려준다.
 
-    Returns:
-        상품 정보 문장. 상품이 없으면 없다는 안내 문장.
-    """
+        Args:
+            product_id: 상품 번호. 영문 대문자 P와 숫자 3자리 (예: P001).
+        """
+        ...
+
+    return [get_product]
 ```
 
 ### 구현 주석
