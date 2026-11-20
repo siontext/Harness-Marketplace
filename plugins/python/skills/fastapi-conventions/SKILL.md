@@ -208,9 +208,39 @@ class ChatResponse(BaseModel):
 
 - 시간 제한 값은 설계 문서 개요의 "시간 제한"을 설정으로 둔다. 코드에 숫자를 적지 않는다.
 - 우리 쪽 제한은 호출하는 쪽 제한보다 여유 있게 짧게 잡는다 (예: 2~3초 먼저).
-- 3.11의 `asyncio.timeout(...)`으로 에이전트 실행을 감싼다. 초과하면 `TIMEOUT` 안내를 보낸다.
+- 시간 제한은 에이전트 흐름(`app/application/agent/`)에서 걸고, 초과하면 `AgentTimeoutError`를 던진다. 기준은 질문 하나의 전체 실행이다.
+- 한 번에 응답: 3.11의 `asyncio.timeout(...)`으로 에이전트 실행을 감싼다.
+- 스트리밍: 아래 "스트리밍의 시간 제한"을 따른다. `yield`를 `asyncio.timeout` 안에 두지 않는다.
 - 호출하는 쪽 제한이 **첫 응답까지**인지 **전체**인지 확인한다. 첫 응답까지라면 SSE는 첫 `token`을 빨리 보내는 것이 중요하다. 확인되지 않았으면 설계 문서에 "확인 필요"로 적고 사용자에게 묻는다.
 - 도구가 부르는 외부 시스템에도 각자 시간 제한을 둔다. 하나가 멈춰 전체 시간을 다 쓰지 않게 한다.
+
+### 스트리밍의 시간 제한
+
+답 조각을 내보내는 함수(비동기 제너레이터)에서는 **`yield`를 시간 제한 안에 두지 않는다.** `yield`에서 멈춰 있는 동안 제한이 지나면 취소가 함수 밖에서 걸려, `TimeoutError`로 바뀌지 못하고 연결이 그냥 끊긴다. 사용자는 `TIMEOUT` 안내를 받지 못한다 (Python의 PEP 789가 다루는 문제다).
+
+마감 시각을 한 번 정하고, 다음 조각을 **기다릴 때만** 그 마감으로 제한을 건다.
+
+```python
+async def stream_answer(command: ChatCommand, ctx: AgentContext) -> AsyncGenerator[str]:
+    deadline = asyncio.get_running_loop().time() + ctx.timeout_seconds
+    sentences = _stream_checked_sentences(command, ctx)
+    try:
+        while True:
+            async with asyncio.timeout_at(deadline):      # 기다릴 때만 건다
+                sentence = await anext(sentences, None)
+            if sentence is None:
+                return
+            yield sentence                                # 제한 밖에서 내보낸다
+    except TimeoutError as e:
+        raise AgentTimeoutError(
+            f"에이전트 실행 시간 초과: timeout_seconds={ctx.timeout_seconds}"
+        ) from e
+    finally:
+        await sentences.aclose()
+```
+
+- 마감 시각은 하나다. 조각마다 제한 시간을 새로 주지 않는다.
+- 필수 테스트: 시간 초과가 `TIMEOUT` `error` 이벤트로 끝나는지, 조각이 여러 개여도 전체 시간 기준으로 끊기는지.
 
 ## 테스트
 
