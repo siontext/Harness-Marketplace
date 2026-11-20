@@ -39,25 +39,24 @@ def anyio_backend() -> str:
 - **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/ports.py`의 Protocol), 외부 API, DB, Redis.
 - 내 코드 안의 객체(도메인 객체, 상태, 데이터 모델)는 가짜로 만들지 않는다.
 - 연결 창구 가짜는 Protocol 모양을 따르는 작은 클래스나 `AsyncMock(spec=<Protocol>)`으로 만든다.
-- 테스트는 `.env`를 읽지 않는다. `build_platform()`을 부르지 않고 가짜 창구를 직접 조립한다.
+- 테스트는 `.env`를 읽지 않는다. 흐름·엔드포인트 테스트는 `build_platform()`을 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립 함수에 넣는다. `build_platform()` 자체를 확인하는 테스트는 설정을 직접 넘겨 부른다.
 
 ### 가짜 LLM
 
 `GenericFakeChatModel`은 정해 둔 메시지를 차례로 돌려준다. 도구 호출 답은 `AIMessage(tool_calls=[...])`로 만든다.
 
-`create_agent`는 모델의 `bind_tools`를 부르는데 `GenericFakeChatModel`에는 이 기능이 없다. `tests/fakes.py`에 아래 가짜를 두고 쓴다.
+뼈대의 `tests/fakes.py`에 있는 가짜를 쓴다. 새로 만들지 않는다.
 
-```python
-class FakeToolCallingModel(GenericFakeChatModel):
-    """정해 둔 답을 차례로 돌려주고, 도구 연결 요청은 그대로 통과시키는 가짜 LLM."""
+| 가짜 | 하는 일 |
+|---|---|
+| `fake_llm(*replies)` | 답을 차례로 돌려주는 가짜 LLM을 만든다. 답 자리에 예외를 넣으면 그 차례의 LLM 호출이 실패한다 |
+| `FakeToolCallingModel.received` | 호출마다 받은 메시지 목록. LLM을 불렀는지, 검사를 거친 문장을 받았는지 확인한다 |
+| `FakeGuardrail` | 정해 둔 문장만 막거나 바꾸고 나머지는 통과시킨다. 검사에 들어온 문장을 기록한다 |
+| `fake_platform(llm, ...)` | 가짜 창구로 구현 묶음(`Platform`)을 만든다. 이것을 진짜 조립 함수(`app/container.py`)에 넣는다 |
 
-    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> "FakeToolCallingModel":
-        return self
-
-
-def fake_llm(*replies: AIMessage) -> FakeToolCallingModel:
-    return FakeToolCallingModel(messages=iter(replies))
-```
+- `GenericFakeChatModel`은 `bind_tools`가 없고 스트리밍에서 도구 호출을 조각으로 내지 못한다. `FakeToolCallingModel`이 이 둘을 메운다. `GenericFakeChatModel`을 그대로 쓰면 `create_agent`와 `astream(stream_mode="messages")`에서 오류가 난다.
+- 이 가짜는 langchain-core 내부 동작에 기댄다. `tests/test_fakes.py`가 그 동작을 확인하므로 지우지 않는다.
+- 창구가 늘면(저장소 등) `fake_platform`에 인자를 더하고 그 창구의 가짜를 `tests/fakes.py`에 둔다.
 
 ```python
 llm = fake_llm(

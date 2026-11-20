@@ -190,7 +190,7 @@ def test_서버_오류는_ERROR_수준으로_스택과_함께_남는다(
     # Then
     (record,) = _handler_records(caplog)
     assert record.levelno == logging.ERROR
-    assert record.exc_info is not None
+    assert isinstance(record.exc_info, tuple)
     assert isinstance(record.exc_info[1], UpstreamError)
 
 
