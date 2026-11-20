@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.application.agent.port import PromptStore
+from app.infrastructure.prompt.port import PromptStore
 
 # 이 파일(app/infrastructure/prompt/)에서 두 단계 위가 app이다.
 PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"

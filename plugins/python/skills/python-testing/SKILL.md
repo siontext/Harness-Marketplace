@@ -36,7 +36,7 @@ def anyio_backend() -> str:
 
 ## 가짜(Mock) 규칙
 
-- **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/<기능>/port.py`, `app/application/agent/port.py`의 Protocol), 외부 API, DB, Redis.
+- **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/<기능>/port.py`, `app/application/agent/port.py`, `app/infrastructure/llm/port.py`·`prompt/port.py`의 Protocol), 외부 API, DB, Redis.
 - 내 코드 안의 객체(도메인 객체, 상태, 데이터 모델)는 가짜로 만들지 않는다.
 - 연결 창구 가짜는 Protocol 모양을 따르는 작은 클래스나 `AsyncMock(spec=<Protocol>)`으로 만든다.
 - 테스트는 `.env`를 읽지 않는다. 흐름·엔드포인트 테스트는 `build_platform()`을 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립 함수에 넣는다. `build_platform()` 자체를 확인하는 테스트는 설정을 직접 넘겨 부른다.
@@ -49,7 +49,7 @@ def anyio_backend() -> str:
 
 | 가짜 | 하는 일 |
 |---|---|
-| `fake_llm(*replies)` | 답을 차례로 돌려주는 가짜 LLM을 만든다. 답 자리에 예외를 넣으면 그 차례의 LLM 호출이 실패한다 |
+| `fake_llm(*replies)` | 답을 차례로 돌려주는 가짜 LLM을 만든다. 답 자리에 예외를 넣으면 그 차례의 LLM 호출이 실패한다. `streaming=False`면 조각 없이 한 번에 답하는 LLM처럼 군다 |
 | `FakeToolCallingModel.received` | 호출마다 받은 메시지 목록. LLM을 불렀는지, 검사를 거친 문장을 받았는지 확인한다 |
 | `FakeGuardrail` | 정해 둔 문장만 막거나 바꾸고 나머지는 통과시킨다. 검사에 들어온 문장을 기록한다 |
 | `fake_platform(llm, ...)` | 가짜 창구로 구현 묶음(`Platform`)을 만든다. 이것을 진짜 조립 함수(`app/container.py`)에 넣는다 |
@@ -88,14 +88,15 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
     catalog = AsyncMock(spec=ProductCatalog)
     catalog.find.return_value = Product(id="AB123456", name="커피", stock=3)
     platform = fake_platform(fake_llm(...), catalog=catalog)
-    ctx = build_agent_context(platform, timeout_seconds=30)
+    chat = build_chat_service(platform, timeout_seconds=30)
 
     # When
-    result = await ctx.agent.ainvoke({"messages": [HumanMessage("AB123456 재고 있어?")]})
+    command = ChatCommand(conversation_id="c-1", message="AB123456 재고 있어?")
+    answer = "".join([s async for s in chat.stream_answer(command)])
 
     # Then
     catalog.find.assert_awaited_once_with("AB123456")
-    assert "3개" in result["messages"][-1].text
+    assert "3개" in answer
 ```
 
 - 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립 함수(`app/container.py`)가 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다.
@@ -124,7 +125,7 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 
 ## 엔드포인트 테스트
 
-- `TestClient(app)`로 서버를 띄우지 않고 부른다. `app.state.ctx`에 가짜로 조립한 것을 넣는다.
+- `TestClient(app)`로 서버를 띄우지 않고 부른다. `app.state.chat`에 가짜 창구로 조립한 채팅 서비스(`build_chat_service(fake_platform(...), ...)`)를 넣는다.
 - 엔드포인트마다 정상 1개 이상, 요청 형식 오류(422) 1개.
 - SSE는 본문을 빈 줄로 나눠 이벤트 목록으로 만든 뒤 `token`들 → `done` 순서와 `data` JSON을 확인한다. 실패 경로는 `error` 이벤트로 끝나는지 확인한다.
 

@@ -1,15 +1,15 @@
-"""에이전트가 바깥에 요구하는 모양(나가는 포트): LLM, 프롬프트, 가드레일.
+"""에이전트 흐름이 바깥에 요구하는 모양(나가는 포트): 답 만들기, 가드레일.
 
+LangChain 같은 프레임워크의 모양은 여기에 드러내지 않는다. 답은 글자로만 주고받는다.
 구현(어댑터)은 app/infrastructure에 두고 app/container.py가 골라 넣어 준다.
 업무 기능의 포트는 그 기능 폴더(app/application/<기능>/port.py)에 둔다.
 메서드에는 모양만 적고 본문을 넣지 않는다. 구현 클래스는 이 Protocol을 괄호에 적어
 어떤 포트의 구현인지 드러낸다.
 """
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Protocol
-
-from langchain_core.language_models import BaseChatModel
 
 
 @dataclass(frozen=True)
@@ -27,29 +27,6 @@ class GuardResult:
     message: str = ""
 
 
-class LlmProvider(Protocol):
-    """채팅 모델을 돌려주는 창구."""
-
-    def chat_model(self) -> BaseChatModel:
-        """에이전트가 쓸 채팅 모델을 돌려준다."""
-        ...
-
-
-class PromptStore(Protocol):
-    """이름으로 프롬프트 문장을 가져오는 창구."""
-
-    def get(self, name: str) -> str:
-        """프롬프트 문장을 돌려준다.
-
-        Args:
-            name: 프롬프트 이름. 확장자 없이 쓴다 (예: "system").
-
-        Raises:
-            PromptNotFoundError: 그 이름의 프롬프트가 없을 때.
-        """
-        ...
-
-
 class Guardrail(Protocol):
     """LLM 앞뒤에서 입력과 출력을 검사하는 창구."""
 
@@ -59,4 +36,22 @@ class Guardrail(Protocol):
 
     async def check_output(self, text: str) -> GuardResult:
         """사용자에게 보내기 전 LLM 출력을 검사한다."""
+        ...
+
+
+class AnswerGenerator(Protocol):
+    """질문을 받아 답 글자를 조각으로 내놓는 창구. LLM과 도구 실행은 이 뒤에 있다."""
+
+    def stream(self, question: str) -> AsyncIterator[str]:
+        """질문에 대한 답 글자를 만들어지는 대로 내놓는다.
+
+        LLM이 답을 조각으로 보내든 한 번에 보내든 같은 모양(글자 조각)으로 내놓는다.
+        도구 호출과 도구 결과는 내놓지 않는다. 이어 붙이면 답 전체가 된다.
+
+        Args:
+            question: 입력 검사를 거친 질문.
+
+        Raises:
+            UpstreamError: LLM 호출이 실패했을 때.
+        """
         ...

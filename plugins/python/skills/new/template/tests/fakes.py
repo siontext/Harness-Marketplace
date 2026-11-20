@@ -13,8 +13,10 @@ from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from pydantic import Field
 
-from app.application.agent.port import Guardrail, GuardResult, LlmProvider, PromptStore
+from app.application.agent.port import Guardrail, GuardResult
 from app.infrastructure import Platform
+from app.infrastructure.llm.port import LlmProvider
+from app.infrastructure.prompt.port import PromptStore
 
 FAKE_SYSTEM_PROMPT = "테스트용 시스템 프롬프트"
 
@@ -105,13 +107,18 @@ class FakeGuardrail(Guardrail):
         return self._output_results.get(text, GuardResult(text=text))
 
 
-def fake_llm(*replies: AIMessage | Exception) -> FakeToolCallingModel:
+def fake_llm(
+    *replies: AIMessage | Exception, streaming: bool = True
+) -> FakeToolCallingModel:
     """replies를 차례로 돌려주는 가짜 LLM을 만든다.
 
     Args:
         replies: 차례로 돌려줄 답. 예외를 넣으면 그 차례의 LLM 호출이 실패한다.
+        streaming: False면 조각으로 보내지 않고 답을 한 번에 보내는 LLM처럼 군다.
     """
-    return FakeToolCallingModel(messages=_iterate_replies(replies))
+    return FakeToolCallingModel(
+        messages=_iterate_replies(replies), disable_streaming=not streaming
+    )
 
 
 def fake_platform(llm: BaseChatModel, guardrail: Guardrail | None = None) -> Platform:

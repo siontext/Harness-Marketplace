@@ -77,13 +77,14 @@ skills:
   - `app/application`, `app/domain`이 `app/infrastructure`, `app/presentation`, `app/container.py`를 import하지 않는다
   - `app/presentation`이 `app/infrastructure`를 import하지 않는다
   - `app/presentation`이 요청 모델을 Command로 바꿔 넘기고, `app/application`이 요청 모델(`ChatRequest` 등)을 받지 않는다
-  - `app/domain`과 기능 폴더(`app/application/<기능>/`)가 LangChain·LangGraph·FastAPI·pydantic을 import하지 않는다
+  - `app/domain`과 `app/application` 전체가 LangChain·LangGraph·FastAPI·pydantic을 import하지 않는다 (LangGraph는 `app/infrastructure/agent/`의 답 만들기 어댑터만 안다)
   - FastAPI를 import하는 곳이 `main.py`와 `app/presentation`뿐이다
   - `app/application`, `app/domain`에 `os.environ`·`os.getenv`, 운영 플랫폼 SDK import가 없다
   - `main.py`에 엔드포인트·요청·응답 모델·예외 핸들러 본문이 없고(`app/presentation`에 둔다), 조립 코드는 `app/container.py`에 있다
   - `app/errors.py`가 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
   - `app/presentation` 밖에서 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
+- **채팅 기능과 답 만들기** (`agent-architecture`) — `ChatService`가 `ChatUseCase`를 구현하고 부품을 생성자로 받는가(부품 묶음을 함수에 넘기지 않는가), `/chat`이 `ChatUseCase`에만 의존하는가, 채팅 서비스가 `AnswerGenerator` 포트로 글자만 받는가. 어댑터가 조각(`AIMessageChunk`)과 완성된 답(`AIMessage`)을 둘 다 글자로 바꾸고, 두 경우를 테스트하는가
 - **예외** — LLM 호출 실패가 `UpstreamError`로 바뀌는가 (`langgraph-conventions`). 출력 가드레일 막힘을 `OutputBlockedError`로 던지고 `/chat`이 따로 잡으며 `ERROR_RULES`에 넣지 않았는가 (`fastapi-conventions`). `except Exception`이 허용된 두 곳(`python-style`)에만 있고 이유 주석이 있는가
 - **기능 폴더와 도구** (`agent-architecture`의 "기능 폴더"):
   - 업무 기능마다 `app/application/<기능>/`에 `usecase.py`·`port.py`·`service.py`·`command.py`·`result.py`가 있고, 포트가 쓰는 기능 폴더에 있다 (모든 포트를 한 파일에 모으지 않았다)

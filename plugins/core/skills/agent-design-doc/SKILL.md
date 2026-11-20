@@ -125,7 +125,7 @@ flowchart LR
 | 3 | 유스케이스와 서비스 (`app/application/<기능>/` — `usecase.py`, `command.py`, `result.py`, `service.py`) | 2 |
 | 4 | 도구 (`app/infrastructure/tools/`) | 3 |
 | 5 | 프롬프트 (`app/prompts/`) | 0 |
-| 6 | 에이전트 흐름 (`app/application/agent/`)과 조립 (`app/container.py`) | 4, 5 |
+| 6 | 채팅 기능 (`app/application/agent/` — `ChatUseCase`, `ChatService`, `ChatCommand`)과 조립 (`app/container.py`). 답 만들기 어댑터는 뼈대의 것을 쓴다 | 4, 5 |
 | 7 | API (`app/presentation/` — `/chat`, `/health`, 새 예외의 오류 대응. `main.py`는 조립 함수를 부르기만) | 6 |
 | 8 | 평가 질문 (`evals/`) | 7 |
 

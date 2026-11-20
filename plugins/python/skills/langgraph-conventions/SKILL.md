@@ -39,11 +39,11 @@ result = await agent.ainvoke({"messages": messages})
 ```
 
 - `create_agent`는 `from langchain.agents import create_agent`.
-- 에이전트는 `app/application/agent/`의 함수가 만든다. LLM·프롬프트·도구는 인자로 받는다 (`agent-architecture`의 의존성 주입).
+- 에이전트는 답 만들기 어댑터(`app/infrastructure/agent/langgraph_answer_generator.py`, 뼈대에 있다)가 만든다. LLM·프롬프트·도구는 생성자로 받는다 (`agent-architecture`의 "답 만들기"). `application`은 LangChain·LangGraph를 import하지 않는다.
 
 ### LLM 호출 실패 → UpstreamError
 
-LLM 호출이 실패하면 LLM 라이브러리의 예외가 올라온다. 그대로 두면 `INTERNAL_ERROR`로 나가므로, **에이전트를 조립하는 곳에서 모델 호출만 감싸 `UpstreamError`로 바꾼다.**
+LLM 호출이 실패하면 LLM 라이브러리의 예외가 올라온다. 그대로 두면 `INTERNAL_ERROR`로 나가므로, **답 만들기 어댑터에서 모델 호출만 감싸 `UpstreamError`로 바꾼다.** 뼈대의 어댑터에 들어 있다.
 
 ```python
 @wrap_model_call
@@ -118,7 +118,7 @@ def build_order_tools(orders: OrderUseCase) -> list[BaseTool]:
 ## 가드레일 연결
 
 ```python
-# app/application/agent/chat_command.py
+# app/application/agent/command.py
 @dataclass(frozen=True)
 class ChatCommand:
     """에이전트에 넘기는 질문 한 건."""
@@ -127,18 +127,14 @@ class ChatCommand:
     message: str
 
 
-# app/application/agent/answer.py
-async def answer(command: ChatCommand, ctx: AgentContext) -> str:
-    """입력 검사 → 에이전트 → 출력 검사 순서로 답을 만든다."""
-    checked = await ctx.guardrail.check_input(command.message)
+# app/application/agent/service.py — ChatService의 메서드 (한 번에 응답할 때. 스트리밍은 fastapi-conventions)
+async def answer(self, command: ChatCommand) -> str:
+    """입력 검사 → 답 만들기 → 출력 검사 순서로 답을 만든다."""
+    checked = await self._guardrail.check_input(command.message)
     if checked.blocked:
         return checked.message
-    history = await ctx.memory.load(command.conversation_id)
-    messages = [*history, HumanMessage(checked.text)]
-    result = await ctx.agent.ainvoke({"messages": messages})
-    reply = await ctx.guardrail.check_output(result["messages"][-1].text)
-    await ctx.memory.save(command.conversation_id, [*messages, AIMessage(reply.text)])
-    return reply.text
+    reply = "".join([text async for text in self._answers.stream(checked.text)])
+    return (await self._guardrail.check_output(reply)).text
 ```
 
 - 에이전트 흐름은 요청 모델(`ChatRequest`)이 아니라 Command를 받는다. `ChatRequest`는 `app/presentation`에 있어 `application`이 import할 수 없다 (`agent-architecture`의 "Command").
@@ -149,14 +145,16 @@ async def answer(command: ChatCommand, ctx: AgentContext) -> str:
 
 ## 대화 기억
 
-- 대화 기억은 연결 창구(`ConversationMemory`, Redis)로 한다. 요청마다 불러서 `messages` 앞에 붙이고, 답한 뒤 저장한다.
+- 대화 기억은 연결 창구(`ConversationMemory`, Redis)로 한다. 요청마다 불러서 `messages` 앞에 붙이고, 답한 뒤 저장한다. 대화 기억을 쓰면 `AnswerGenerator.stream`이 지난 대화도 받도록 포트 모양을 넓힌다 (메시지 타입은 우리 값 묶음으로 둔다).
 - LangGraph 체크포인터(`checkpointer=`)를 대화 기억 용도로 쓰지 않는다. 체크포인터는 사람 확인(HITL)처럼 실행을 멈췄다 이어야 할 때만 쓴다.
 - 오래된 대화는 개수나 토큰 기준으로 잘라서 넘긴다. 기준은 설계 문서에 적는다.
 
 ## 스트리밍
 
-- 글자를 흘려 보낼 때는 `agent.astream(..., stream_mode="messages")`를 쓴다. `(메시지 조각, 메타데이터)`가 차례로 나온다.
-- 도구 호출 조각과 최종 답 조각을 구분해서, 사용자에게는 최종 답 글자만 보낸다.
+- 글자를 흘려 보낼 때는 `agent.astream(..., stream_mode="messages")`를 쓴다. `(메시지, 메타데이터)`가 차례로 나온다. 이것을 다루는 곳은 답 만들기 어댑터뿐이다.
+- 나오는 메시지는 LLM에 따라 다르다. 조각으로 보내는 LLM은 `AIMessageChunk`가 여러 번, 한 번에 보내는 LLM은 `AIMessage`가 한 번 온다. **둘 다 글자로 바꾼다.**
+- 도구 호출(`tool_call_chunks`·`tool_calls`가 있는 메시지)과 도구 결과(`ToolMessage`)는 내보내지 않는다. 도구 호출 앞에 LLM이 낸 짧은 말은 나갈 수 있다 (조각이 올 때는 뒤에 도구 호출이 붙을지 알 수 없다).
+- 필수 테스트: 조각으로 답하는 가짜(`fake_llm(...)`)와 한 번에 답하는 가짜(`fake_llm(..., streaming=False)`) 둘 다에서 같은 답 글자가 나오는지.
 
 ## MCP 도구 연결
 

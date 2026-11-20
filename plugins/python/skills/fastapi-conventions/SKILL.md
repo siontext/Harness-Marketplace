@@ -36,7 +36,7 @@ description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 Fast
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     settings = load_settings()
     platform = build_platform(settings)
-    app.state.ctx = build_agent_context(platform, settings.agent_timeout_seconds)
+    app.state.chat = build_chat_service(platform, settings.agent_timeout_seconds)
     yield
     await platform.aclose()
 
@@ -158,14 +158,14 @@ _SENTENCE_END = re.compile(r"(?<![0-9])[.!?。！？]+\s+|\n+")
 
 #### 막혔을 때 알리는 방법
 
-| 막힌 곳 | 에이전트 흐름(`application`)이 하는 일 | `/chat`이 보내는 것 |
+| 막힌 곳 | 채팅 서비스(`application`)가 하는 일 | `/chat`이 보내는 것 |
 |---|---|---|
 | 입력 | LLM을 부르지 않고 가드레일의 안내 문구를 답으로 내보낸다 (예외 없음) | `token`(안내 문구) → `done` |
 | 출력 | `OutputBlockedError`를 던진다. 더 진행할 수 없으므로 무시할 수 없게 한다 | `error` · `BLOCKED` |
 
 ```python
 try:
-    async for sentence in stream_answer(command, ctx):
+    async for sentence in chat.stream_answer(command):      # chat: ChatUseCase
         yield SseEvent.token(sentence).encode()
 except OutputBlockedError as e:        # 의도된 결과: 이름을 적어 따로 잡는다
     logger.warning("출력 가드레일 차단: %s %s", request.method, request.url.path)
@@ -193,7 +193,7 @@ class ChatResponse(BaseModel):
     answer: str
 ```
 
-호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ApiResponse[ChatResponse]`를 JSON으로 돌려주게 바꾼다. 이때 `app/application/agent/`에 한 번에 답하는 함수를 더하고 `app/presentation/routes.py`의 엔드포인트를 바꾼다. 에이전트 조립, 도구, 서비스는 그대로다.
+호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ApiResponse[ChatResponse]`를 JSON으로 돌려주게 바꾼다. 이때 `app/application/agent/`에 한 번에 답하는 함수를 더하고 `app/presentation/routes.py`의 엔드포인트를 바꾼다. 답 만들기 어댑터, 도구, 서비스는 그대로다.
 
 - 설계 문서의 응답 방식에 해당하는 함수만 만든다. 쓰지 않는 방식의 함수를 미리 만들어 두지 않는다.
 
@@ -268,9 +268,10 @@ class ChatResponse(BaseModel):
 마감 시각을 한 번 정하고, 다음 조각을 **기다릴 때만** 그 마감으로 제한을 건다.
 
 ```python
-async def stream_answer(command: ChatCommand, ctx: AgentContext) -> AsyncGenerator[str]:
-    deadline = asyncio.get_running_loop().time() + ctx.timeout_seconds
-    sentences = _stream_checked_sentences(command, ctx)
+# app/application/agent/service.py — ChatService의 메서드
+async def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]:
+    deadline = asyncio.get_running_loop().time() + self._timeout_seconds
+    sentences = self._stream_checked_sentences(command)
     try:
         while True:
             async with asyncio.timeout_at(deadline):      # 기다릴 때만 건다
@@ -280,7 +281,7 @@ async def stream_answer(command: ChatCommand, ctx: AgentContext) -> AsyncGenerat
             yield sentence                                # 제한 밖에서 내보낸다
     except TimeoutError as e:
         raise AgentTimeoutError(
-            f"에이전트 실행 시간 초과: timeout_seconds={ctx.timeout_seconds}"
+            f"에이전트 실행 시간 초과: timeout_seconds={self._timeout_seconds}"
         ) from e
     finally:
         await sentences.aclose()
