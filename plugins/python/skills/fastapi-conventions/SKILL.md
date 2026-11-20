@@ -173,7 +173,7 @@ data: {"conversation_id": "c-123"}
 
 | 막힌 곳 | 채팅 서비스(`application`)가 하는 일 | `/chat`(`sse_response`)이 보내는 것 |
 |---|---|---|
-| 입력 | LLM을 부르지 않고 가드레일의 안내 문구를 답으로 내보낸다 (예외 없음) | `token`(안내 문구) → `done` |
+| 입력 | LLM을 부르지 않고 `InputBlockedError`를 던진다 | `token`(안내 문구) → `done`. 답을 시작하기 전이라 정상 답처럼 보낸다 |
 | 출력 | `OutputBlockedError`를 던진다. 더 진행할 수 없으므로 무시할 수 없게 한다 | `error` · `BLOCKED` |
 
 ```python
@@ -181,6 +181,9 @@ data: {"conversation_id": "c-123"}
 try:
     async for sentence in sentences:          # 유스케이스가 내놓은 문장 흐름
         yield SseEvent.token(sentence).encode()
+except InputBlockedError as e:         # 의도된 결과: 안내 문구를 답으로 보내고 아래 done으로
+    logger.warning("입력 가드레일 차단: %s %s", request.method, request.url.path)
+    yield SseEvent.token(e.guard_message or messages.INPUT_BLOCKED).encode()
 except OutputBlockedError as e:        # 의도된 결과: 이름을 적어 따로 잡는다
     logger.warning("출력 가드레일 차단: %s %s", request.method, request.url.path)
     yield SseEvent.error(ErrorCode.BLOCKED, e.guard_message or messages.BLOCKED).encode()
@@ -194,10 +197,10 @@ except Exception as exc:
 yield SseEvent.done(conversation_id).encode()
 ```
 
-- `OutputBlockedError`는 `app/application/agent/errors.py`(뼈대에 있다)에 있고 가드레일이 준 안내 문구를 담는다. 문구가 비어 있으면 `sse_response`가 `messages.BLOCKED`를 쓴다.
-- **`OutputBlockedError`를 오류 대응표(`ERROR_RULES`)에 넣지 않는다.** 막힌 것은 오류가 아니라서 상태 코드가 없다. LLM 실패 같은 오류와 같은 `except`에서 처리하지 않는다.
+- `InputBlockedError`·`OutputBlockedError`는 `app/application/agent/errors.py`(뼈대에 있다)에 있고 가드레일이 준 안내 문구를 담는다. **문구가 비어 있으면 `sse_response`가 `messages.INPUT_BLOCKED`·`messages.BLOCKED`를 쓴다.** 운영 플랫폼 가드레일이 문구 없이 막을 수 있어서, 채팅 서비스가 문구를 직접 내보내면 빈 답이 나갈 수 있다.
+- **두 예외를 오류 대응표(`ERROR_RULES`)에 넣지 않는다.** 막힌 것은 오류가 아니라서 상태 코드가 없다. LLM 실패 같은 오류와 같은 `except`에서 처리하지 않는다.
 - 로그에는 막혔다는 사실만 남기고 막힌 내용은 남기지 않는다.
-- 한 번에 응답 방식에서는 엔드포인트가 `OutputBlockedError`를 잡아 안내 문구를 정상 답(200)으로 돌려준다.
+- 한 번에 응답 방식에서는 엔드포인트가 두 예외를 잡아 안내 문구(비면 기본 문구)를 정상 답(200)으로 돌려준다.
 
 ### 한 번에 응답 (대안)
 

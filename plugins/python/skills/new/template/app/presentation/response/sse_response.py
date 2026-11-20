@@ -11,7 +11,7 @@ from collections.abc import AsyncGenerator, AsyncIterator
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 
-from app.application.agent.errors import OutputBlockedError
+from app.application.agent.errors import InputBlockedError, OutputBlockedError
 from app.presentation.errors import find_error_rule, log_failure
 from app.presentation.response import messages
 from app.presentation.response.error_code import ErrorCode
@@ -52,6 +52,11 @@ async def _stream_events(
     try:
         async for sentence in sentences:
             yield SseEvent.token(sentence).encode()
+    except InputBlockedError as e:
+        # 질문이 막힌 것도 오류가 아니다. 답을 시작하기 전이라 안내 문구를
+        # 정상 답으로 보내고 아래 done으로 끝낸다.
+        logger.warning("입력 가드레일 차단: %s %s", request.method, request.url.path)
+        yield SseEvent.token(e.guard_message or messages.INPUT_BLOCKED).encode()
     except OutputBlockedError as e:
         # 막힌 것은 오류가 아니다. 막힌 내용은 남기지 않고 사실만 남긴다.
         logger.warning("출력 가드레일 차단: %s %s", request.method, request.url.path)

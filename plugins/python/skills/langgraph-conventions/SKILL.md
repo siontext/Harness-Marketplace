@@ -132,7 +132,7 @@ async def answer(self, command: ChatCommand) -> str:
     """입력 검사 → 답 만들기 → 출력 검사 순서로 답을 만든다."""
     checked = await self._guardrail.check_input(command.message)
     if checked.blocked:
-        return checked.message
+        raise InputBlockedError(checked.message)    # 엔드포인트가 잡아 안내 문구로 답한다
     reply = "".join([text async for text in self._answers.stream(checked.text)])
     return (await self._guardrail.check_output(reply)).text
 ```

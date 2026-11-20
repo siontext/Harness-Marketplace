@@ -1,4 +1,7 @@
-"""에이전트 흐름 안에서 던지고 /chat이 이름을 적어 잡는 예외."""
+"""가드레일에 막혔을 때 채팅 서비스가 던지고 sse_response가 이름을 적어 잡는 예외.
+
+막힌 것은 오류가 아니라 의도된 결과라서 오류 대응표(ERROR_RULES)에 넣지 않는다.
+"""
 
 from app.common.errors import AppError
 
@@ -15,4 +18,19 @@ class OutputBlockedError(AppError):
 
     def __init__(self, guard_message: str) -> None:
         super().__init__("출력 가드레일에 막혔다")
+        self.guard_message = guard_message
+
+
+class InputBlockedError(AppError):
+    """질문이 입력 가드레일에 막혔을 때. 오류가 아니라 의도된 결과다.
+
+    LLM을 부르기 전이라 sse_response가 안내 문구를 정상 답(token → done)으로 보낸다.
+    막힌 질문은 담지 않는다.
+
+    Attributes:
+        guard_message: 가드레일이 준 안내 문구. 비어 있을 수 있다.
+    """
+
+    def __init__(self, guard_message: str) -> None:
+        super().__init__("입력 가드레일에 막혔다")
         self.guard_message = guard_message
