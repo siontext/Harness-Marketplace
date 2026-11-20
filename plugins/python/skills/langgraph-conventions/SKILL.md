@@ -26,7 +26,7 @@ LangChain 1.x, LangGraph 1.x 기준이다 (확인한 버전: langchain 1.5, lang
 | 지원함 | `create_agent` |
 | 지원하지 않음 / 확인 전 | `StateGraph` — LLM은 구조화 출력으로 "어떤 도구가 필요한지"만 고르고, 도구 실행은 코드 노드가 한다 |
 
-- 지원 여부를 모르면 추측하지 않고 사용자에게 확인한다. 확인 전에는 두 방식 중 무엇으로 갈지 설계 문서 결정 섹션에 적는다.
+- 지원 여부를 모르면 추측하지 않고 사용자에게 확인한다. **확인 전이면 기본은 `StateGraph`다.** 사용자가 그래도 `create_agent`를 고르면 설계 문서 결정 섹션에 "도구 호출 확인 전"과 고른 이유를 적는다. `/python:eval`의 연결 확인에서 지원하지 않는다고 나오면 `StateGraph` 어댑터로 바꾼다.
 - 지원 여부는 `/python:eval`의 연결 확인 단계에서 도구 하나를 붙여 실제로 불러 보면 알 수 있다.
 
 ```python
@@ -72,26 +72,29 @@ agent = create_agent(..., middleware=[_raise_upstream_error_on_llm_failure])
 
 도구는 `app/infrastructure/tools/`에 둔다. 도구는 유스케이스를 부르고 결과(Result)를 LLM이 읽을 문장으로 바꾸는 일만 한다 (`agent-architecture`의 "기능 폴더").
 
-- `@tool`을 붙인다 (`from langchain.tools import tool`).
-- **독스트링은 LLM이 읽는 설명서다.** 언제 쓰는지, 언제 쓰면 안 되는지, 인자 형식을 한국어로 쓴다 (`python-style`).
+- `@tool(parse_docstring=True)`를 붙인다 (`from langchain.tools import tool`). 독스트링의 `Args:`가 LLM이 받는 인자 설명 칸으로 들어가고, 설명의 들여쓰기가 걷힌다. 그냥 `@tool`이면 팩토리 안 함수의 들여쓰기와 `Args:`가 설명 글자에 그대로 붙는다.
+- `parse_docstring=True`는 `Args:`가 인자 이름과 맞지 않거나 빠지면 도구를 만들 때 `ValueError`를 낸다. 설명이 코드와 어긋난 채로 서버가 뜨지 않는다.
+- **독스트링은 LLM이 읽는 설명서다.** 언제 쓰는지, 언제 쓰면 안 되는지, 인자 형식을 한국어로 쓴다 (`python-style`). `Returns:`는 LLM에게 가지 않으므로 돌려주는 내용은 본문에 적는다.
 - 인자에 타입을 적는다. 인자가 많거나 복잡하면 pydantic 모델을 `args_schema`로 쓴다.
 - 도구는 팩토리 함수(`build_<기능>_tools(<기능>s: <기능>UseCase)`)로 만들고 유스케이스를 인자로 받는다. 포트(저장소 등)를 직접 받지 않고, 서비스 구현과 엔티티를 import하지 않는다.
 - 도구 함수의 인자(주문 번호 등)를 Command/Query로 옮겨 담아 유스케이스에 넘긴다.
 - 도구 안에 판단·계산이나 "꺼내기 → 저장" 같은 순서를 적지 않는다. 그것은 도메인과 서비스의 일이다.
-- **예상할 수 있는 실패(없음, 권한 없음, 규칙에 걸림, 외부 시스템 오류)는 예외를 터뜨리지 않고 LLM이 알아들을 문장으로 돌려준다.** 유스케이스가 던진 업무 예외를 도구가 잡아 문장으로 바꾼다. LLM이 그 문장을 보고 사용자에게 안내하거나 다른 도구를 고른다.
+- **업무 결과로서의 실패(없음, 권한 없음, 규칙에 걸림)는 예외를 터뜨리지 않고 LLM이 알아들을 문장으로 돌려준다.** 유스케이스가 던진 업무 예외를 도구가 잡아 문장으로 바꾼다. LLM이 그 문장을 보고 사용자에게 안내하거나 다른 도구를 고른다.
 - 문장에는 무엇이 문제이고 어떻게 하면 되는지를 적는다. 오류 코드나 스택을 그대로 주지 않는다.
-- 예상하지 못한 오류(코드 버그)는 잡지 않는다. 그대로 터져서 드러나야 한다.
+- **외부 시스템 고장(포트 구현이 던진 `UpstreamError`)은 잡지 않는다.** 그대로 올라가 `/chat`이 `UPSTREAM_ERROR`로 끝낸다 (Fail Fast). 고장을 문장으로 바꾸면 LLM이 그 문장을 보고 답을 지어낼 수 있다.
+- 예상하지 못한 오류(코드 버그)도 잡지 않는다. 그대로 터져서 드러나야 한다.
 
 ```python
 def build_order_tools(orders: OrderUseCase) -> list[BaseTool]:
     """주문 유스케이스를 쓰는 도구 목록을 만든다."""
 
-    @tool
+    @tool(parse_docstring=True)
     async def cancel_order(order_id: str) -> str:
         """주문 번호의 주문을 취소한다. 취소할 수 있는지는 이 도구가 판단한다.
 
         사용자가 특정 주문을 취소해 달라고 분명히 요청했을 때만 쓴다.
         주문 번호를 모르면 쓰지 말고 사용자에게 주문 번호를 먼저 묻는다.
+        결과 문장을 돌려준다. 취소하지 못했으면 그 이유를 담는다.
 
         Args:
             order_id: 주문 번호. "ORD-"와 숫자 4자리 (예: ORD-1001).
@@ -134,8 +137,10 @@ async def answer(self, command: ChatCommand) -> str:
     if checked.blocked:
         raise InputBlockedError(checked.message)    # 엔드포인트가 잡아 안내 문구로 답한다
     reply = "".join([text async for text in self._answers.stream(checked.text)])
-    return (await self._guardrail.check_output(reply)).text
+    return await self._check_output(reply)    # 막히면 OutputBlockedError (agent-architecture의 "채팅 기능")
 ```
+
+- 출력 검사 결과의 `.text`만 꺼내 쓰지 않는다. 막혔을 때(`blocked`) 가린 글자가 정상 답으로 나간다. 스트리밍과 같은 `_check_output`으로 막힘을 예외로 바꾼다.
 
 - 에이전트 흐름은 요청 모델(`ChatRequest`)이 아니라 Command를 받는다. `ChatRequest`는 `app/presentation`에 있어 `application`이 import할 수 없다 (`agent-architecture`의 "Command").
 

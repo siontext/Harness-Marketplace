@@ -39,7 +39,7 @@ def anyio_backend() -> str:
 - **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/<기능>/port.py`, `app/application/agent/port.py`, `app/infrastructure/llm/port.py`·`prompt/port.py`의 Protocol), 외부 API, DB, Redis.
 - 내 코드 안의 객체(도메인 객체, 상태, 데이터 모델)는 가짜로 만들지 않는다.
 - 연결 창구 가짜는 Protocol 모양을 따르는 작은 클래스나 `AsyncMock(spec=<Protocol>)`으로 만든다.
-- 테스트는 `.env`를 읽지 않는다. 흐름·엔드포인트 테스트는 `build_platform()`을 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립 함수에 넣는다. `build_platform()` 자체를 확인하는 테스트는 설정을 직접 넘겨 부른다.
+- 테스트는 `.env`를 읽지 않는다. 흐름·엔드포인트 테스트는 `build_platform()`을 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립 함수에 넣는다. `build_platform()` 자체를 확인하는 테스트는 설정(`fake_settings()`)을 직접 넘겨 부른다. `lifespan`은 아래 "서버 시작(lifespan) 테스트"를 따른다.
 
 ### 가짜 LLM
 
@@ -53,6 +53,7 @@ def anyio_backend() -> str:
 | `FakeToolCallingModel.received` | 호출마다 받은 메시지 목록. LLM을 불렀는지, 검사를 거친 문장을 받았는지 확인한다 |
 | `FakeGuardrail` | 정해 둔 문장만 막거나 바꾸고 나머지는 통과시킨다. 검사에 들어온 문장을 기록한다. `input_delay`·`output_delay`로 검사마다 기다리게 할 수 있다 (시간 초과 테스트용) |
 | `fake_platform(llm, ...)` | 가짜 창구로 구현 묶음(`Platform`)을 만든다. 이것을 진짜 조립 함수(`app/container.py`)에 넣는다 |
+| `fake_settings(platform="")` | `.env` 대신 쓰는 설정. LLM 칸에 가짜 주소·키가 들어 있다. `build_platform()`·`lifespan` 테스트에 넘긴다 |
 
 - `GenericFakeChatModel`은 `bind_tools`가 없고 스트리밍에서 도구 호출을 조각으로 내지 못한다. `FakeToolCallingModel`이 이 둘을 메운다. `GenericFakeChatModel`을 그대로 쓰면 `create_agent`와 `astream(stream_mode="messages")`에서 오류가 난다.
 - 이 가짜는 langchain-core 내부 동작에 기댄다. `tests/test_fakes.py`가 그 동작을 확인하므로 지우지 않는다.
@@ -73,9 +74,9 @@ def fake_order_repository(*orders: Order) -> AsyncMock:
 ```python
 llm = fake_llm(
     AIMessage(content="", tool_calls=[
-        {"name": "get_product", "args": {"product_id": "AB123456"}, "id": "call-1"},
+        {"name": "get_product", "args": {"product_id": "P001"}, "id": "call-1"},
     ]),
-    AIMessage(content="AB123456 상품은 재고가 3개 있습니다."),
+    AIMessage(content="P001 아메리카노는 4,500원입니다."),
 )
 ```
 
@@ -89,7 +90,7 @@ llm = fake_llm(
 | 검증 | 무엇을 | 예 |
 |---|---|---|
 | 상태검증 | 결과 값 | `assert reply == "..."`, `assert money.amount == 1000` |
-| 행위검증 | 무엇을 어떻게 불렀나 | `catalog.find.assert_awaited_once_with("AB123456")` |
+| 행위검증 | 무엇을 어떻게 불렀나 | `repository.find.assert_awaited_once_with("P001")` |
 
 - ① 단위 테스트는 상태검증이 중심이다. ② 흐름 테스트는 행위검증(어떤 도구를, 어떤 인자로, 가드레일을 거쳤나)이 중심이다.
 
@@ -97,18 +98,17 @@ llm = fake_llm(
 @pytest.mark.anyio
 async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
     # Given
-    catalog = AsyncMock(spec=ProductCatalog)
-    catalog.find.return_value = Product(id="AB123456", name="커피", stock=3)
-    platform = fake_platform(fake_llm(...), catalog=catalog)
+    repository = fake_product_repository(Product(product_id="P001", name="아메리카노", price=4500))
+    platform = fake_platform(fake_llm(...), products=repository)
     chat = build_chat_service(platform, timeout_seconds=30)
 
     # When
-    command = ChatCommand(conversation_id="c-1", message="AB123456 재고 있어?")
+    command = ChatCommand(conversation_id="c-1", message="P001 얼마예요?")
     answer = "".join([s async for s in chat.stream_answer(command)])
 
     # Then
-    catalog.find.assert_awaited_once_with("AB123456")
-    assert "3개" in answer
+    repository.find.assert_awaited_once_with("P001")
+    assert "4,500원" in answer
 ```
 
 - 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립 함수(`app/container.py`)가 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다.
@@ -128,7 +128,8 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 
 | 실패 | 확인할 것 |
 |---|---|
-| 도구 오류 (외부 시스템 오류, 결과 없음, 업무 규칙에 걸림) | 예외가 터지지 않고 안내 문장이 LLM에게 간다 |
+| 도구 오류 (결과 없음, 업무 규칙에 걸림) | 예외가 터지지 않고 안내 문장이 LLM에게 간다 |
+| 외부 시스템 고장 (포트 구현이 던진 `UpstreamError`) | 도구가 문장으로 바꾸지 않는다. 조립한 흐름에서도 삼켜지지 않고 올라와 LLM을 다시 부르지 않는다 |
 | 업무 서비스 실패 | 서비스가 예외를 던지고(문장을 만들지 않는다), 규칙에 걸리면 저장하지 않는다 |
 | LLM 출력 형식 깨짐 (구조화 출력 실패) | 정해 둔 실패 처리로 간다 |
 | 빈 검색 결과 | 지어내지 않고 없다는 안내를 한다 (가짜 LLM 흐름으로 확인) |
@@ -137,9 +138,28 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 
 ## 엔드포인트 테스트
 
-- `TestClient(app)`로 서버를 띄우지 않고 부른다. `app.state.chat`에 가짜 창구로 조립한 채팅 서비스(`build_chat_service(fake_platform(...), ...)`)를 넣는다.
+- `TestClient(app)`로 서버를 띄우지 않고 부른다. `app.state.chat`에 가짜 창구로 조립한 채팅 서비스(`build_chat_service(fake_platform(...), ...)`)를 `monkeypatch.setattr(app.state, "chat", ..., raising=False)`로 넣는다. `app`은 모듈 하나를 같이 쓰므로 직접 대입하면 다음 테스트로 값이 샌다.
+- **엔드포인트 테스트에서는 `with TestClient(app)`를 쓰지 않는다.** `with`로 열면 `lifespan`이 돌아 `.env`를 읽고, 넣어 둔 가짜 `app.state.chat`을 진짜로 덮어쓴다.
 - 엔드포인트마다 정상 1개 이상, 요청 형식 오류(422) 1개.
 - SSE는 본문을 빈 줄로 나눠 이벤트 목록으로 만든 뒤 `token`들 → `done` 순서와 `data` JSON을 확인한다. 실패 경로는 `error` 이벤트로 끝나는지 확인한다.
+
+### 서버 시작(lifespan) 테스트
+
+`lifespan`을 확인하는 테스트만 `with TestClient(app)`를 쓴다. `.env`를 읽지 않도록 `main.load_settings`를 가짜 설정으로 바꾼다. 뼈대의 `tests/test_main.py`가 이 방식으로 서버가 켜지고 꺼지는지만 확인한다. 채팅 기능을 만들면 아래처럼 `app.state.chat`을 확인하는 테스트를 더한다.
+
+```python
+def test_서버가_켜지면_채팅_서비스를_조립해_둔다(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Given: .env 대신 가짜 설정. 로컬 창구를 만들지만 LLM은 부르지 않는다.
+    monkeypatch.setattr("main.load_settings", fake_settings)
+    monkeypatch.setattr(app.state, "chat", None, raising=False)    # 끝나면 되돌린다
+
+    # When
+    with TestClient(app):
+        chat = app.state.chat
+
+    # Then
+    assert isinstance(chat, ChatService)
+```
 
 ## 기준 — 커버리지 + 필수 테스트
 
@@ -150,8 +170,11 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 | 커버리지 | `app/` 기준 80% 이상 |
 | 필수 테스트 | 업무 서비스 메서드와 도구 함수마다 성공 1개 + 실패 1개 |
 | | 에이전트 흐름마다 대표 경로 1개 (설계 문서 시퀀스 다이어그램의 대표 질문) |
-| | 엔드포인트마다 1개 이상 |
+| | 엔드포인트마다 정상 1개 이상 + 요청 형식 오류(422) 1개 |
 | | 위 "실패 경로 — 필수" 표 |
+
+- **뼈대 코드의 필수 테스트는 뼈대 테스트가 맡는다.** 답 만들기 어댑터(조각·한 번에 답하는 LLM, LLM 실패, 도구 버그), `within_time_limit`(전체 시간 기준), `stream_sentences`, `sse_response`(막힘·오류 이벤트)는 뼈대의 `tests/`에 테스트가 있다. 그 코드를 고치지 않았으면 기능마다 다시 쓰지 않는다. 고쳤으면 그 테스트를 함께 고친다.
+- 기능 테스트는 기능 코드가 그 길을 실제로 지나는지만 확인한다 (예: `/chat`이 시간 초과·LLM 실패에서 `error` 이벤트로 끝나는지, 저장소 고장이 흐름에서 삼켜지지 않는지).
 
 - 커버리지는 **로컬에서만** 잰다: `.venv/bin/pytest --cov=app --cov-report=term-missing`.
 - `pyproject.toml`에 `--cov`를 넣지 않는다. 운영 플랫폼에는 `pytest-cov`가 없을 수 있다.
