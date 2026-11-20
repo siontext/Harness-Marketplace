@@ -53,9 +53,10 @@ app.include_router(router)
 | Method | Path | 하는 일 |
 |---|---|---|
 | POST | `/chat` | 질문을 받아 답한다 |
-| GET | `/health` | 서버가 살아 있는지 알려 준다. `data`는 `{"status": "ok"}` |
+| GET | `/health` | 서버가 살아 있는지 알려 준다. `{"status": "ok"}` |
 
 - `/health`는 LLM이나 DB를 부르지 않는다. 서버 프로세스가 응답하는지만 본다.
+- `/health`는 `ApiResponse`로 감싸지 않는다. 운영 플랫폼이 본문을 읽어 판단할 수 있다.
 - 주소를 더 만들 때는 설계 문서에 적힌 경우만.
 
 ## 요청·응답 모양
@@ -73,7 +74,7 @@ class ChatRequest(BaseModel):
 
 ## 공통 응답 틀
 
-JSON으로 답하는 엔드포인트는 성공이든 실패든 `ApiResponse` 하나로 감싼다.
+JSON으로 답하는 엔드포인트는 성공이든 실패든 `ApiResponse` 하나로 감싼다. `/health`만 예외다.
 
 | 칸 | 성공 | 실패 |
 |---|---|---|
@@ -82,13 +83,13 @@ JSON으로 답하는 엔드포인트는 성공이든 실패든 `ApiResponse` 하
 | `data` | 돌려줄 내용 | `null` |
 
 ```python
-@router.get("/health")
-async def health() -> ApiResponse[HealthStatus]:
-    return ApiResponse.success(HealthStatus(status="ok"))
+@router.post("/orders")
+async def create_order(body: OrderRequest) -> ApiResponse[OrderResult]:
+    return ApiResponse.success(OrderResult(order_id="o-123"))
 ```
 
 ```json
-{"code": "SUCCESS", "message": null, "data": {"status": "ok"}}
+{"code": "SUCCESS", "message": null, "data": {"order_id": "o-123"}}
 ```
 
 - 엔드포인트의 반환 타입은 `ApiResponse[내용 모델]`로 적는다. 내용 모델은 `app/api/schemas.py`에 둔다.

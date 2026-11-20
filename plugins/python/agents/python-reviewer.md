@@ -83,7 +83,7 @@ skills:
   - `app/agent`, `app/tools`, `app/domain`이 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `main.py` 조립, frozen dataclass, 조합 우선
-- **응답 틀** (`fastapi-conventions`) — JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/api/response/messages.py`에 있다
+- **응답 틀** (`fastapi-conventions`) — `/health`를 뺀 JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/api/response/messages.py`에 있다
 - 참조 스킬(`python-style`, `langgraph-conventions`, `fastapi-conventions`)의 규칙. 특히 예전 API 사용, 프롬프트 문장 하드코딩, 로그에 키·개인정보·프롬프트 전문
 - 불일치 발견 시 수정한 뒤 **2(정적 검사)로 돌아간다**. 수정 → 재검증 루프가 3회 반복되면 미해결 이슈로 기록하고 다음으로 넘어간다.
 
