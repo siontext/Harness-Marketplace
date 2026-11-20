@@ -9,17 +9,24 @@ from app.infrastructure.prompt.file_prompt_store import (
     FilePromptStore,
     PromptNotFoundError,
 )
-from app.infrastructure.settings import Settings, load_settings
+from app.infrastructure.settings import (
+    DEFAULT_AGENT_TIMEOUT_SECONDS,
+    Settings,
+    load_settings,
+)
 
 
-def _settings(**overrides: str) -> Settings:
-    values = {
-        "platform": "",
-        "llm_base_url": "http://localhost:9999/v1",
-        "llm_api_key": "test-key",
-        "llm_model": "test-model",
-    }
-    return Settings(**{**values, **overrides})
+def _settings(platform: str = "") -> Settings:
+    """테스트용 설정. 칸이 늘어도 바꿀 값만 인자로 받는다.
+
+    dict를 **로 풀어 넣으면 숫자 칸(시간 제한 등)이 생길 때 타입 검사에 걸린다.
+    """
+    return Settings(
+        platform=platform,
+        llm_base_url="http://localhost:9999/v1",
+        llm_api_key="test-key",
+        llm_model="test-model",
+    )
 
 
 def test_env_파일_값을_읽고_환경_변수가_우선한다(
@@ -44,6 +51,36 @@ def test_env_파일이_없으면_환경_변수만_쓴다(tmp_path: Path) -> None
 
     # Then
     assert isinstance(settings, Settings)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("", DEFAULT_AGENT_TIMEOUT_SECONDS), ("12.5", 12.5)],
+    ids=["비우면_기본값", "적은_값"],
+)
+def test_시간_제한을_읽는다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, raw: str, expected: float
+) -> None:
+    # Given
+    monkeypatch.setenv("AGENT_TIMEOUT_SECONDS", raw)
+
+    # When
+    settings = load_settings(tmp_path / "없는파일")
+
+    # Then
+    assert settings.agent_timeout_seconds == expected
+
+
+@pytest.mark.parametrize("raw", ["abc", "0", "-1"])
+def test_시간_제한이_숫자가_아니거나_0_이하면_서버가_뜨지_않게_오류를_낸다(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, raw: str
+) -> None:
+    # Given
+    monkeypatch.setenv("AGENT_TIMEOUT_SECONDS", raw)
+
+    # When / Then
+    with pytest.raises(ValueError):
+        load_settings(tmp_path / "없는파일")
 
 
 def test_PLATFORM이_비어_있으면_로컬_창구를_만든다() -> None:

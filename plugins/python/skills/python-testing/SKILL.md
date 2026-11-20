@@ -51,12 +51,24 @@ def anyio_backend() -> str:
 |---|---|
 | `fake_llm(*replies)` | 답을 차례로 돌려주는 가짜 LLM을 만든다. 답 자리에 예외를 넣으면 그 차례의 LLM 호출이 실패한다. `streaming=False`면 조각 없이 한 번에 답하는 LLM처럼 군다 |
 | `FakeToolCallingModel.received` | 호출마다 받은 메시지 목록. LLM을 불렀는지, 검사를 거친 문장을 받았는지 확인한다 |
-| `FakeGuardrail` | 정해 둔 문장만 막거나 바꾸고 나머지는 통과시킨다. 검사에 들어온 문장을 기록한다 |
+| `FakeGuardrail` | 정해 둔 문장만 막거나 바꾸고 나머지는 통과시킨다. 검사에 들어온 문장을 기록한다. `input_delay`·`output_delay`로 검사마다 기다리게 할 수 있다 (시간 초과 테스트용) |
 | `fake_platform(llm, ...)` | 가짜 창구로 구현 묶음(`Platform`)을 만든다. 이것을 진짜 조립 함수(`app/container.py`)에 넣는다 |
 
 - `GenericFakeChatModel`은 `bind_tools`가 없고 스트리밍에서 도구 호출을 조각으로 내지 못한다. `FakeToolCallingModel`이 이 둘을 메운다. `GenericFakeChatModel`을 그대로 쓰면 `create_agent`와 `astream(stream_mode="messages")`에서 오류가 난다.
 - 이 가짜는 langchain-core 내부 동작에 기댄다. `tests/test_fakes.py`가 그 동작을 확인하므로 지우지 않는다.
-- 창구가 늘면(저장소 등) `fake_platform`에 인자를 더하고 그 창구의 가짜를 `tests/fakes.py`에 둔다.
+- 창구가 늘면(저장소 등) `fake_platform`에 인자를 더하고 그 창구의 가짜를 `tests/fakes.py`에 둔다. 테스트 파일 안에서 같은 가짜를 따로 만들지 않는다.
+- 저장소 가짜는 아래 모양으로 만든다. `AsyncMock(spec=...)`의 메서드는 아무것도 정하지 않으면 `None`이 아니라 가짜 객체를 돌려주므로, 찾기 메서드에 "없으면 `None`"을 정해 둔다.
+
+```python
+def fake_order_repository(*orders: Order) -> AsyncMock:
+    """orders를 주문 번호로 찾아 주는 가짜 저장소. 없는 번호는 None."""
+    by_id = {order.order_id: order for order in orders}
+    repository = AsyncMock(spec=OrderRepository)
+    repository.find.side_effect = by_id.get
+    return repository
+```
+
+- 저장한 것은 `repository.save.assert_awaited_once_with(...)`로 확인한다.
 
 ```python
 llm = fake_llm(

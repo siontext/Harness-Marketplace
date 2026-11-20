@@ -1,7 +1,10 @@
+import asyncio
+
 import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
-from tests.fakes import fake_llm
+from app.application.agent.port import GuardResult
+from tests.fakes import FakeGuardrail, fake_llm
 
 # 가짜 LLM은 langchain-core 내부 동작에 기댄다. 버전이 바뀌어 깨지면 여기서 드러난다.
 pytestmark = pytest.mark.anyio
@@ -43,3 +46,20 @@ async def test_가짜_LLM은_받은_메시지를_차례로_기록한다() -> Non
         "첫 질문",
         "둘째 질문",
     ]
+
+
+async def test_가짜_가드레일은_정해_둔_시간만큼_기다렸다_결과를_준다() -> None:
+    # Given
+    guardrail = FakeGuardrail(
+        output_results={"막힐 문장": GuardResult("", blocked=True)}, output_delay=0.05
+    )
+    loop = asyncio.get_running_loop()
+
+    # When
+    started = loop.time()
+    result = await guardrail.check_output("막힐 문장")
+
+    # Then
+    assert loop.time() - started >= 0.05
+    assert result.blocked
+    assert guardrail.checked_outputs == ["막힐 문장"]

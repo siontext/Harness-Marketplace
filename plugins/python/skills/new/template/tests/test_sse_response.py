@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
-from app.application.agent.errors import OutputBlockedError
+from app.application.agent.errors import InputBlockedError, OutputBlockedError
 from app.common.errors import UpstreamError
 from app.presentation.response.sse_response import sse_response
 
@@ -61,6 +61,34 @@ def test_문장을_token으로_보내고_done으로_끝낸다() -> None:
         ("token", {"text": "첫 문장. "}),
         ("token", {"text": "둘째 문장."}),
         ("done", {"conversation_id": "c-1"}),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("guard_message", "expected"),
+    [
+        ("가드레일 문구", "가드레일 문구"),
+        ("", "답변드릴 수 없는 질문입니다. 다른 질문을 해 주세요."),
+    ],
+    ids=["가드레일_문구", "비면_기본_문구"],
+)
+def test_입력이_막히면_안내_문구를_token으로_보내고_done으로_끝낸다(
+    caplog: pytest.LogCaptureFixture, guard_message: str, expected: str
+) -> None:
+    # Given
+    client = _client(_sentences(then=InputBlockedError(guard_message)))
+
+    # When
+    with caplog.at_level(logging.WARNING, logger=SSE_LOGGER):
+        events = _events(client)
+
+    # Then
+    assert events == [
+        ("token", {"text": expected}),
+        ("done", {"conversation_id": "c-1"}),
+    ]
+    assert [r.getMessage() for r in caplog.records if r.name == SSE_LOGGER] == [
+        "입력 가드레일 차단: POST /stream"
     ]
 
 

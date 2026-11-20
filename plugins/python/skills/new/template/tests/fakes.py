@@ -1,5 +1,6 @@
 """테스트용 가짜. 바깥에 닿는 것(LLM, 연결 창구)만 가짜로 만든다."""
 
+import asyncio
 import json
 from collections.abc import Iterator, Sequence
 from itertools import chain
@@ -83,6 +84,8 @@ class FakePromptStore(PromptStore):
 class FakeGuardrail(Guardrail):
     """그대로 통과시키되, 정해 둔 문장만 다른 검사 결과로 바꿔 돌려주는 가짜 가드레일.
 
+    input_delay·output_delay를 주면 검사마다 그만큼 기다린다 (시간 초과 테스트용).
+
     Attributes:
         checked_inputs: 입력 검사에 들어온 문장들.
         checked_outputs: 출력 검사에 들어온 문장들.
@@ -92,18 +95,25 @@ class FakeGuardrail(Guardrail):
         self,
         input_results: dict[str, GuardResult] | None = None,
         output_results: dict[str, GuardResult] | None = None,
+        *,
+        input_delay: float = 0,
+        output_delay: float = 0,
     ) -> None:
         self._input_results = input_results or {}
         self._output_results = output_results or {}
+        self._input_delay = input_delay
+        self._output_delay = output_delay
         self.checked_inputs: list[str] = []
         self.checked_outputs: list[str] = []
 
     async def check_input(self, text: str) -> GuardResult:
         self.checked_inputs.append(text)
+        await asyncio.sleep(self._input_delay)
         return self._input_results.get(text, GuardResult(text=text))
 
     async def check_output(self, text: str) -> GuardResult:
         self.checked_outputs.append(text)
+        await asyncio.sleep(self._output_delay)
         return self._output_results.get(text, GuardResult(text=text))
 
 

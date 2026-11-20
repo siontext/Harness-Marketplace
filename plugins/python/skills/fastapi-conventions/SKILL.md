@@ -173,7 +173,7 @@ data: {"conversation_id": "c-123"}
 
 | 막힌 곳 | 채팅 서비스(`application`)가 하는 일 | `/chat`(`sse_response`)이 보내는 것 |
 |---|---|---|
-| 입력 | LLM을 부르지 않고 가드레일의 안내 문구를 답으로 내보낸다 (예외 없음) | `token`(안내 문구) → `done` |
+| 입력 | LLM을 부르지 않고 `InputBlockedError`를 던진다 | `token`(안내 문구) → `done`. 답을 시작하기 전이라 정상 답처럼 보낸다 |
 | 출력 | `OutputBlockedError`를 던진다. 더 진행할 수 없으므로 무시할 수 없게 한다 | `error` · `BLOCKED` |
 
 ```python
@@ -181,6 +181,9 @@ data: {"conversation_id": "c-123"}
 try:
     async for sentence in sentences:          # 유스케이스가 내놓은 문장 흐름
         yield SseEvent.token(sentence).encode()
+except InputBlockedError as e:         # 의도된 결과: 안내 문구를 답으로 보내고 아래 done으로
+    logger.warning("입력 가드레일 차단: %s %s", request.method, request.url.path)
+    yield SseEvent.token(e.guard_message or messages.INPUT_BLOCKED).encode()
 except OutputBlockedError as e:        # 의도된 결과: 이름을 적어 따로 잡는다
     logger.warning("출력 가드레일 차단: %s %s", request.method, request.url.path)
     yield SseEvent.error(ErrorCode.BLOCKED, e.guard_message or messages.BLOCKED).encode()
@@ -194,10 +197,10 @@ except Exception as exc:
 yield SseEvent.done(conversation_id).encode()
 ```
 
-- `OutputBlockedError`는 `app/application/agent/errors.py`(뼈대에 있다)에 있고 가드레일이 준 안내 문구를 담는다. 문구가 비어 있으면 `sse_response`가 `messages.BLOCKED`를 쓴다.
-- **`OutputBlockedError`를 오류 대응표(`ERROR_RULES`)에 넣지 않는다.** 막힌 것은 오류가 아니라서 상태 코드가 없다. LLM 실패 같은 오류와 같은 `except`에서 처리하지 않는다.
+- `InputBlockedError`·`OutputBlockedError`는 `app/application/agent/errors.py`(뼈대에 있다)에 있고 가드레일이 준 안내 문구를 담는다. **문구가 비어 있으면 `sse_response`가 `messages.INPUT_BLOCKED`·`messages.BLOCKED`를 쓴다.** 운영 플랫폼 가드레일이 문구 없이 막을 수 있어서, 채팅 서비스가 문구를 직접 내보내면 빈 답이 나갈 수 있다.
+- **두 예외를 오류 대응표(`ERROR_RULES`)에 넣지 않는다.** 막힌 것은 오류가 아니라서 상태 코드가 없다. LLM 실패 같은 오류와 같은 `except`에서 처리하지 않는다.
 - 로그에는 막혔다는 사실만 남기고 막힌 내용은 남기지 않는다.
-- 한 번에 응답 방식에서는 엔드포인트가 `OutputBlockedError`를 잡아 안내 문구를 정상 답(200)으로 돌려준다.
+- 한 번에 응답 방식에서는 엔드포인트가 두 예외를 잡아 안내 문구(비면 기본 문구)를 정상 답(200)으로 돌려준다.
 
 ### 한 번에 응답 (대안)
 
@@ -267,7 +270,7 @@ class ChatResponse(BaseModel):
 
 호출하는 쪽(게이트웨이 등)은 정해진 시간까지만 기다린다. 그 시간이 지나면 사용자는 아무 답도 못 받는다. 그래서 **그보다 먼저 끊고 안내한다.**
 
-- 시간 제한 값은 설계 문서 개요의 "시간 제한"을 설정으로 둔다. 코드에 숫자를 적지 않는다.
+- 시간 제한 값은 설계 문서 개요의 "시간 제한"을 환경 변수 `AGENT_TIMEOUT_SECONDS`로 둔다. 뼈대의 `Settings.agent_timeout_seconds`가 읽는다 (비우면 30초). 코드에 숫자를 적지 않는다.
 - 우리 쪽 제한은 호출하는 쪽 제한보다 여유 있게 짧게 잡는다 (예: 2~3초 먼저).
 - 시간 제한은 에이전트 흐름(`app/application/agent/`)에서 걸고, 초과하면 `AgentTimeoutError`를 던진다. 기준은 질문 하나의 전체 실행이다.
 - 한 번에 응답: 3.11의 `asyncio.timeout(...)`으로 에이전트 실행을 감싼다.
