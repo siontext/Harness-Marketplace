@@ -4,7 +4,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
-from app.application.ports import LlmProvider
+from app.application.agent.port import LlmProvider
 from app.infrastructure.settings import Settings
 
 

@@ -1,6 +1,6 @@
 ---
 name: agent-architecture
-description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 업무 서비스와 도구의 역할, 조립(app/container.py), 공통 예외(app/errors.py) 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
+description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 조립(app/container.py), 공통 예외(app/errors.py) 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
 ---
 
 # Agent Architecture
@@ -15,7 +15,7 @@ main.py ──▶ app/container.py (조립: 구현을 골라 연결)
 app/presentation      FastAPI — 엔드포인트, 요청·응답, 전역 예외 핸들러
         │
         ▼
-app/application       에이전트 흐름(agent/), 업무 서비스, 포트(ports.py)
+app/application       에이전트 흐름(agent/), 기능별 유스케이스·서비스·포트(<기능>/)
         │                          ▲
         ▼                          │ 포트를 구현 · 서비스를 호출
 app/domain            업무 규칙     │
@@ -28,10 +28,9 @@ app/errors.py (공통 예외)  ◀──  모든 레이어
 | 레이어 | 두는 것 | import할 수 있는 프로젝트 코드 |
 |---|---|---|
 | `app/presentation` | 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러 | `application`, `app/errors.py` |
-| `app/application/agent/` | 에이전트 조립과 실행 흐름 (입력 검사 → 실행 → 출력 검사, 시간 제한) | `application` 안, `domain`, `app/errors.py` |
-| `app/application/<이름>_service.py` | 업무 서비스 — 꺼내기 → 도메인 호출 → 저장 같은 순서 | `application/ports.py`, `domain`, `app/errors.py` |
-| `app/application/ports.py` | 포트 — 바깥에 요구하는 모양 (`Protocol`) | `domain` |
-| `app/domain` | 업무 규칙 (있을 때만) | `app/errors.py`만 |
+| `app/application/agent/` | 에이전트 조립과 실행 흐름 (입력 검사 → 실행 → 출력 검사, 시간 제한), `ChatCommand`, 에이전트의 나가는 포트(`port.py`: LLM·프롬프트·가드레일) | `application` 안, `domain`, `app/errors.py` |
+| `app/application/<기능>/` | 업무 기능 하나 — `usecase.py`(들어오는 포트), `port.py`(나가는 포트), `service.py`, `command.py`, `result.py` | 같은 기능 폴더, `domain`, `app/errors.py` |
+| `app/domain/<기능>/` | 업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 | `app/errors.py`만 |
 | `app/infrastructure` | 포트 구현(어댑터), 도구, 설정, 구현 선택 | `application`, `domain`, `app/errors.py` |
 | `app/container.py` | 조립 — 구현을 서비스·도구·에이전트에 넣어 주기 | 전부 |
 | `main.py` | `FastAPI` 앱 만들기, `lifespan`에서 조립 함수 부르기 | 전부 |
@@ -47,11 +46,11 @@ app/errors.py (공통 예외)  ◀──  모든 레이어
 | 패키지 | 쓸 수 있는 곳 |
 |---|---|
 | FastAPI | `main.py`, `app/presentation` |
-| LangChain·LangGraph | `app/application/agent/`, `app/application/ports.py`(채팅 모델 타입), `app/infrastructure` |
+| LangChain·LangGraph | `app/application/agent/`, `app/infrastructure` |
 | 운영 플랫폼 SDK, DB·Redis 클라이언트 | `app/infrastructure` |
-| 없음 (표준 라이브러리만) | `app/domain`, `app/application/<이름>_service.py` |
+| 없음 (표준 라이브러리만) | `app/domain`, `app/application/<기능>/` |
 
-에이전트 루프는 LangChain이 돌려 주므로 에이전트 조립 코드는 LangChain을 쓴다. 업무 서비스와 도메인은 LangChain을 모르게 두어, 프레임워크를 바꾸거나 같은 기능을 다른 창구(REST 등)로 열어도 그대로 쓸 수 있게 한다.
+에이전트 루프는 LangChain이 돌려 주므로 에이전트 폴더는 LangChain을 쓴다. 기능 폴더와 도메인은 LangChain을 모르게 두어, 프레임워크를 바꾸거나 같은 기능을 다른 창구(REST 등)로 열어도 그대로 쓸 수 있게 한다.
 
 ## Command — presentation에서 application으로 넘기는 값
 
@@ -74,37 +73,85 @@ command = ChatCommand(conversation_id=body.conversation_id, message=body.message
 - Command는 `app/application`에 두는 변하지 않는 값 묶음이다 (`@dataclass(frozen=True)`). pydantic을 쓰지 않는다. 형식 검사는 요청 모델이 이미 했다.
 - `application`은 요청 모델(`ChatRequest`)을 모른다. 넘길 값이 늘면 Command에 칸을 더하고 함수 모양은 그대로 둔다.
 - 바꾸는 곳은 `app/presentation/routes.py`다.
+- 기능의 유스케이스가 받는 값(`GetOrderQuery`, `CancelOrderCommand`)도 같은 규칙이다 (아래 "기능 폴더").
 
-## 업무 서비스와 도구
+## 기능 폴더 — 유스케이스, 서비스, 도구
 
-도구는 LLM이 시스템을 부르는 창구다. 도구 안에 업무 순서를 직접 적지 않고 **항상 업무 서비스를 거친다.**
+업무 기능 하나(주문, 상품 등)는 폴더 하나다. Java 하네스·Kotlin 프로젝트의 `application/<기능>/`과 같은 모양이다. 도구는 LLM이 시스템을 부르는 창구라서, 도구 안에 업무 순서를 적지 않고 **항상 유스케이스를 거친다.**
+
+```text
+app/domain/order/order.py                엔티티(Order), 코드값 Enum, 취소 규칙, 업무 예외
+app/application/order/
+├── usecase.py   OrderUseCase       들어오는 포트 — 이 기능이 바깥에 제공하는 일의 목록
+├── port.py      OrderRepository    나가는 포트 — 이 기능이 바깥에 요구하는 것
+├── service.py   OrderService(OrderUseCase)
+├── command.py   GetOrderQuery, CancelOrderCommand
+└── result.py    OrderResult
+app/infrastructure/persistence/order/    OrderRepository 구현
+app/infrastructure/tools/order_tools.py  OrderUseCase를 받아 결과를 문장으로
+```
 
 | 파일 | 맡는 일 | 모르는 것 |
 |---|---|---|
-| `app/domain/` | 판단·계산 (예: 취소할 수 있는가) | 저장소, LLM, 문장 |
-| `app/application/<이름>_service.py` | 순서 (꺼내기 → 도메인에 판단 맡기기 → 저장). 결과는 값이나 예외로 알린다 | LangChain, LLM이 읽을 문장 |
-| `app/infrastructure/tools/` | 서비스 호출, 결과와 예외를 LLM이 읽을 문장으로 바꾸기 | 판단, 순서 |
+| `app/domain/<기능>/` | 판단·계산 (예: 취소할 수 있는가) | 저장소, LLM, 문장 |
+| `app/application/<기능>/service.py` | 순서 (꺼내기 → 도메인에 판단 맡기기 → 저장). 결과는 Result나 업무 예외로 알린다 | LangChain, LLM이 읽을 문장 |
+| `app/infrastructure/tools/` | 유스케이스 호출, Result와 예외를 LLM이 읽을 문장으로 바꾸기 | 판단, 순서, 엔티티, 서비스 구현 |
 
 ```python
-# app/application/order_service.py
-class OrderService:
+# app/application/order/command.py
+@dataclass(frozen=True)
+class GetOrderQuery:
+    order_id: str
+
+@dataclass(frozen=True)
+class CancelOrderCommand:
+    order_id: str
+
+# app/application/order/result.py
+@dataclass(frozen=True)
+class OrderResult:
+    order_id: str
+    status: OrderStatus          # 도메인의 코드값 Enum은 그대로 쓴다
+    paid_at: datetime
+
+    @classmethod
+    def from_order(cls, order: Order) -> "OrderResult":
+        return cls(order_id=order.order_id, status=order.status, paid_at=order.paid_at)
+
+# app/application/order/usecase.py
+class OrderUseCase(Protocol):
+    async def get_order(self, query: GetOrderQuery) -> OrderResult: ...
+    async def cancel_order(self, command: CancelOrderCommand) -> OrderResult: ...
+
+# app/application/order/service.py
+class OrderService(OrderUseCase):
     def __init__(self, orders: OrderRepository, now: Callable[[], datetime]) -> None:
         self._orders = orders
         self._now = now
 
-    async def cancel_order(self, order_id: str) -> Order:
+    async def cancel_order(self, command: CancelOrderCommand) -> OrderResult:
+        order = await self._find_order(command.order_id)
+        cancelled = order.cancel(self._now())      # 판단은 도메인
+        await self._orders.save(cancelled)
+        return OrderResult.from_order(cancelled)    # 엔티티를 밖으로 내보내지 않는다
+
+    async def _find_order(self, order_id: str) -> Order:
         order = await self._orders.find(order_id)
         if order is None:
             raise OrderNotFoundError(order_id)
-        cancelled = order.cancel(self._now())      # 판단은 도메인
-        await self._orders.save(cancelled)
-        return cancelled
+        return order
 ```
 
+- **유스케이스(`usecase.py`)는 `Protocol`이고 메서드에 본문을 넣지 않는다.** 서비스는 `class OrderService(OrderUseCase):`로 구현임을 적는다.
+- **유스케이스 메서드는 Command/Query를 받고 Result를 돌려준다.** 상태를 바꾸지 않는 요청은 `...Query`, 바꾸는 요청은 `...Command`로 이름 붙이고 둘 다 `command.py` 한 파일에 둔다. 셋 다 `@dataclass(frozen=True)`이고 pydantic을 쓰지 않는다.
+- **서비스는 엔티티를 밖으로 돌려주지 않는다.** Result로 옮겨 담아 돌려준다. Result에는 부르는 쪽이 필요한 값만 담는다. 도메인의 코드값 Enum은 그대로 써도 되고, 엔티티는 담지 않는다. 엔티티가 바뀌어도 옮겨 담는 곳(서비스·`from_<엔티티>`)에서 멈추고 도구까지 번지지 않는다.
+- **대상이 없을 때: 저장소(나가는 포트)는 `None`을 돌려주고, 서비스가 업무 예외(`OrderNotFoundError`)로 바꿔 던진다.** 유스케이스의 반환 타입에 `None`을 넣지 않는다.
+- **도구는 유스케이스(`OrderUseCase`)에만 의존한다.** 서비스 구현(`OrderService`)과 엔티티(`Order`)를 import하지 않는다. 도메인에서 가져와도 되는 것은 코드값 Enum과 업무 예외뿐이다.
+- **포트는 그것을 쓰는 기능 폴더에 둔다.** 기능의 나가는 포트는 `application/<기능>/port.py`, 에이전트가 쓰는 LLM·프롬프트·가드레일 포트는 `application/agent/port.py`. 모든 포트를 한 파일에 모으지 않는다.
 - **도메인은 코드값만 갖고, 사용자에게 보이는 이름과 문장은 도구가 갖는다.** 상태·사유 같은 Enum의 값은 코드(`PAID`, `SHIPPING_STARTED`)로 두고, 표시용 이름("결제 완료")과 안내 문장은 도구의 표(`STATUS_LABELS`, `CANCEL_DENIAL_SENTENCES`)에 둔다. 문구를 바꿔도 도메인과 저장된 값은 그대로다.
 
 ```python
-# app/domain/order.py
+# app/domain/order/order.py
 class OrderStatus(StrEnum):
     PAID = "PAID"
     SHIPPING = "SHIPPING"
@@ -117,8 +164,8 @@ STATUS_LABELS: dict[OrderStatus, str] = {
 ```
 
 - 날짜·시각을 읽기 좋은 표기로 바꾸는 것(시간대, 날짜 형식)도 문장 만들기로 보고 도구가 한다.
-- 조회처럼 전달만 하는 기능도 서비스를 거친다. 서비스가 한 줄이어도 도구가 포트를 직접 부르지 않는다. 기준이 하나여야 도구마다 판단이 갈리지 않는다.
-- 서비스는 포트와 "지금 시각" 같은 바뀌는 값을 생성자로 받는다. 안에서 시계를 읽거나 구현을 만들지 않는다.
+- 조회처럼 전달만 하는 기능도 유스케이스를 거친다. 서비스가 한 줄이어도 도구가 포트를 직접 부르지 않는다. 기준이 하나여야 도구마다 판단이 갈리지 않는다.
+- 서비스는 나가는 포트와 "지금 시각" 같은 바뀌는 값을 생성자로 받는다. 안에서 시계를 읽거나 구현을 만들지 않는다.
 - 도구가 예외를 문장으로 바꾸는 규칙은 `langgraph-conventions`의 "도구 만들기"를 따른다.
 
 ## 조립 (app/container.py)
@@ -128,13 +175,13 @@ def build_agent_context(platform: Platform, timeout_seconds: float) -> AgentCont
     service = OrderService(platform.orders, _read_utc_now)
     agent = build_order_agent(
         model=platform.llm.chat_model(),
-        tools=build_order_tools(service),
+        tools=build_order_tools(service),          # 도구에는 OrderUseCase로 넘어간다
         system_prompt=platform.prompts.get("system"),
     )
     return AgentContext(agent, platform.guardrail, timeout_seconds)
 ```
 
-- 구현 → 서비스 → 도구 → 에이전트 순서로 넣어 준다. 조립 함수는 `container.py`에만 둔다.
+- 구현 → 서비스 → 도구 → 에이전트 순서로 넣어 준다. 조립 함수는 `container.py`에만 둔다. 서비스 구현을 아는 곳은 `container.py`뿐이다.
 - `main.py`의 `lifespan`이 `build_platform()`으로 구현 묶음을 만들고 조립 함수를 불러 결과를 `app.state`에 둔다.
 - 테스트는 가짜 구현 묶음을 같은 조립 함수에 넣는다. 테스트용 조립 코드를 따로 만들지 않는다.
 
@@ -146,7 +193,7 @@ def build_agent_context(platform: Platform, timeout_seconds: float) -> AgentCont
 |---|---|---|
 | 여러 레이어가 던지거나 전역 핸들러가 구분해 답하는 예외 (`AppError`, `UpstreamError`, `AgentTimeoutError`) | `app/errors.py` | 안쪽 레이어가 import해야 하므로 HTTP를 몰라야 한다 |
 | 한 레이어 안에서만 쓰는 예외 (예: `PlatformLoadError`) | 그 레이어 안 | 밖에서 구분할 일이 없다 |
-| 업무 규칙에 걸렸을 때 던지는 예외 (예: `OrderNotCancellableError`, `OrderNotFoundError`) | `app/domain/` (규칙 옆) | 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않는다 |
+| 업무 규칙에 걸렸을 때 던지는 예외 (예: `OrderNotCancellableError`, `OrderNotFoundError`) | `app/domain/<기능>/` (규칙 옆) | 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않는다 |
 | 출력이 가드레일에 막혔을 때 던지는 예외 (`OutputBlockedError`) | `app/application/agent/` | `/chat`이 잡아 `BLOCKED` 이벤트로 바꾼다. 전역 핸들러까지 가지 않는다 |
 | 예외 → 상태 코드·`code`·안내 문구 대응표, 전역 핸들러 | `app/presentation/errors.py` | HTTP 응답을 만드는 일이다 (`fastapi-conventions`) |
 | `code` 값(`ErrorCode`), 안내 문구 | `app/presentation/response/` | 호출하는 쪽에 보이는 응답의 일부다 |
@@ -157,7 +204,7 @@ def build_agent_context(platform: Platform, timeout_seconds: float) -> AgentCont
 
 ## 연결 창구 — 포트와 구현
 
-바깥 시스템에 닿는 일은 모두 연결 창구를 거친다. 창구 하나는 `Protocol` 하나다. 모양(포트)은 `app/application/ports.py`에, 구현(어댑터)은 `app/infrastructure/`에 둔다.
+바깥 시스템에 닿는 일은 모두 연결 창구를 거친다. 창구 하나는 `Protocol` 하나다. 모양(포트)은 그것을 쓰는 폴더(기능은 `app/application/<기능>/port.py`, 에이전트 부품은 `app/application/agent/port.py`)에, 구현(어댑터)은 `app/infrastructure/`에 둔다.
 
 | 창구 | 하는 일 | 로컬 구현 |
 |---|---|---|
@@ -171,14 +218,14 @@ def build_agent_context(platform: Platform, timeout_seconds: float) -> AgentCont
 | 대화 기록 | 질문·답을 빠짐없이 남김 (감사) | PostgreSQL (가드레일을 거친 뒤 내용) |
 
 - 쓰지 않는 창구는 만들지 않는다. 설계 문서의 전체 아키텍처에 있는 것만 만든다.
-- 구현은 창구 종류마다 폴더 하나에 둔다: `infrastructure/llm/`, `persistence/`, `prompt/`, `guardrail/`. 도구는 `infrastructure/tools/`.
+- 구현은 창구 종류마다 폴더 하나에 둔다: `infrastructure/llm/`, `persistence/<기능>/`, `prompt/`, `guardrail/`. 도구는 `infrastructure/tools/`.
 - **구현 클래스는 포트를 괄호에 적는다** (`class InMemoryOrderRepository(OrderRepository):`). Java의 `implements`처럼 어떤 포트의 구현인지 드러나고 IDE에서 구현을 찾을 수 있다.
 - **포트의 메서드에는 본문을 넣지 않는다** (`...`만). 본문을 넣으면 구현 클래스가 그 동작을 물려받아 상속이 된다.
 - 운영 플랫폼용 구현은 공개 하네스에 없다. 사용자 스킬 폴더의 플랫폼 전용 스킬에 견본이 있으면 그것을 따른다.
 - 테스트는 연결 창구 자리에 가짜를 넣는다. 로컬 Redis·PostgreSQL이 꺼져 있어도 테스트는 돈다 (`python-testing`).
 
 ```python
-# app/application/ports.py
+# app/application/agent/port.py
 class ConversationMemory(Protocol):
     """대화 id별 최근 대화를 일정 시간 기억하는 창구."""
 
@@ -256,14 +303,14 @@ Python에는 `private`, `final`, `new`가 없다. Java 문법을 흉내 내지 �
 
 ## DDD — 업무 규칙이 있을 때만
 
-에이전트는 보통 "질문 → LLM 판단 → 도구로 외부 시스템 호출 → 답" 흐름이라 내 코드 안의 업무 규칙이 얇다. 그래서 **계산·판단·상태 변화 같은 규칙이 있을 때만** `app/domain/`을 만든다. 외부 시스템을 불러 주기만 하는 도구뿐이면 만들지 않는다. 이때도 업무 서비스(`app/application/<이름>_service.py`)는 둔다. designer가 설계 문서에 업무 규칙 유무를 적는다.
+에이전트는 보통 "질문 → LLM 판단 → 도구로 외부 시스템 호출 → 답" 흐름이라 내 코드 안의 업무 규칙이 얇다. 그래서 **계산·판단·상태 변화 같은 규칙이 있을 때만** `app/domain/<기능>/`을 만든다. 외부 시스템을 불러 주기만 하는 도구뿐이면 만들지 않는다. 이때도 기능 폴더(`app/application/<기능>/`의 유스케이스·서비스·Command/Query·Result)는 둔다. designer가 설계 문서에 업무 규칙 유무를 적는다.
 
 | DDD 개념 | Python에서 |
 |---|---|
 | 값 객체 | `@dataclass(frozen=True)` + `__post_init__` 검증 |
 | 엔티티 | id를 가진 클래스. 상태는 의미 있는 메서드로만 바꾼다 |
 | 애그리거트 | 엔티티 묶음. 바깥은 루트를 통해서만 접근 |
-| 리포지토리 | `Protocol`은 `app/application/ports.py`에, 구현은 `app/infrastructure/persistence/`에. 구현은 도메인 객체를 돌려준다 |
+| 리포지토리 | `Protocol`은 `app/application/<기능>/port.py`에, 구현은 `app/infrastructure/persistence/<기능>/`에. 구현은 도메인 객체를 돌려주고, 서비스가 Result로 옮겨 담는다 |
 | 도메인 서비스 | 한 객체에 넣기 애매한 규칙을 담는 함수 |
 
-`app/domain/`은 LangChain, FastAPI, pydantic 같은 바깥 패키지를 import하지 않는다.
+`app/domain/`은 LangChain, FastAPI, pydantic 같은 바깥 패키지를 import하지 않는다. 기능마다 `app/domain/<기능>/` 폴더를 둔다.

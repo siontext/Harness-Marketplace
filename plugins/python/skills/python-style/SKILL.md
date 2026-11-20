@@ -9,7 +9,7 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 
 ## 이름 규칙
 
-- 함수·변수·모듈 파일: `snake_case` (예: `get_balance`, `order_service.py`)
+- 함수·변수·모듈 파일: `snake_case` (예: `get_balance`, `order_tools.py`)
 - 클래스: `PascalCase` (예: `OrderService`, `LlmProvider`)
 - 상수: `UPPER_SNAKE_CASE` (예: `MAX_RETRY_COUNT`)
 - 모듈 밖에서 쓰지 않는 것: 앞에 `_` (예: `_parse_response`)

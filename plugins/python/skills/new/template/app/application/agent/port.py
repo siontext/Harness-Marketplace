@@ -1,6 +1,7 @@
-"""연결 창구의 모양(Protocol, 포트). application은 이 모양에만 의존한다.
+"""에이전트가 바깥에 요구하는 모양(나가는 포트): LLM, 프롬프트, 가드레일.
 
 구현(어댑터)은 app/infrastructure에 두고 app/container.py가 골라 넣어 준다.
+업무 기능의 포트는 그 기능 폴더(app/application/<기능>/port.py)에 둔다.
 메서드에는 모양만 적고 본문을 넣지 않는다. 구현 클래스는 이 Protocol을 괄호에 적어
 어떤 포트의 구현인지 드러낸다.
 """

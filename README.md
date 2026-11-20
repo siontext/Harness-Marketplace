@@ -99,7 +99,7 @@ Gemini·Codex 동기화는 2.0에서 없앴다. 이전 버전이 `~/.gemini`, `~
 
 - 명령은 `disable-model-invocation`이라 Claude가 알아서 실행하지 않는다.
 - `run-application.sh`가 있는 프로젝트는 반출 전용으로 보고 `git push`, `git remote add`를 훅이 막는다.
-- 바깥 시스템은 연결 창구(`app/application/ports.py`의 Protocol)로만 부른다. 공개 하네스에는 Protocol과 로컬 구현만 있다. 운영 플랫폼 구현 견본은 사용자 스킬 폴더의 `templates/project/`에 두면 `/python:new`가 덮어 복사한다.
+- 바깥 시스템은 연결 창구(`app/application/<기능>/port.py`의 Protocol)로만 부른다. 공개 하네스에는 Protocol과 로컬 구현만 있다. 운영 플랫폼 구현 견본은 사용자 스킬 폴더의 `templates/project/`에 두면 `/python:new`가 덮어 복사한다.
 
 ## 프로젝트·사용자 전용 스킬
 

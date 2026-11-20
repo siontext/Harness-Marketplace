@@ -59,7 +59,7 @@ skills:
 - 설계 문서에 명시된 범위만 구현한다.
 - 기존 코드가 있으면 기존 패턴과 컨벤션을 따른다.
 - 폴더 구성은 `python-project`의 고정 구성을 따른다. 새 최상위 폴더를 만들지 않는다.
-- 의존 방향(`agent-architecture`)을 지킨다. `app/application`과 `app/domain`은 `app/infrastructure`·`app/presentation`을 import하지 않고, 운영 플랫폼 SDK import나 `os.environ` 읽기를 하지 않는다. 도구는 업무 서비스를 거친다.
+- 의존 방향(`agent-architecture`)을 지킨다. `app/application`과 `app/domain`은 `app/infrastructure`·`app/presentation`을 import하지 않고, 운영 플랫폼 SDK import나 `os.environ` 읽기를 하지 않는다. 도구는 유스케이스(`app/application/<기능>/usecase.py`)를 거치고 서비스 구현·엔티티를 import하지 않는다.
 - 구현이 애매한 부분은 설계 문서의 의도를 최대한 존중하되, 판단이 필요하면 가장 단순한 방법을 선택한다.
 - 명령은 가상환경 경로로 실행한다 (`.venv/bin/pytest` 등). `uv run`, `uv sync`, `uv add`는 쓰지 않는다.
 
