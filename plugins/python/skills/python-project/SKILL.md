@@ -25,13 +25,13 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 │   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), errors.py(전역 예외 핸들러)
 │   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, ErrorCode, 안내 문구
 │   ├── application/
-│   │   ├── ports.py         포트 — 바깥에 요구하는 모양 (Protocol)
-│   │   ├── <이름>_service.py 업무 서비스 — 꺼내기 → 도메인 호출 → 저장 순서
-│   │   └── agent/           에이전트 흐름 (create_agent / StateGraph)
-│   ├── domain/              업무 규칙 (있을 때만)
+│   │   ├── agent/           에이전트 흐름 (create_agent / StateGraph), ChatCommand, port.py(LLM·프롬프트·가드레일 포트)
+│   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, command.py, result.py
+│   ├── domain/
+│   │   └── <기능>/          업무 규칙 — 엔티티, 코드값 Enum, 업무 예외 (있을 때만)
 │   ├── infrastructure/      포트 구현 — __init__.py(구현 선택), local.py(로컬 묶음), settings.py(설정)
 │   │   ├── llm/             LLM 구현
-│   │   ├── persistence/     저장소 구현 (있을 때만)
+│   │   ├── persistence/     저장소 구현 — <기능>/ 폴더마다 (있을 때만)
 │   │   ├── prompt/          프롬프트 창구 구현
 │   │   ├── guardrail/       가드레일 구현
 │   │   └── tools/           도구 함수 (@tool)
@@ -44,6 +44,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 - FastAPI를 import하는 코드는 `main.py`와 `app/presentation/`에만 둔다 (`agent-architecture`).
 - `app/` 바로 아래에 두는 모듈은 `errors.py`와 `container.py` 둘이다. 더 생기면 사용자에게 확인한다.
 - `infrastructure/` 아래는 창구 종류마다 폴더 하나다. 새 종류의 창구가 생기면 폴더를 더한다 (예: `memory/`).
+- 업무 기능이 생기면 `application/<기능>/`, `domain/<기능>/`, `infrastructure/persistence/<기능>/`을 같은 이름으로 만든다 (`agent-architecture`의 "기능 폴더").
 - `app/domain/`은 계산·판단·상태 변화 같은 업무 규칙이 있을 때만 만든다 (`agent-architecture`).
 - 각 폴더에 `__init__.py`를 둔다.
 

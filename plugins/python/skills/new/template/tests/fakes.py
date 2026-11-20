@@ -13,7 +13,7 @@ from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from pydantic import Field
 
-from app.application.ports import Guardrail, GuardResult, LlmProvider, PromptStore
+from app.application.agent.port import Guardrail, GuardResult, LlmProvider, PromptStore
 from app.infrastructure import Platform
 
 FAKE_SYSTEM_PROMPT = "테스트용 시스템 프롬프트"

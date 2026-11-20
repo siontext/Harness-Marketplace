@@ -120,9 +120,9 @@ flowchart LR
 | 단계 | 대상 | 선행 |
 |---|---|---|
 | 0 | 설정·의존성 (`pyproject.toml`, `.env.example`) | — |
-| 1 | 업무 규칙 (`app/domain/`, 있을 때만) | 0 |
-| 2 | 연결 창구 (`app/application/ports.py` Protocol + `app/infrastructure/` 로컬 구현) | 1 |
-| 3 | 업무 서비스 (`app/application/<이름>_service.py`) | 2 |
+| 1 | 업무 규칙 (`app/domain/<기능>/`, 있을 때만) | 0 |
+| 2 | 연결 창구 (`app/application/<기능>/port.py` Protocol + `app/infrastructure/` 로컬 구현) | 1 |
+| 3 | 유스케이스와 서비스 (`app/application/<기능>/` — `usecase.py`, `command.py`, `result.py`, `service.py`) | 2 |
 | 4 | 도구 (`app/infrastructure/tools/`) | 3 |
 | 5 | 프롬프트 (`app/prompts/`) | 0 |
 | 6 | 에이전트 흐름 (`app/application/agent/`)과 조립 (`app/container.py`) | 4, 5 |

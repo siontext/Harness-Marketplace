@@ -1,13 +1,14 @@
 """연결 창구 묶음과 로컬/운영 구현 선택.
 
-창구의 모양(Protocol)은 app/application/ports.py에 있고, 이 패키지는 그 구현을 둔다.
+창구의 모양(Protocol)은 app/application/<기능>/port.py에 있고,
+이 패키지는 그 구현을 둔다.
 """
 
 import importlib
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from app.application.ports import Guardrail, LlmProvider, PromptStore
+from app.application.agent.port import Guardrail, LlmProvider, PromptStore
 from app.infrastructure.settings import Settings, load_settings
 
 LOCAL = "local"

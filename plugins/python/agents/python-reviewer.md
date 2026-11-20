@@ -77,7 +77,7 @@ skills:
   - `app/application`, `app/domain`이 `app/infrastructure`, `app/presentation`, `app/container.py`를 import하지 않는다
   - `app/presentation`이 `app/infrastructure`를 import하지 않는다
   - `app/presentation`이 요청 모델을 Command로 바꿔 넘기고, `app/application`이 요청 모델(`ChatRequest` 등)을 받지 않는다
-  - `app/domain`과 업무 서비스(`app/application/<이름>_service.py`)가 LangChain·LangGraph·FastAPI·pydantic을 import하지 않는다
+  - `app/domain`과 기능 폴더(`app/application/<기능>/`)가 LangChain·LangGraph·FastAPI·pydantic을 import하지 않는다
   - FastAPI를 import하는 곳이 `main.py`와 `app/presentation`뿐이다
   - `app/application`, `app/domain`에 `os.environ`·`os.getenv`, 운영 플랫폼 SDK import가 없다
   - `main.py`에 엔드포인트·요청·응답 모델·예외 핸들러 본문이 없고(`app/presentation`에 둔다), 조립 코드는 `app/container.py`에 있다
@@ -85,8 +85,12 @@ skills:
   - `app/presentation` 밖에서 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
 - **예외** — LLM 호출 실패가 `UpstreamError`로 바뀌는가 (`langgraph-conventions`). 출력 가드레일 막힘을 `OutputBlockedError`로 던지고 `/chat`이 따로 잡으며 `ERROR_RULES`에 넣지 않았는가 (`fastapi-conventions`). `except Exception`이 허용된 두 곳(`python-style`)에만 있고 이유 주석이 있는가
-- **업무 서비스와 도구** (`agent-architecture`):
-  - 도구(`app/infrastructure/tools/`)가 포트를 직접 부르지 않고 업무 서비스를 거친다
+- **기능 폴더와 도구** (`agent-architecture`의 "기능 폴더"):
+  - 업무 기능마다 `app/application/<기능>/`에 `usecase.py`·`port.py`·`service.py`·`command.py`·`result.py`가 있고, 포트가 쓰는 기능 폴더에 있다 (모든 포트를 한 파일에 모으지 않았다)
+  - 유스케이스 메서드가 Command/Query를 받고 Result를 돌려주며, 서비스가 유스케이스를 괄호에 적어 구현한다
+  - 서비스가 엔티티를 밖으로 돌려주지 않는다. Result에 엔티티가 없다 (코드값 Enum은 허용)
+  - 대상이 없으면 저장소는 `None`, 서비스는 업무 예외를 던진다. 유스케이스 반환 타입에 `None`이 없다
+  - 도구가 유스케이스에만 의존하고 서비스 구현·엔티티를 import하지 않는다. 포트를 직접 부르지 않는다
   - 도구 안에 판단·계산·저장 순서가 없다 (서비스 호출과 문장 변환만)
   - 업무 서비스가 LLM용 문장을 만들지 않는다 (값이나 예외로 알린다)
   - 도메인 Enum의 값이 코드이고, 표시용 이름과 안내 문장은 도구의 표에 있다

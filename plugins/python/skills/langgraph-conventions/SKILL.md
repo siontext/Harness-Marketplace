@@ -70,20 +70,21 @@ agent = create_agent(..., middleware=[_raise_upstream_error_on_llm_failure])
 
 ## 도구 만들기
 
-도구는 `app/infrastructure/tools/`에 둔다. 도구는 업무 서비스를 부르고 결과를 LLM이 읽을 문장으로 바꾸는 일만 한다 (`agent-architecture`의 "업무 서비스와 도구").
+도구는 `app/infrastructure/tools/`에 둔다. 도구는 유스케이스를 부르고 결과(Result)를 LLM이 읽을 문장으로 바꾸는 일만 한다 (`agent-architecture`의 "기능 폴더").
 
 - `@tool`을 붙인다 (`from langchain.tools import tool`).
 - **독스트링은 LLM이 읽는 설명서다.** 언제 쓰는지, 언제 쓰면 안 되는지, 인자 형식을 한국어로 쓴다 (`python-style`).
 - 인자에 타입을 적는다. 인자가 많거나 복잡하면 pydantic 모델을 `args_schema`로 쓴다.
-- 도구는 팩토리 함수(`build_<이름>_tools(service)`)로 만들고 업무 서비스를 인자로 받는다. 포트(저장소 등)를 직접 받지 않는다.
+- 도구는 팩토리 함수(`build_<기능>_tools(<기능>s: <기능>UseCase)`)로 만들고 유스케이스를 인자로 받는다. 포트(저장소 등)를 직접 받지 않고, 서비스 구현과 엔티티를 import하지 않는다.
+- 도구 함수의 인자(주문 번호 등)를 Command/Query로 옮겨 담아 유스케이스에 넘긴다.
 - 도구 안에 판단·계산이나 "꺼내기 → 저장" 같은 순서를 적지 않는다. 그것은 도메인과 서비스의 일이다.
-- **예상할 수 있는 실패(없음, 권한 없음, 규칙에 걸림, 외부 시스템 오류)는 예외를 터뜨리지 않고 LLM이 알아들을 문장으로 돌려준다.** 서비스가 던진 예외를 도구가 잡아 문장으로 바꾼다. LLM이 그 문장을 보고 사용자에게 안내하거나 다른 도구를 고른다.
+- **예상할 수 있는 실패(없음, 권한 없음, 규칙에 걸림, 외부 시스템 오류)는 예외를 터뜨리지 않고 LLM이 알아들을 문장으로 돌려준다.** 유스케이스가 던진 업무 예외를 도구가 잡아 문장으로 바꾼다. LLM이 그 문장을 보고 사용자에게 안내하거나 다른 도구를 고른다.
 - 문장에는 무엇이 문제이고 어떻게 하면 되는지를 적는다. 오류 코드나 스택을 그대로 주지 않는다.
 - 예상하지 못한 오류(코드 버그)는 잡지 않는다. 그대로 터져서 드러나야 한다.
 
 ```python
-def build_order_tools(service: OrderService) -> list[BaseTool]:
-    """주문 서비스를 쓰는 도구 목록을 만든다."""
+def build_order_tools(orders: OrderUseCase) -> list[BaseTool]:
+    """주문 유스케이스를 쓰는 도구 목록을 만든다."""
 
     @tool
     async def cancel_order(order_id: str) -> str:
@@ -96,7 +97,7 @@ def build_order_tools(service: OrderService) -> list[BaseTool]:
             order_id: 주문 번호. "ORD-"와 숫자 4자리 (예: ORD-1001).
         """
         try:
-            await service.cancel_order(order_id)
+            await orders.cancel_order(CancelOrderCommand(order_id=order_id))
         except OrderNotFoundError:
             return f"주문 {order_id}을(를) 찾을 수 없습니다. 주문 번호를 다시 확인해 주세요."
         except OrderNotCancellableError as e:

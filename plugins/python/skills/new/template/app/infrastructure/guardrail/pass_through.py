@@ -1,6 +1,6 @@
 """로컬 개발용 가드레일 창구 구현. 검사하지 않고 통과시킨다."""
 
-from app.application.ports import Guardrail, GuardResult
+from app.application.agent.port import Guardrail, GuardResult
 
 
 class PassThroughGuardrail(Guardrail):
