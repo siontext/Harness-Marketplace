@@ -4,7 +4,7 @@
 프로젝트 폴더에서 프로젝트 가상환경으로 실행한다:
     .venv/bin/python <이 파일>
 
-연결 창구(app.platform.build_platform)로 LLM을 가져오므로 .env 설정을 그대로 쓴다.
+연결 창구(app.infrastructure.build_platform)로 LLM을 가져오므로 .env 설정을 그대로 쓴다.
 키·주소는 출력하지 않는다.
 """
 import asyncio
@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path.cwd()))
 
 from langchain_core.tools import tool  # noqa: E402
 
-from app.platform import build_platform  # noqa: E402
+from app.infrastructure import build_platform  # noqa: E402
 
 
 @tool

@@ -1,8 +1,8 @@
 """공통 응답 틀(ApiResponse) 단위 테스트."""
 
-from app.api.response.api_response import ApiResponse
-from app.api.response.error_code import ErrorCode
-from app.api.schemas import HealthStatus
+from app.presentation.response.api_response import ApiResponse
+from app.presentation.response.error_code import ErrorCode
+from app.presentation.schemas import HealthStatus
 
 
 def test_성공_응답은_SUCCESS_코드와_내용을_담는다() -> None:

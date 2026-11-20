@@ -1,8 +1,8 @@
 from http import HTTPStatus
 
-from app.api.errors import find_error_rule
-from app.api.response.error_code import ErrorCode
 from app.errors import AgentTimeoutError, AppError, UpstreamError
+from app.presentation.errors import find_error_rule
+from app.presentation.response.error_code import ErrorCode
 
 
 class _LlmRateLimitError(UpstreamError):

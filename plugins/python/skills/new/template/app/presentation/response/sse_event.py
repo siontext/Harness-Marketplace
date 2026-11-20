@@ -5,7 +5,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-from app.api.response.error_code import ErrorCode
+from app.presentation.response.error_code import ErrorCode
 
 
 class SseEventName(StrEnum):

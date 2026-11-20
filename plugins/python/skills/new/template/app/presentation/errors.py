@@ -1,7 +1,7 @@
 """전역 예외 핸들러. 올라온 예외를 ApiResponse 실패 응답으로 바꾼다.
 
 예외 → 상태 코드·code·안내 문구 대응은 이 파일의 표 한 곳에만 둔다.
-안내 문구 자체는 app/api/response/messages.py에 모아 둔다.
+안내 문구 자체는 app/presentation/response/messages.py에 모아 둔다.
 스트리밍 중 오류(SSE error 이벤트)도 find_error_rule로 같은 표를 쓴다.
 """
 
@@ -15,10 +15,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.response import messages
-from app.api.response.api_response import ApiResponse
-from app.api.response.error_code import ErrorCode
 from app.errors import AgentTimeoutError, AppError, UpstreamError
+from app.presentation.response import messages
+from app.presentation.response.api_response import ApiResponse
+from app.presentation.response.error_code import ErrorCode
 
 logger = logging.getLogger(__name__)
 

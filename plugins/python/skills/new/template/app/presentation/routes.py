@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from app.api.schemas import HealthStatus
+from app.presentation.schemas import HealthStatus
 
 router = APIRouter()
 

@@ -35,7 +35,7 @@ skills:
 ## 참조 스킬
 
 작업 전 메타데이터에 명시된 스킬 파일들을 읽고 원칙을 숙지한다.
-**프로젝트가 운영 플랫폼을 쓸 때만** 사용자 스킬 폴더(`~/.claude/skills/*/SKILL.md`)에서 그 플랫폼의 전용 스킬을 찾아 `Read`로 읽고 함께 검증 기준으로 쓴다. 쓰는지는 `app/platform/`에 `local.py` 말고 운영 구현(`<이름>.py`)이 있는지, `run-application.sh`의 `PLATFORM` 값이 있는지로 판단한다. 둘 다 없으면 스킬 폴더에 플랫폼 스킬이 있어도 검증 기준으로 쓰지 않는다.
+**프로젝트가 운영 플랫폼을 쓸 때만** 사용자 스킬 폴더(`~/.claude/skills/*/SKILL.md`)에서 그 플랫폼의 전용 스킬을 찾아 `Read`로 읽고 함께 검증 기준으로 쓴다. 쓰는지는 `app/infrastructure/`에 `local.py` 말고 운영 구현(`<이름>.py`)이 있는지, `run-application.sh`의 `PLATFORM` 값이 있는지로 판단한다. 둘 다 없으면 스킬 폴더에 플랫폼 스킬이 있어도 검증 기준으로 쓰지 않는다.
 
 ## 인자
 
@@ -74,16 +74,22 @@ skills:
 - 응답 방식(SSE / 한 번에)과 시간 제한이 설계 문서 개요와 일치하는가
 - 설계에 없는 불필요한 코드가 추가되지 않았는가
 - **의존 방향** (`agent-architecture`) — 위반이면 불통과:
-  - `app/agent`, `app/tools`, `app/domain`에 `os.environ`·`os.getenv`가 없다
-  - `app/agent`, `app/tools`, `app/domain`이 운영 플랫폼 SDK나 `app/platform`의 구현 모듈(`local.py` 등)을 import하지 않는다 (Protocol만)
-  - `app/domain`이 LangChain·FastAPI·pydantic을 import하지 않는다
-  - `app/agent`, `app/tools`, `app/domain`, `app/platform`이 FastAPI나 `app/api`를 import하지 않는다
-  - `main.py`에 엔드포인트·요청·응답 모델·예외 핸들러 본문이 없다 (`app/api`에 둔다)
+  - `app/application`, `app/domain`이 `app/infrastructure`, `app/presentation`, `app/container.py`를 import하지 않는다
+  - `app/presentation`이 `app/infrastructure`를 import하지 않는다
+  - `app/domain`과 업무 서비스(`app/application/<이름>_service.py`)가 LangChain·LangGraph·FastAPI·pydantic을 import하지 않는다
+  - FastAPI를 import하는 곳이 `main.py`와 `app/presentation`뿐이다
+  - `app/application`, `app/domain`에 `os.environ`·`os.getenv`, 운영 플랫폼 SDK import가 없다
+  - `main.py`에 엔드포인트·요청·응답 모델·예외 핸들러 본문이 없고(`app/presentation`에 둔다), 조립 코드는 `app/container.py`에 있다
   - `app/errors.py`가 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
-  - `app/agent`, `app/tools`, `app/domain`이 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
+  - `app/presentation` 밖에서 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
-- **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `main.py` 조립, frozen dataclass, 조합 우선
-- **응답 틀** (`fastapi-conventions`) — `/health`를 뺀 JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/api/response/messages.py`에 있다
+- **업무 서비스와 도구** (`agent-architecture`):
+  - 도구(`app/infrastructure/tools/`)가 포트를 직접 부르지 않고 업무 서비스를 거친다
+  - 도구 안에 판단·계산·저장 순서가 없다 (서비스 호출과 문장 변환만)
+  - 업무 서비스가 LLM용 문장을 만들지 않는다 (값이나 예외로 알린다)
+  - 포트 구현 클래스가 포트를 괄호에 적었고, 포트(`Protocol`) 메서드에 본문이 없다
+- **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `app/container.py` 조립, frozen dataclass, 조합 우선
+- **응답 틀** (`fastapi-conventions`) — `/health`를 뺀 JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/presentation/response/messages.py`에 있다
 - 참조 스킬(`python-style`, `langgraph-conventions`, `fastapi-conventions`)의 규칙. 특히 예전 API 사용, 프롬프트 문장 하드코딩, 로그에 키·개인정보·프롬프트 전문
 - 불일치 발견 시 수정한 뒤 **2(정적 검사)로 돌아간다**. 수정 → 재검증 루프가 3회 반복되면 미해결 이슈로 기록하고 다음으로 넘어간다.
 

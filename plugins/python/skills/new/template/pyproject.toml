@@ -37,7 +37,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]  # 한글 문장의 전각 문자 경고
 
 [tool.pyrefly]
 project-includes = ["main.py", "app", "tests"]
-# 로컬에 SDK가 없는 운영 플랫폼 구현 파일 (예: "app/platform/<이름>.py")
+# 로컬에 SDK가 없는 운영 플랫폼 구현 파일 (예: "app/infrastructure/<이름>.py")
 project-excludes = []
 python-version = "3.11"
 

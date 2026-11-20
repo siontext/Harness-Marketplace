@@ -1,11 +1,14 @@
-"""연결 창구 묶음과 로컬/운영 구현 선택."""
+"""연결 창구 묶음과 로컬/운영 구현 선택.
+
+창구의 모양(Protocol)은 app/application/ports.py에 있고, 이 패키지는 그 구현을 둔다.
+"""
 
 import importlib
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from app.platform.ports import Guardrail, LlmProvider, PromptStore
-from app.platform.settings import Settings, load_settings
+from app.application.ports import Guardrail, LlmProvider, PromptStore
+from app.infrastructure.settings import Settings, load_settings
 
 LOCAL = "local"
 
@@ -16,7 +19,7 @@ class PlatformLoadError(RuntimeError):
 
 @dataclass(frozen=True)
 class Platform:
-    """서버 시작 때 한 번 만들어 에이전트에 넘기는 연결 창구 묶음."""
+    """서버 시작 때 한 번 만들어 조립(app/container.py)에 넘기는 연결 창구 묶음."""
 
     llm: LlmProvider
     prompts: PromptStore
@@ -32,8 +35,8 @@ class Platform:
 def build_platform(settings: Settings | None = None) -> Platform:
     """PLATFORM 환경 변수에 맞는 연결 창구 묶음을 만든다.
 
-    비어 있으면 로컬 구현(app/platform/local.py)을, 그 밖의 값이면
-    app/platform/<값>.py를 쓴다. 운영 구현을 불러오지 못하면 로컬로
+    비어 있으면 로컬 구현(app/infrastructure/local.py)을, 그 밖의 값이면
+    app/infrastructure/<값>.py를 쓴다. 운영 구현을 불러오지 못하면 로컬로
     바꾸지 않고 오류를 낸다.
 
     Args:
@@ -45,7 +48,7 @@ def build_platform(settings: Settings | None = None) -> Platform:
     settings = settings or load_settings()
     name = settings.platform or LOCAL
     try:
-        module = importlib.import_module(f"app.platform.{name}")
+        module = importlib.import_module(f"app.infrastructure.{name}")
     except ImportError as e:
         raise PlatformLoadError(f"연결 창구를 불러오지 못했다: PLATFORM={name}") from e
     return module.create_platform(settings)

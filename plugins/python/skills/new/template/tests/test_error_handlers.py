@@ -6,13 +6,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
-from app.api.errors import register_exception_handlers
 from app.errors import UpstreamError
+from app.presentation.errors import register_exception_handlers
 from main import app as real_app
 
 # 예외 메시지·요청 값에 심어 두고, 응답과 로그로 새는지 확인하는 표식.
 LEAK_MARKER = "leak-marker-9f3a"
-HANDLER_LOGGER = "app.api.errors"
+HANDLER_LOGGER = "app.presentation.errors"
 
 
 class _ItemRequest(BaseModel):

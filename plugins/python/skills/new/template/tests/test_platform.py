@@ -2,14 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from app.platform import Platform, PlatformLoadError, build_platform
-from app.platform.local import (
+from app.infrastructure import Platform, PlatformLoadError, build_platform
+from app.infrastructure.guardrail.pass_through import PassThroughGuardrail
+from app.infrastructure.llm.openai_compatible import OpenAiCompatibleLlm
+from app.infrastructure.prompt.file_prompt_store import (
     FilePromptStore,
-    OpenAiCompatibleLlm,
-    PassThroughGuardrail,
     PromptNotFoundError,
 )
-from app.platform.settings import Settings, load_settings
+from app.infrastructure.settings import Settings, load_settings
 
 
 def _settings(**overrides: str) -> Settings:

@@ -36,7 +36,7 @@ skills:
 ## 참조 스킬
 
 작업 전 메타데이터에 명시된 스킬 파일들을 읽고 원칙을 숙지한다.
-**프로젝트가 운영 플랫폼을 쓸 때만** 사용자 스킬 폴더(`~/.claude/skills/*/SKILL.md`)에서 그 플랫폼의 전용 스킬을 찾아 `Read`로 읽고 함께 따른다. 공개 스킬과 부딪치면 플랫폼 전용 스킬을 따른다. 쓰는지는 `app/platform/`에 `local.py` 말고 운영 구현(`<이름>.py`)이 있는지, `run-application.sh`의 `PLATFORM` 값이 있는지로 판단한다. 둘 다 없으면 스킬 폴더에 플랫폼 스킬이 있어도 따르지 않는다.
+**프로젝트가 운영 플랫폼을 쓸 때만** 사용자 스킬 폴더(`~/.claude/skills/*/SKILL.md`)에서 그 플랫폼의 전용 스킬을 찾아 `Read`로 읽고 함께 따른다. 공개 스킬과 부딪치면 플랫폼 전용 스킬을 따른다. 쓰는지는 `app/infrastructure/`에 `local.py` 말고 운영 구현(`<이름>.py`)이 있는지, `run-application.sh`의 `PLATFORM` 값이 있는지로 판단한다. 둘 다 없으면 스킬 폴더에 플랫폼 스킬이 있어도 따르지 않는다.
 
 ## 역할
 
@@ -45,7 +45,7 @@ skills:
 ## 동작 흐름
 
 1. **설계 문서 읽기**: 전달받은 설계 문서 경로를 `Read`로 읽는다.
-2. **프로젝트 구조 파악**: `pyproject.toml`, `constraints.txt`, `app/` 아래 기존 코드와 연결 창구(`app/platform/`)를 파악한다. `.venv`가 없으면 멈추고 `/python:new` 또는 `python-project`의 설치 절차를 사용자에게 안내한다.
+2. **프로젝트 구조 파악**: `pyproject.toml`, `constraints.txt`, `app/` 아래 기존 코드와 연결 창구(`app/infrastructure/`)를 파악한다. `.venv`가 없으면 멈추고 `/python:new` 또는 `python-project`의 설치 절차를 사용자에게 안내한다.
 3. **구현 단계 확인**: 설계 문서 **"구현 단계" 표**를 그대로 구현 순서로 쓴다. 순서를 새로 정하지 않는다. 표가 없으면 작성을 멈추고 사용자에게 알린다.
 4. **코드 작성 (단계 루프)**: 표의 각 행마다 다음을 반복한다.
    1. `implementation-checkpoint` 스킬의 **"페이즈 시작"** 단계를 실행한다 (만들 모듈·클래스·함수와 시그니처 제시 → 승인).
@@ -59,7 +59,7 @@ skills:
 - 설계 문서에 명시된 범위만 구현한다.
 - 기존 코드가 있으면 기존 패턴과 컨벤션을 따른다.
 - 폴더 구성은 `python-project`의 고정 구성을 따른다. 새 최상위 폴더를 만들지 않는다.
-- 의존 방향(`agent-architecture`)을 지킨다. `agent`, `tools`, `domain`에서 운영 플랫폼 SDK import나 `os.environ` 읽기를 하지 않는다.
+- 의존 방향(`agent-architecture`)을 지킨다. `app/application`과 `app/domain`은 `app/infrastructure`·`app/presentation`을 import하지 않고, 운영 플랫폼 SDK import나 `os.environ` 읽기를 하지 않는다. 도구는 업무 서비스를 거친다.
 - 구현이 애매한 부분은 설계 문서의 의도를 최대한 존중하되, 판단이 필요하면 가장 단순한 방법을 선택한다.
 - 명령은 가상환경 경로로 실행한다 (`.venv/bin/pytest` 등). `uv run`, `uv sync`, `uv add`는 쓰지 않는다.
 

@@ -2,8 +2,8 @@
 
 import json
 
-from app.api.response.error_code import ErrorCode
-from app.api.response.sse_event import SseEvent
+from app.presentation.response.error_code import ErrorCode
+from app.presentation.response.sse_event import SseEvent
 
 
 def test_token_이벤트는_event_줄과_data_줄과_빈_줄로_내보낸다() -> None:

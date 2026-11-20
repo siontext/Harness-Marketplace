@@ -103,7 +103,7 @@ class Money:
 - 매직 넘버 금지. 상수로 뺀다.
 - 문자열 조립은 f-string (로그 제외).
 - 파일 경로는 `pathlib.Path`. `os.path` 금지.
-- 환경 변수는 `app/platform/`의 설정 모듈에서만 읽는다 (`agent-architecture`). 다른 곳에서 `os.environ` 금지.
+- 환경 변수는 `app/infrastructure/`의 설정 모듈에서만 읽는다 (`agent-architecture`). 다른 곳에서 `os.environ` 금지.
 
 ## 독스트링과 주석
 
