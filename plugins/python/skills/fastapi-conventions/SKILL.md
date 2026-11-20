@@ -71,6 +71,7 @@ class ChatRequest(BaseModel):
 ```
 
 - 요청 모델에서 길이·형식을 검사한다. 검사 실패는 FastAPI가 422로 돌려준다.
+- 엔드포인트는 요청 모델을 Command(`ChatCommand`)로 바꿔 에이전트에 넘긴다. 요청 모델을 `application`에 그대로 넘기지 않는다 (`agent-architecture`의 "Command").
 - 호출하는 쪽과 다른 모양이 필요하면 설계 문서 개요에 적고 그에 맞춘다.
 
 ## 공통 응답 틀
@@ -136,10 +137,53 @@ data: {"conversation_id": "c-123"}
 
 이미 보낸 글자는 되돌릴 수 없다. 그래서 **검사하고 나서 보낸다.**
 
-- LLM 조각을 문장 단위로 모아 출력 가드레일을 거친 뒤 `token`으로 보낸다.
+- LLM 조각을 문장 단위로 모아 출력 가드레일을 거친 뒤 `token`으로 보낸다. 가드레일이 돌려준 문장(가려졌을 수 있다)을 보낸다.
+- 문장이 끝나는 자리는 아래 기준으로 잡는다. 마지막에 남은 글자는 끝에서 한 번 더 검사해 보낸다.
+
+| 끊는 자리 | 예 |
+|---|---|
+| 마침표·물음표·느낌표(`. ! ?` 와 `。！？`) 뒤에 공백이 올 때 | `...했습니다. 다음은` |
+| 줄이 바뀔 때 | 목록의 각 줄 |
+| 끊지 않는다: 점 뒤에 공백이 없을 때 | `3.5일`, `a@b.com` |
+| 끊지 않는다: 숫자 바로 뒤의 점 | `1. 첫째` (목록 번호) |
+
+```python
+_SENTENCE_END = re.compile(r"(?<![0-9])[.!?。！？]+\s+|\n+")
+```
+
+- 문장이 끝나지 않았는데 길다고 중간에서 끊어 보내지 않는다. 가려야 할 값이 둘로 나뉘어 검사를 빠져나갈 수 있다.
 - 운영 플랫폼 가드레일이 스트리밍 검사(조각을 이어서 검사하는 세션)를 제공하면 그것을 쓴다.
 - 검사에서 막히면 그 자리에서 `error` 이벤트(`code`: `BLOCKED`, `message`: 안내 문구)를 보내고 끝낸다. 막힌 내용은 대화 기록에 "차단됨"으로 남긴다.
 - 입력 가드레일은 스트리밍과 상관없이 LLM을 부르기 전에 한 번 한다.
+
+#### 막혔을 때 알리는 방법
+
+| 막힌 곳 | 에이전트 흐름(`application`)이 하는 일 | `/chat`이 보내는 것 |
+|---|---|---|
+| 입력 | LLM을 부르지 않고 가드레일의 안내 문구를 답으로 내보낸다 (예외 없음) | `token`(안내 문구) → `done` |
+| 출력 | `OutputBlockedError`를 던진다. 더 진행할 수 없으므로 무시할 수 없게 한다 | `error` · `BLOCKED` |
+
+```python
+try:
+    async for sentence in stream_answer(command, ctx):
+        yield SseEvent.token(sentence).encode()
+except OutputBlockedError as e:        # 의도된 결과: 이름을 적어 따로 잡는다
+    logger.warning("출력 가드레일 차단: %s %s", request.method, request.url.path)
+    yield SseEvent.error(ErrorCode.BLOCKED, e.guard_message or messages.BLOCKED).encode()
+    return
+# 스트리밍이 시작된 뒤의 마지막 경계다. 전역 핸들러와 같은 대응표로 답한다.
+except Exception as exc:
+    rule = find_error_rule(exc)
+    log_failure(request, rule, exc, streaming=True)
+    yield SseEvent.error(rule.code, rule.message).encode()
+    return
+yield SseEvent.done(command.conversation_id).encode()
+```
+
+- `OutputBlockedError`는 `app/application/agent/`에 두고 가드레일이 준 안내 문구를 담는다. 문구가 비어 있으면 `/chat`이 `messages.BLOCKED`를 쓴다.
+- **`OutputBlockedError`를 오류 대응표(`ERROR_RULES`)에 넣지 않는다.** 막힌 것은 오류가 아니라서 상태 코드가 없다. LLM 실패 같은 오류와 같은 `except`에서 처리하지 않는다.
+- 로그에는 막혔다는 사실만 남기고 막힌 내용은 남기지 않는다.
+- 한 번에 응답 방식에서는 엔드포인트가 `OutputBlockedError`를 잡아 안내 문구를 정상 답(200)으로 돌려준다.
 
 ### 한 번에 응답 (대안)
 
@@ -149,7 +193,9 @@ class ChatResponse(BaseModel):
     answer: str
 ```
 
-호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ApiResponse[ChatResponse]`를 JSON으로 돌려주게 바꾼다. 에이전트 코드(`app/application/agent/`)는 그대로 두고 `app/presentation/routes.py`의 엔드포인트만 바꾼다. 그래서 에이전트 쪽에는 스트리밍용 함수와 한 번에 답하는 함수를 함께 둔다.
+호출하는 쪽이 SSE를 받지 못하면 `/chat`이 `ApiResponse[ChatResponse]`를 JSON으로 돌려주게 바꾼다. 이때 `app/application/agent/`에 한 번에 답하는 함수를 더하고 `app/presentation/routes.py`의 엔드포인트를 바꾼다. 에이전트 조립, 도구, 서비스는 그대로다.
+
+- 설계 문서의 응답 방식에 해당하는 함수만 만든다. 쓰지 않는 방식의 함수를 미리 만들어 두지 않는다.
 
 ## 오류 응답 통일
 
@@ -164,11 +210,13 @@ class ChatResponse(BaseModel):
 
 - 오류 본문은 항상 `ApiResponse` 실패 모양(`{"code": "...", "message": "...", "data": null}`)이다. 전역 예외 핸들러(`app/presentation/errors.py`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
 - 예외 클래스는 `app/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `app/presentation/errors.py`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
-- 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `/chat`이 스트리밍 함수 안에서 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`find_error_rule`)에서 가져온다.
+- 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `/chat`이 스트리밍 함수 안에서 `except Exception`으로 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`find_error_rule`)에서 가져온다.
+- 스트리밍 중 실패의 로그는 `app/presentation/errors.py`의 `log_failure(request, rule, exc, streaming=True)`로 남긴다. 전역 핸들러와 같은 함수라 로그 규칙이 한곳에 있다. 로그 코드를 `routes.py`에 따로 짜지 않는다.
+- LLM 호출 실패는 에이전트 쪽에서 `UpstreamError`로 바꿔 던진다 (`langgraph-conventions`의 "LLM 호출 실패 → UpstreamError"). 바꾸지 않으면 `INTERNAL_ERROR`로 나간다.
 - 위 표에 없는 `code`를 새로 만들지 않는다. 필요하면 설계 문서 결정 섹션에 적고 사용자에게 확인한다.
 - `message`는 사용자에게 보여줄 한국어 안내다. 예외 내용, 스택, 내부 주소를 넣지 않는다. 자세한 내용은 로그에 남긴다 (키·개인정보 제외).
 - 안내 문구는 `app/presentation/response/messages.py`에 상수로 모은다. 규칙이나 핸들러 안에 문장을 직접 적지 않는다.
-- 가드레일에 막힌 것은 오류가 아니다. 한 번에 응답이면 정상 답으로 안내 문구를 보낸다. 스트리밍 중 출력 검사에 막히면 이미 시작된 응답을 끝내야 해서 `BLOCKED` 이벤트를 쓴다.
+- 가드레일에 막힌 것은 오류가 아니다. 한 번에 응답이면 정상 답으로 안내 문구를 보낸다. 스트리밍 중 출력 검사에 막히면 이미 시작된 응답을 끝내야 해서 `BLOCKED` 이벤트를 쓴다. 알리는 방법은 위 "막혔을 때 알리는 방법"을 따른다.
 
 ### app/presentation/errors.py 안의 순서
 
@@ -180,7 +228,7 @@ class ChatResponse(BaseModel):
 | 2 | 우리가 만든 예외 | `ERROR_RULES` (예외 클래스 → 규칙) |
 | 3 | FastAPI가 던지는 예외 | `INVALID_REQUEST_RULE`, `HTTP_CLIENT_ERROR_MESSAGES` |
 | 4 | 오류 규칙이 아닌 설정 | `NO_BODY_STATUS_CODES` |
-| 5 | 핸들러가 불러 쓰는 함수 | `find_error_rule`, 로그·응답 만들기 |
+| 5 | 핸들러가 불러 쓰는 함수 | `find_error_rule`, `log_failure`, 응답 만들기 |
 | 6 | 핸들러 함수 | `_handle_...` |
 | 7 | 핸들러 등록 | `register_exception_handlers` |
 
@@ -207,9 +255,39 @@ class ChatResponse(BaseModel):
 
 - 시간 제한 값은 설계 문서 개요의 "시간 제한"을 설정으로 둔다. 코드에 숫자를 적지 않는다.
 - 우리 쪽 제한은 호출하는 쪽 제한보다 여유 있게 짧게 잡는다 (예: 2~3초 먼저).
-- 3.11의 `asyncio.timeout(...)`으로 에이전트 실행을 감싼다. 초과하면 `TIMEOUT` 안내를 보낸다.
+- 시간 제한은 에이전트 흐름(`app/application/agent/`)에서 걸고, 초과하면 `AgentTimeoutError`를 던진다. 기준은 질문 하나의 전체 실행이다.
+- 한 번에 응답: 3.11의 `asyncio.timeout(...)`으로 에이전트 실행을 감싼다.
+- 스트리밍: 아래 "스트리밍의 시간 제한"을 따른다. `yield`를 `asyncio.timeout` 안에 두지 않는다.
 - 호출하는 쪽 제한이 **첫 응답까지**인지 **전체**인지 확인한다. 첫 응답까지라면 SSE는 첫 `token`을 빨리 보내는 것이 중요하다. 확인되지 않았으면 설계 문서에 "확인 필요"로 적고 사용자에게 묻는다.
 - 도구가 부르는 외부 시스템에도 각자 시간 제한을 둔다. 하나가 멈춰 전체 시간을 다 쓰지 않게 한다.
+
+### 스트리밍의 시간 제한
+
+답 조각을 내보내는 함수(비동기 제너레이터)에서는 **`yield`를 시간 제한 안에 두지 않는다.** `yield`에서 멈춰 있는 동안 제한이 지나면 취소가 함수 밖에서 걸려, `TimeoutError`로 바뀌지 못하고 연결이 그냥 끊긴다. 사용자는 `TIMEOUT` 안내를 받지 못한다 (Python의 PEP 789가 다루는 문제다).
+
+마감 시각을 한 번 정하고, 다음 조각을 **기다릴 때만** 그 마감으로 제한을 건다.
+
+```python
+async def stream_answer(command: ChatCommand, ctx: AgentContext) -> AsyncGenerator[str]:
+    deadline = asyncio.get_running_loop().time() + ctx.timeout_seconds
+    sentences = _stream_checked_sentences(command, ctx)
+    try:
+        while True:
+            async with asyncio.timeout_at(deadline):      # 기다릴 때만 건다
+                sentence = await anext(sentences, None)
+            if sentence is None:
+                return
+            yield sentence                                # 제한 밖에서 내보낸다
+    except TimeoutError as e:
+        raise AgentTimeoutError(
+            f"에이전트 실행 시간 초과: timeout_seconds={ctx.timeout_seconds}"
+        ) from e
+    finally:
+        await sentences.aclose()
+```
+
+- 마감 시각은 하나다. 조각마다 제한 시간을 새로 주지 않는다.
+- 필수 테스트: 시간 초과가 `TIMEOUT` `error` 이벤트로 끝나는지, 조각이 여러 개여도 전체 시간 기준으로 끊기는지.
 
 ## 테스트
 

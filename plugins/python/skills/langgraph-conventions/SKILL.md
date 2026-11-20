@@ -41,6 +41,33 @@ result = await agent.ainvoke({"messages": messages})
 - `create_agent`는 `from langchain.agents import create_agent`.
 - 에이전트는 `app/application/agent/`의 함수가 만든다. LLM·프롬프트·도구는 인자로 받는다 (`agent-architecture`의 의존성 주입).
 
+### LLM 호출 실패 → UpstreamError
+
+LLM 호출이 실패하면 LLM 라이브러리의 예외가 올라온다. 그대로 두면 `INTERNAL_ERROR`로 나가므로, **에이전트를 조립하는 곳에서 모델 호출만 감싸 `UpstreamError`로 바꾼다.**
+
+```python
+@wrap_model_call
+async def _raise_upstream_error_on_llm_failure(
+    request: ModelRequest,
+    handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+) -> ModelResponse:
+    """LLM 호출 실패를 UpstreamError로 바꿔 던진다."""
+    try:
+        return await handler(request)
+    # LLM 구현마다 던지는 예외가 달라 타입을 좁힐 수 없다.
+    except Exception as e:
+        raise UpstreamError(f"LLM 호출 실패: {type(e).__name__}") from e
+
+
+agent = create_agent(..., middleware=[_raise_upstream_error_on_llm_failure])
+```
+
+- `wrap_model_call`, `ModelRequest`, `ModelResponse`는 `from langchain.agents.middleware import ...`.
+- 모델 호출만 감싼다. 도구 실행까지 감싸면 도구 안의 코드 버그가 `UpstreamError`로 바뀌어 가려진다.
+- 예외 메시지에는 예외 종류만 넣는다. LLM 라이브러리의 메시지에는 주소나 키 일부가 들어 있을 수 있다. 원인은 `from e`로 잇고 로그에서 본다.
+- `StateGraph`로 만들 때는 LLM을 부르는 노드에서 같은 방식으로 바꾼다.
+- 필수 테스트: LLM 호출 실패가 `UPSTREAM_ERROR`로 나가는지, 도구의 코드 버그는 `UPSTREAM_ERROR`로 바뀌지 않는지.
+
 ## 도구 만들기
 
 도구는 `app/infrastructure/tools/`에 둔다. 도구는 업무 서비스를 부르고 결과를 LLM이 읽을 문장으로 바꾸는 일만 한다 (`agent-architecture`의 "업무 서비스와 도구").
@@ -90,18 +117,30 @@ def build_order_tools(service: OrderService) -> list[BaseTool]:
 ## 가드레일 연결
 
 ```python
-async def answer(request: ChatRequest, ctx: AgentContext) -> str:
+# app/application/agent/chat_command.py
+@dataclass(frozen=True)
+class ChatCommand:
+    """에이전트에 넘기는 질문 한 건."""
+
+    conversation_id: str
+    message: str
+
+
+# app/application/agent/answer.py
+async def answer(command: ChatCommand, ctx: AgentContext) -> str:
     """입력 검사 → 에이전트 → 출력 검사 순서로 답을 만든다."""
-    checked = await ctx.guardrail.check_input(request.message)
+    checked = await ctx.guardrail.check_input(command.message)
     if checked.blocked:
         return checked.message
-    history = await ctx.memory.load(request.conversation_id)
+    history = await ctx.memory.load(command.conversation_id)
     messages = [*history, HumanMessage(checked.text)]
     result = await ctx.agent.ainvoke({"messages": messages})
     reply = await ctx.guardrail.check_output(result["messages"][-1].text)
-    await ctx.memory.save(request.conversation_id, [*messages, AIMessage(reply.text)])
+    await ctx.memory.save(command.conversation_id, [*messages, AIMessage(reply.text)])
     return reply.text
 ```
+
+- 에이전트 흐름은 요청 모델(`ChatRequest`)이 아니라 Command를 받는다. `ChatRequest`는 `app/presentation`에 있어 `application`이 import할 수 없다 (`agent-architecture`의 "Command").
 
 - 입력 검사는 에이전트 실행 전 한 번, 출력 검사는 최종 답에 한 번 한다.
 - 도구 호출 사이마다 검사가 필요하면 미들웨어(`@before_model`, `@after_model`)를 쓴다. 설계 문서에 적힌 경우만.

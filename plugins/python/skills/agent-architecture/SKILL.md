@@ -53,6 +53,28 @@ app/errors.py (공통 예외)  ◀──  모든 레이어
 
 에이전트 루프는 LangChain이 돌려 주므로 에이전트 조립 코드는 LangChain을 쓴다. 업무 서비스와 도메인은 LangChain을 모르게 두어, 프레임워크를 바꾸거나 같은 기능을 다른 창구(REST 등)로 열어도 그대로 쓸 수 있게 한다.
 
+## Command — presentation에서 application으로 넘기는 값
+
+`presentation`은 요청 모델을 그대로 넘기지 않고 Command로 바꿔 넘긴다. Java 하네스의 Command와 같은 역할이다.
+
+```python
+# app/application/agent/chat_command.py
+@dataclass(frozen=True)
+class ChatCommand:
+    """에이전트에 넘기는 질문 한 건."""
+
+    conversation_id: str
+    message: str
+
+
+# app/presentation/routes.py
+command = ChatCommand(conversation_id=body.conversation_id, message=body.message)
+```
+
+- Command는 `app/application`에 두는 변하지 않는 값 묶음이다 (`@dataclass(frozen=True)`). pydantic을 쓰지 않는다. 형식 검사는 요청 모델이 이미 했다.
+- `application`은 요청 모델(`ChatRequest`)을 모른다. 넘길 값이 늘면 Command에 칸을 더하고 함수 모양은 그대로 둔다.
+- 바꾸는 곳은 `app/presentation/routes.py`다.
+
 ## 업무 서비스와 도구
 
 도구는 LLM이 시스템을 부르는 창구다. 도구 안에 업무 순서를 직접 적지 않고 **항상 업무 서비스를 거친다.**
@@ -79,6 +101,22 @@ class OrderService:
         return cancelled
 ```
 
+- **도메인은 코드값만 갖고, 사용자에게 보이는 이름과 문장은 도구가 갖는다.** 상태·사유 같은 Enum의 값은 코드(`PAID`, `SHIPPING_STARTED`)로 두고, 표시용 이름("결제 완료")과 안내 문장은 도구의 표(`STATUS_LABELS`, `CANCEL_DENIAL_SENTENCES`)에 둔다. 문구를 바꿔도 도메인과 저장된 값은 그대로다.
+
+```python
+# app/domain/order.py
+class OrderStatus(StrEnum):
+    PAID = "PAID"
+    SHIPPING = "SHIPPING"
+
+# app/infrastructure/tools/order_tools.py
+STATUS_LABELS: dict[OrderStatus, str] = {
+    OrderStatus.PAID: "결제 완료",
+    OrderStatus.SHIPPING: "배송 중",
+}
+```
+
+- 날짜·시각을 읽기 좋은 표기로 바꾸는 것(시간대, 날짜 형식)도 문장 만들기로 보고 도구가 한다.
 - 조회처럼 전달만 하는 기능도 서비스를 거친다. 서비스가 한 줄이어도 도구가 포트를 직접 부르지 않는다. 기준이 하나여야 도구마다 판단이 갈리지 않는다.
 - 서비스는 포트와 "지금 시각" 같은 바뀌는 값을 생성자로 받는다. 안에서 시계를 읽거나 구현을 만들지 않는다.
 - 도구가 예외를 문장으로 바꾸는 규칙은 `langgraph-conventions`의 "도구 만들기"를 따른다.
@@ -109,11 +147,13 @@ def build_agent_context(platform: Platform, timeout_seconds: float) -> AgentCont
 | 여러 레이어가 던지거나 전역 핸들러가 구분해 답하는 예외 (`AppError`, `UpstreamError`, `AgentTimeoutError`) | `app/errors.py` | 안쪽 레이어가 import해야 하므로 HTTP를 몰라야 한다 |
 | 한 레이어 안에서만 쓰는 예외 (예: `PlatformLoadError`) | 그 레이어 안 | 밖에서 구분할 일이 없다 |
 | 업무 규칙에 걸렸을 때 던지는 예외 (예: `OrderNotCancellableError`, `OrderNotFoundError`) | `app/domain/` (규칙 옆) | 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않는다 |
+| 출력이 가드레일에 막혔을 때 던지는 예외 (`OutputBlockedError`) | `app/application/agent/` | `/chat`이 잡아 `BLOCKED` 이벤트로 바꾼다. 전역 핸들러까지 가지 않는다 |
 | 예외 → 상태 코드·`code`·안내 문구 대응표, 전역 핸들러 | `app/presentation/errors.py` | HTTP 응답을 만드는 일이다 (`fastapi-conventions`) |
 | `code` 값(`ErrorCode`), 안내 문구 | `app/presentation/response/` | 호출하는 쪽에 보이는 응답의 일부다 |
 
 - 예외 클래스에 상태 코드나 `code`를 넣지 않는다. 대응은 `app/presentation/errors.py`의 표 한 곳에만 둔다.
 - 새 예외는 `AppError`나 그 하위 예외를 상속한다. 대응표에 없으면 가장 가까운 부모의 규칙으로 답한다.
+- **의도된 결과라도 흐름을 끝내는 것은 예외로 던지고, 가까운 곳에서 이름을 적어 잡는다** (취소 불가는 도구가, 출력 막힘은 `/chat`이). 값에 표시를 달아 넘기면 받는 쪽이 확인을 빠뜨려도 조용히 지나간다. 이런 예외는 오류가 아니므로 대응표(`ERROR_RULES`)에 넣지 않는다. 잡는 곳을 빠뜨리면 `INTERNAL_ERROR`로 드러난다.
 
 ## 연결 창구 — 포트와 구현
 

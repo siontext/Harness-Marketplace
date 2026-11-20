@@ -2,12 +2,16 @@ import logging
 from http import HTTPStatus
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
 from app.errors import UpstreamError
-from app.presentation.errors import register_exception_handlers
+from app.presentation.errors import (
+    find_error_rule,
+    log_failure,
+    register_exception_handlers,
+)
 from main import app as real_app
 
 # 예외 메시지·요청 값에 심어 두고, 응답과 로그로 새는지 확인하는 표식.
@@ -190,7 +194,7 @@ def test_서버_오류는_ERROR_수준으로_스택과_함께_남는다(
     # Then
     (record,) = _handler_records(caplog)
     assert record.levelno == logging.ERROR
-    assert record.exc_info is not None
+    assert isinstance(record.exc_info, tuple)
     assert isinstance(record.exc_info[1], UpstreamError)
 
 
@@ -218,3 +222,23 @@ def test_요청_형식_오류_로그에_보낸_값이_남지_않는다(
     (record,) = _handler_records(caplog)
     assert "body.count" in record.getMessage()
     assert LEAK_MARKER not in caplog.text
+
+
+def test_스트리밍_중_실패는_로그에_error_이벤트로_응답했다고_표시한다(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Given
+    request = Request(
+        {"type": "http", "method": "POST", "path": "/chat", "headers": []}
+    )
+    exc = UpstreamError("LLM 호출 실패: ConnectError")
+
+    # When
+    with caplog.at_level(logging.WARNING, logger=HANDLER_LOGGER):
+        log_failure(request, find_error_rule(exc), exc, streaming=True)
+
+    # Then
+    (record,) = _handler_records(caplog)
+    assert record.levelno == logging.ERROR
+    assert "POST /chat -> 502 UPSTREAM_ERROR" in record.getMessage()
+    assert "스트리밍 중: error 이벤트로 응답" in record.getMessage()

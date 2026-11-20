@@ -81,7 +81,10 @@ class Money:
 
 - 의미 있는 예외 클래스를 만든다 (예: `ProductNotFoundError`). 이름은 `Error`로 끝낸다.
 - 예외 클래스를 두는 곳은 `agent-architecture`의 "예외 위치"를 따른다 (공통 예외는 `app/errors.py`).
-- `except:`(아무것도 안 적음) 금지. `except Exception` 남용 금지. 구체적인 예외 타입을 잡는다.
+- `except:`(아무것도 안 적음) 금지. 구체적인 예외 타입을 잡는다.
+- `except Exception`은 아래 두 곳에서만 쓰고, 그 줄 위에 이유를 주석으로 적는다. 그 밖의 곳에서는 쓰지 않는다.
+  - LLM 호출을 감싸 `UpstreamError`로 바꾸는 곳 (`langgraph-conventions`). LLM 구현마다 던지는 예외가 다르다.
+  - `/chat`의 스트리밍 함수가 `error` 이벤트로 바꾸는 곳 (`fastapi-conventions`). 스트리밍이 시작된 뒤에는 전역 핸들러가 잡지 못해 여기가 마지막 경계다.
 - 예외를 바꿔 던질 때는 원인을 잇는다: `raise ProductLookupError(...) from e`.
 - 예외 메시지에 맥락을 넣는다 (예: `f"상품을 찾을 수 없다: product_id={product_id}"`). 키·개인정보는 넣지 않는다.
 - 도구 함수의 예외 처리는 `langgraph-conventions`를 따른다 (LLM이 읽을 문장으로 돌려준다).

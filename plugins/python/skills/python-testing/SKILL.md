@@ -39,25 +39,24 @@ def anyio_backend() -> str:
 - **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/ports.py`의 Protocol), 외부 API, DB, Redis.
 - 내 코드 안의 객체(도메인 객체, 상태, 데이터 모델)는 가짜로 만들지 않는다.
 - 연결 창구 가짜는 Protocol 모양을 따르는 작은 클래스나 `AsyncMock(spec=<Protocol>)`으로 만든다.
-- 테스트는 `.env`를 읽지 않는다. `build_platform()`을 부르지 않고 가짜 창구를 직접 조립한다.
+- 테스트는 `.env`를 읽지 않는다. 흐름·엔드포인트 테스트는 `build_platform()`을 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립 함수에 넣는다. `build_platform()` 자체를 확인하는 테스트는 설정을 직접 넘겨 부른다.
 
 ### 가짜 LLM
 
 `GenericFakeChatModel`은 정해 둔 메시지를 차례로 돌려준다. 도구 호출 답은 `AIMessage(tool_calls=[...])`로 만든다.
 
-`create_agent`는 모델의 `bind_tools`를 부르는데 `GenericFakeChatModel`에는 이 기능이 없다. `tests/fakes.py`에 아래 가짜를 두고 쓴다.
+뼈대의 `tests/fakes.py`에 있는 가짜를 쓴다. 새로 만들지 않는다.
 
-```python
-class FakeToolCallingModel(GenericFakeChatModel):
-    """정해 둔 답을 차례로 돌려주고, 도구 연결 요청은 그대로 통과시키는 가짜 LLM."""
+| 가짜 | 하는 일 |
+|---|---|
+| `fake_llm(*replies)` | 답을 차례로 돌려주는 가짜 LLM을 만든다. 답 자리에 예외를 넣으면 그 차례의 LLM 호출이 실패한다 |
+| `FakeToolCallingModel.received` | 호출마다 받은 메시지 목록. LLM을 불렀는지, 검사를 거친 문장을 받았는지 확인한다 |
+| `FakeGuardrail` | 정해 둔 문장만 막거나 바꾸고 나머지는 통과시킨다. 검사에 들어온 문장을 기록한다 |
+| `fake_platform(llm, ...)` | 가짜 창구로 구현 묶음(`Platform`)을 만든다. 이것을 진짜 조립 함수(`app/container.py`)에 넣는다 |
 
-    def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> "FakeToolCallingModel":
-        return self
-
-
-def fake_llm(*replies: AIMessage) -> FakeToolCallingModel:
-    return FakeToolCallingModel(messages=iter(replies))
-```
+- `GenericFakeChatModel`은 `bind_tools`가 없고 스트리밍에서 도구 호출을 조각으로 내지 못한다. `FakeToolCallingModel`이 이 둘을 메운다. `GenericFakeChatModel`을 그대로 쓰면 `create_agent`와 `astream(stream_mode="messages")`에서 오류가 난다.
+- 이 가짜는 langchain-core 내부 동작에 기댄다. `tests/test_fakes.py`가 그 동작을 확인하므로 지우지 않는다.
+- 창구가 늘면(저장소 등) `fake_platform`에 인자를 더하고 그 창구의 가짜를 `tests/fakes.py`에 둔다.
 
 ```python
 llm = fake_llm(
@@ -88,15 +87,29 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
     # Given
     catalog = AsyncMock(spec=ProductCatalog)
     catalog.find.return_value = Product(id="AB123456", name="커피", stock=3)
-    agent = build_product_agent(llm=fake_llm(...), catalog=catalog)
+    platform = fake_platform(fake_llm(...), catalog=catalog)
+    ctx = build_agent_context(platform, timeout_seconds=30)
 
     # When
-    result = await agent.ainvoke({"messages": [HumanMessage("AB123456 재고 있어?")]})
+    result = await ctx.agent.ainvoke({"messages": [HumanMessage("AB123456 재고 있어?")]})
 
     # Then
     catalog.find.assert_awaited_once_with("AB123456")
     assert "3개" in result["messages"][-1].text
 ```
+
+- 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립 함수(`app/container.py`)가 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다.
+
+### 업무 서비스와 도구의 단위 테스트
+
+| 대상 | 만드는 법 | 확인하는 것 |
+|---|---|---|
+| 업무 서비스 | 진짜 서비스 + 가짜 포트 (`AsyncMock(spec=<Protocol>)`) | 순서, 던지는 예외, 규칙에 걸리면 저장하지 않는 것 |
+| 도구 | 진짜 서비스(가짜 포트를 넣은 것)로 도구를 만든다 | 결과와 예외가 어떤 문장으로 바뀌는지 |
+
+- 도구를 테스트할 때 서비스를 가짜로 만들지 않는다. 서비스는 내 코드다. 진짜 서비스를 지나야 서비스가 실제로 던지는 예외를 도구가 잡는지 확인된다.
+- 도구 테스트에서 순서나 저장 여부를 다시 확인하지 않는다. 그것은 서비스 테스트의 몫이다.
+- 도구의 표시용 표(상태 이름, 사유별 문장)가 Enum의 모든 값을 담고 있는지 테스트로 확인한다. 도메인에 값을 더하고 표를 빠뜨리면 여기서 드러난다.
 
 ### 실패 경로 — 필수
 

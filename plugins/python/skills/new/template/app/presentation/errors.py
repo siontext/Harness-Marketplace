@@ -83,6 +83,9 @@ NO_BODY_STATUS_CODES: frozenset[int] = frozenset(
 )
 
 
+STREAMING_LOG_SUFFIX = " [스트리밍 중: error 이벤트로 응답]"
+
+
 # ── 핸들러가 불러 쓰는 함수 ─────────────────────────────────────────────
 def find_error_rule(exc: Exception) -> ErrorRule:
     """예외에 맞는 오류 규칙을 찾는다.
@@ -110,22 +113,34 @@ def _find_http_error_rule(status_code: int) -> ErrorRule:
     return ErrorRule(status_code, ErrorCode.INVALID_REQUEST, message)
 
 
-def _log_failure(request: Request, rule: ErrorRule, exc: Exception) -> None:
+def log_failure(
+    request: Request, rule: ErrorRule, exc: Exception, *, streaming: bool = False
+) -> None:
     """실패를 로그에 남긴다. 5xx는 ERROR·스택 포함, 그 밖은 WARNING·스택 없음.
 
-    요청 본문, 쿼리 값, 헤더는 남기지 않는다.
+    요청 본문, 쿼리 값, 헤더는 남기지 않는다. 전역 핸들러와 스트리밍 엔드포인트가
+    같은 규칙으로 남기도록 이 함수 하나를 쓴다.
+
+    Args:
+        request: 실패한 요청.
+        rule: 그 실패에 적용한 오류 규칙.
+        exc: 올라온 예외.
+        streaming: 스트리밍이 시작된 뒤의 실패면 True. 이때 실제 HTTP 응답은
+            200이고 오류는 error 이벤트로 나가므로 로그에 그 사실을 표시한다.
     """
+    suffix = STREAMING_LOG_SUFFIX if streaming else ""
     args = (
         request.method,
         request.url.path,
         rule.status_code,
         rule.code.value,
         type(exc).__name__,
+        suffix,
     )
     if rule.status_code >= HTTPStatus.INTERNAL_SERVER_ERROR:
-        logger.error("서버 오류: %s %s -> %d %s (%s)", *args, exc_info=exc)
+        logger.error("서버 오류: %s %s -> %d %s (%s)%s", *args, exc_info=exc)
     else:
-        logger.warning("호출자 오류: %s %s -> %d %s (%s)", *args)
+        logger.warning("호출자 오류: %s %s -> %d %s (%s)%s", *args)
 
 
 def _describe_invalid_fields(exc: RequestValidationError) -> str:
@@ -151,7 +166,7 @@ def _to_response(rule: ErrorRule, headers: Mapping[str, str] | None = None) -> R
 async def _handle_error(request: Request, exc: Exception) -> Response:
     """프로젝트 예외와 처리하지 못한 예외를 대응표의 규칙으로 답한다."""
     rule = find_error_rule(exc)
-    _log_failure(request, rule, exc)
+    log_failure(request, rule, exc)
     return _to_response(rule)
 
 
@@ -177,7 +192,7 @@ async def _handle_http_exception(
 ) -> Response:
     """HTTPException을 원래 상태 코드와 헤더 그대로, 통일된 본문으로 답한다."""
     rule = _find_http_error_rule(exc.status_code)
-    _log_failure(request, rule, exc)
+    log_failure(request, rule, exc)
     return _to_response(rule, exc.headers)
 
 

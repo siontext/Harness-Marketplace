@@ -76,6 +76,7 @@ skills:
 - **의존 방향** (`agent-architecture`) — 위반이면 불통과:
   - `app/application`, `app/domain`이 `app/infrastructure`, `app/presentation`, `app/container.py`를 import하지 않는다
   - `app/presentation`이 `app/infrastructure`를 import하지 않는다
+  - `app/presentation`이 요청 모델을 Command로 바꿔 넘기고, `app/application`이 요청 모델(`ChatRequest` 등)을 받지 않는다
   - `app/domain`과 업무 서비스(`app/application/<이름>_service.py`)가 LangChain·LangGraph·FastAPI·pydantic을 import하지 않는다
   - FastAPI를 import하는 곳이 `main.py`와 `app/presentation`뿐이다
   - `app/application`, `app/domain`에 `os.environ`·`os.getenv`, 운영 플랫폼 SDK import가 없다
@@ -83,10 +84,12 @@ skills:
   - `app/errors.py`가 표준 라이브러리만 import하고, 예외 클래스에 상태 코드·`code`가 없다
   - `app/presentation` 밖에서 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
   - 연결 창구 선택이 `build_platform()` 한 곳에만 있다
+- **예외** — LLM 호출 실패가 `UpstreamError`로 바뀌는가 (`langgraph-conventions`). 출력 가드레일 막힘을 `OutputBlockedError`로 던지고 `/chat`이 따로 잡으며 `ERROR_RULES`에 넣지 않았는가 (`fastapi-conventions`). `except Exception`이 허용된 두 곳(`python-style`)에만 있고 이유 주석이 있는가
 - **업무 서비스와 도구** (`agent-architecture`):
   - 도구(`app/infrastructure/tools/`)가 포트를 직접 부르지 않고 업무 서비스를 거친다
   - 도구 안에 판단·계산·저장 순서가 없다 (서비스 호출과 문장 변환만)
   - 업무 서비스가 LLM용 문장을 만들지 않는다 (값이나 예외로 알린다)
+  - 도메인 Enum의 값이 코드이고, 표시용 이름과 안내 문장은 도구의 표에 있다
   - 포트 구현 클래스가 포트를 괄호에 적었고, 포트(`Protocol`) 메서드에 본문이 없다
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `app/container.py` 조립, frozen dataclass, 조합 우선
 - **응답 틀** (`fastapi-conventions`) — `/health`를 뺀 JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/presentation/response/messages.py`에 있다
