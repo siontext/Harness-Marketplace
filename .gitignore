@@ -2,3 +2,4 @@ node_modules/
 .mcp.json
 docs/
 .idea/
+__pycache__/
