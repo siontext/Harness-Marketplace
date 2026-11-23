@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 from app.common.errors import AgentTimeoutError, AppError, UpstreamError
-from app.presentation.errors import find_error_rule
+from app.presentation.exception.error_rule import ErrorRuleBook
 from app.presentation.response.error_code import ErrorCode
 
 
@@ -18,7 +18,7 @@ def test_UpstreamError는_502와_UPSTREAM_ERROR로_바뀐다() -> None:
     exc = UpstreamError("LLM 호출 실패: model=test-model")
 
     # When
-    rule = find_error_rule(exc)
+    rule = ErrorRuleBook().find(exc)
 
     # Then
     assert rule.status_code == HTTPStatus.BAD_GATEWAY
@@ -33,7 +33,7 @@ def test_AgentTimeoutError는_504와_TIMEOUT으로_바뀐다() -> None:
     exc = AgentTimeoutError("에이전트 실행 시간 초과")
 
     # When
-    rule = find_error_rule(exc)
+    rule = ErrorRuleBook().find(exc)
 
     # Then
     assert rule.status_code == HTTPStatus.GATEWAY_TIMEOUT
@@ -45,7 +45,7 @@ def test_AppError_그대로면_500과_INTERNAL_ERROR로_바뀐다() -> None:
     exc = AppError("분류되지 않은 프로젝트 오류")
 
     # When
-    rule = find_error_rule(exc)
+    rule = ErrorRuleBook().find(exc)
 
     # Then
     assert rule.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
@@ -54,8 +54,8 @@ def test_AppError_그대로면_500과_INTERNAL_ERROR로_바뀐다() -> None:
 
 def test_대응표에_없는_하위_예외는_가장_가까운_부모_규칙을_따른다() -> None:
     # When
-    upstream_child_rule = find_error_rule(_LlmRateLimitError("호출 한도 초과"))
-    app_child_rule = find_error_rule(_OrderRuleError("주문 규칙 위반"))
+    upstream_child_rule = ErrorRuleBook().find(_LlmRateLimitError("호출 한도 초과"))
+    app_child_rule = ErrorRuleBook().find(_OrderRuleError("주문 규칙 위반"))
 
     # Then
     assert upstream_child_rule.status_code == HTTPStatus.BAD_GATEWAY
@@ -69,7 +69,7 @@ def test_프로젝트_예외가_아니면_500과_INTERNAL_ERROR로_바뀐다() -
     exc = RuntimeError("미리 생각하지 못한 오류")
 
     # When
-    rule = find_error_rule(exc)
+    rule = ErrorRuleBook().find(exc)
 
     # Then
     assert rule.status_code == HTTPStatus.INTERNAL_SERVER_ERROR

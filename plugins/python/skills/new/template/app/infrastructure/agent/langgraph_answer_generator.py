@@ -8,7 +8,7 @@ LangChain·LangGraph를 아는 것은 이 파일이다. 바깥 모양을 우리 
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import ModelRequest, ModelResponse, wrap_model_call
+from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langchain_core.tools import BaseTool
@@ -34,7 +34,7 @@ class LangGraphAnswerGenerator(AnswerGenerator):
             model=model,
             tools=list(tools),
             system_prompt=system_prompt,
-            middleware=[_raise_upstream_error_on_llm_failure],
+            middleware=[UpstreamErrorMiddleware()],
         )
 
     async def stream(self, question: str) -> AsyncIterator[str]:
@@ -42,32 +42,34 @@ class LangGraphAnswerGenerator(AnswerGenerator):
             {"messages": [HumanMessage(question)]}, stream_mode="messages"
         )
         async for message, _metadata in stream:
-            text = _answer_text(message)
+            text = self._answer_text(message)
             if text:
                 yield text
 
+    @staticmethod
+    def _answer_text(message: object) -> str:
+        """사용자에게 보낼 답 글자를 꺼낸다. 도구 호출과 도구 결과는 빈 글자다.
 
-def _answer_text(message: object) -> str:
-    """사용자에게 보낼 답 글자를 꺼낸다. 도구 호출과 도구 결과는 빈 글자다.
-
-    LLM이 조각으로 보내면 AIMessageChunk가 여러 번, 한 번에 보내면 AIMessage가 한 번
-    온다. AIMessageChunk는 AIMessage의 하위 클래스라서 먼저 확인한다.
-    """
-    if isinstance(message, AIMessageChunk):
-        return "" if message.tool_call_chunks else message.text
-    if isinstance(message, AIMessage):
-        return "" if message.tool_calls else message.text
-    return ""
+        LLM이 조각으로 보내면 AIMessageChunk가 여러 번, 한 번에 보내면 AIMessage가
+        한 번 온다. AIMessageChunk는 AIMessage의 하위 클래스라서 먼저 확인한다.
+        """
+        if isinstance(message, AIMessageChunk):
+            return "" if message.tool_call_chunks else message.text
+        if isinstance(message, AIMessage):
+            return "" if message.tool_calls else message.text
+        return ""
 
 
-@wrap_model_call
-async def _raise_upstream_error_on_llm_failure(
-    request: ModelRequest,
-    handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
-) -> ModelResponse:
+class UpstreamErrorMiddleware(AgentMiddleware):
     """LLM 호출 실패를 UpstreamError로 바꿔 던진다. 도구 실행은 감싸지 않는다."""
-    try:
-        return await handler(request)
-    # LLM 구현마다 던지는 예외가 달라 타입을 좁힐 수 없다.
-    except Exception as e:
-        raise UpstreamError(f"LLM 호출 실패: {type(e).__name__}") from e
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        try:
+            return await handler(request)
+        # LLM 구현마다 던지는 예외가 달라 타입을 좁힐 수 없다.
+        except Exception as e:
+            raise UpstreamError(f"LLM 호출 실패: {type(e).__name__}") from e

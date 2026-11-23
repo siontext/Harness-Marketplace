@@ -11,7 +11,7 @@ DEFAULT_AGENT_TIMEOUT_SECONDS = 30.0
 
 @dataclass(frozen=True)
 class Settings:
-    """서버가 쓰는 환경 변수 묶음.
+    """서버가 쓰는 환경 변수 묶음. 서버 시작 때 from_env()로 한 번 만든다.
 
     Attributes:
         platform: 연결 창구 이름. 비어 있으면 로컬.
@@ -27,58 +27,58 @@ class Settings:
     llm_model: str
     agent_timeout_seconds: float = DEFAULT_AGENT_TIMEOUT_SECONDS
 
+    @classmethod
+    def from_env(cls, env_file: Path = ENV_FILE) -> "Settings":
+        """환경 변수로부터 설정을 만든다.
 
-def load_settings(env_file: Path = ENV_FILE) -> Settings:
-    """환경 변수를 읽어 설정을 만든다.
+        로컬에서는 .env 파일 값을 함께 읽는다. 이미 설정된 환경 변수가 우선한다.
 
-    로컬에서는 .env 파일 값을 함께 읽는다. 이미 설정된 환경 변수가 우선한다.
+        Args:
+            env_file: 읽을 .env 파일 경로. 없으면 환경 변수만 쓴다.
 
-    Args:
-        env_file: 읽을 .env 파일 경로. 없으면 환경 변수만 쓴다.
+        Returns:
+            읽은 설정.
 
-    Returns:
-        읽은 설정.
+        Raises:
+            ValueError: AGENT_TIMEOUT_SECONDS가 숫자가 아니거나 0 이하일 때.
+        """
+        values = {**cls._read_env_file(env_file), **os.environ}
+        return cls(
+            platform=values.get("PLATFORM", ""),
+            llm_base_url=values.get("LLM_BASE_URL", ""),
+            llm_api_key=values.get("LLM_API_KEY", ""),
+            llm_model=values.get("LLM_MODEL", ""),
+            agent_timeout_seconds=cls._read_seconds(
+                "AGENT_TIMEOUT_SECONDS",
+                values.get("AGENT_TIMEOUT_SECONDS", ""),
+                DEFAULT_AGENT_TIMEOUT_SECONDS,
+            ),
+        )
 
-    Raises:
-        ValueError: AGENT_TIMEOUT_SECONDS가 숫자가 아니거나 0 이하일 때.
-    """
-    values = {**_read_env_file(env_file), **os.environ}
-    return Settings(
-        platform=values.get("PLATFORM", ""),
-        llm_base_url=values.get("LLM_BASE_URL", ""),
-        llm_api_key=values.get("LLM_API_KEY", ""),
-        llm_model=values.get("LLM_MODEL", ""),
-        agent_timeout_seconds=_read_seconds(
-            "AGENT_TIMEOUT_SECONDS",
-            values.get("AGENT_TIMEOUT_SECONDS", ""),
-            DEFAULT_AGENT_TIMEOUT_SECONDS,
-        ),
-    )
+    @staticmethod
+    def _read_seconds(name: str, raw: str, default: float) -> float:
+        """초 단위 설정 값을 읽는다. 비어 있으면 기본값을 쓴다.
 
+        0 이하면 모든 질문이 바로 시간 초과가 되므로 서버가 뜨지 않게 오류를 낸다.
+        """
+        value = raw.strip()
+        if not value:
+            return default
+        seconds = float(value)
+        if seconds <= 0:
+            raise ValueError(f"{name}는 0보다 커야 한다: {value}")
+        return seconds
 
-def _read_seconds(name: str, raw: str, default: float) -> float:
-    """초 단위 설정 값을 읽는다. 비어 있으면 기본값을 쓴다.
-
-    0 이하면 모든 질문이 바로 시간 초과가 되므로 서버가 뜨지 않게 오류를 낸다.
-    """
-    value = raw.strip()
-    if not value:
-        return default
-    seconds = float(value)
-    if seconds <= 0:
-        raise ValueError(f"{name}는 0보다 커야 한다: {value}")
-    return seconds
-
-
-def _read_env_file(env_file: Path) -> dict[str, str]:
-    """KEY=VALUE 형식의 .env 파일을 딕셔너리로 읽는다."""
-    if not env_file.is_file():
-        return {}
-    values: dict[str, str] = {}
-    for raw in env_file.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip("\"'")
-    return values
+    @staticmethod
+    def _read_env_file(env_file: Path) -> dict[str, str]:
+        """KEY=VALUE 형식의 .env 파일을 딕셔너리로 읽는다."""
+        if not env_file.is_file():
+            return {}
+        values: dict[str, str] = {}
+        for raw in env_file.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip().strip("\"'")
+        return values

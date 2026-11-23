@@ -48,9 +48,9 @@ skills:
 2. **프로젝트 구조 파악**: `pyproject.toml`, `constraints.txt`, `app/` 아래 기존 코드와 연결 창구(`app/infrastructure/`)를 파악한다. `.venv`가 없으면 멈추고 `/python:new` 또는 `python-project`의 설치 절차를 사용자에게 안내한다.
 3. **구현 단계 확인**: 설계 문서 **"구현 단계" 표**를 그대로 구현 순서로 쓴다. 순서를 새로 정하지 않는다. 표가 없으면 작성을 멈추고 사용자에게 알린다.
 4. **코드 작성 (단계 루프)**: 표의 각 행마다 다음을 반복한다.
-   1. `implementation-checkpoint` 스킬의 **"페이즈 시작"** 단계를 실행한다 (만들 모듈·클래스·함수와 시그니처 제시 → 승인).
+   1. `implementation-checkpoint` 스킬의 **"페이즈 시작"** 단계를 실행한다 (만들 모듈·클래스·메서드와 시그니처 제시 → 승인).
    2. 승인된 구성대로 코드를 작성한다. 참조 스킬의 원칙을 따른다.
-   3. 같은 단계에서 그 코드의 테스트(`python-testing`의 ①단위 ②가짜 LLM 흐름)를 함께 작성한다. 도구 함수는 성공·실패 테스트를 하나씩 쓴다.
+   3. 같은 단계에서 그 코드의 테스트(`python-testing`의 ①단위 ②가짜 LLM 흐름)를 함께 작성한다. 도구는 성공·실패 테스트를 하나씩 쓴다.
    4. `implementation-checkpoint` 스킬의 **1~4단계**를 실행한다 (Ruff → Ruff format → Pyrefly → pytest → 사용자 승인).
    5. 승인 후 다음 단계로 넘어간다. 마지막 단계 승인 후에는 종료 조건으로 진행한다.
 
@@ -59,6 +59,7 @@ skills:
 - 설계 문서에 명시된 범위만 구현한다.
 - 기존 코드가 있으면 기존 패턴과 컨벤션을 따른다.
 - 폴더 구성은 `python-project`의 고정 구성을 따른다. 새 최상위 폴더를 만들지 않는다.
+- 클래스가 기본이다 (`python-style`의 "클래스가 기본"). `app/`에 모듈 함수를 두는 곳은 FastAPI 엔드포인트와 `lifespan`뿐이다.
 - 의존 방향(`agent-architecture`)을 지킨다. `app/application`과 `app/domain`은 `app/infrastructure`·`app/presentation`을 import하지 않고, 운영 플랫폼 SDK import나 `os.environ` 읽기를 하지 않는다. 도구는 유스케이스(`app/application/<기능>/usecase.py`)를 거치고 서비스 구현·엔티티를 import하지 않는다.
 - 구현이 애매한 부분은 설계 문서의 의도를 최대한 존중하되, 판단이 필요하면 가장 단순한 방법을 선택한다.
 - 명령은 가상환경 경로로 실행한다 (`.venv/bin/pytest` 등). `uv run`, `uv sync`, `uv add`는 쓰지 않는다.

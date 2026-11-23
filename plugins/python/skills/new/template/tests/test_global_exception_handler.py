@@ -2,21 +2,16 @@ import logging
 from http import HTTPStatus
 
 import pytest
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
 from app.common.errors import UpstreamError
-from app.presentation.errors import (
-    find_error_rule,
-    log_failure,
-    register_exception_handlers,
-)
 from main import app as real_app
 
 # 예외 메시지·요청 값에 심어 두고, 응답과 로그로 새는지 확인하는 표식.
 LEAK_MARKER = "leak-marker-9f3a"
-HANDLER_LOGGER = "app.presentation.errors"
+FAILURE_LOGGER = "app.presentation.exception.failure_logger"
 
 
 class _ItemRequest(BaseModel):
@@ -24,9 +19,9 @@ class _ItemRequest(BaseModel):
 
 
 def _build_test_app() -> FastAPI:
-    """핸들러를 붙이고 일부러 오류를 내는 주소를 더한 테스트용 앱."""
+    """main.py에 등록한 핸들러를 그대로 가져오고, 일부러 오류를 내는 주소를 더한 앱."""
     test_app = FastAPI()
-    register_exception_handlers(test_app)
+    test_app.exception_handlers.update(real_app.exception_handlers)
 
     @test_app.get("/ok")
     async def ok() -> dict[str, str]:
@@ -63,8 +58,8 @@ def client() -> TestClient:
     return TestClient(_build_test_app(), raise_server_exceptions=False)
 
 
-def _handler_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
-    return [record for record in caplog.records if record.name == HANDLER_LOGGER]
+def _failure_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [record for record in caplog.records if record.name == FAILURE_LOGGER]
 
 
 def test_정상_응답은_핸들러가_건드리지_않는다(client: TestClient) -> None:
@@ -188,11 +183,11 @@ def test_서버_오류는_ERROR_수준으로_스택과_함께_남는다(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
     # When
-    with caplog.at_level(logging.WARNING, logger=HANDLER_LOGGER):
+    with caplog.at_level(logging.WARNING, logger=FAILURE_LOGGER):
         client.get("/upstream-error")
 
     # Then
-    (record,) = _handler_records(caplog)
+    (record,) = _failure_records(caplog)
     assert record.levelno == logging.ERROR
     assert isinstance(record.exc_info, tuple)
     assert isinstance(record.exc_info[1], UpstreamError)
@@ -202,11 +197,11 @@ def test_호출자_오류는_WARNING_수준으로_스택_없이_남는다(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
     # When
-    with caplog.at_level(logging.WARNING, logger=HANDLER_LOGGER):
+    with caplog.at_level(logging.WARNING, logger=FAILURE_LOGGER):
         client.get("/no-such-path")
 
     # Then
-    (record,) = _handler_records(caplog)
+    (record,) = _failure_records(caplog)
     assert record.levelno == logging.WARNING
     assert record.exc_info is None
 
@@ -215,30 +210,10 @@ def test_요청_형식_오류_로그에_보낸_값이_남지_않는다(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:
     # When
-    with caplog.at_level(logging.WARNING, logger=HANDLER_LOGGER):
+    with caplog.at_level(logging.WARNING, logger=FAILURE_LOGGER):
         client.post(f"/items?memo={LEAK_MARKER}", json={"count": LEAK_MARKER})
 
     # Then
-    (record,) = _handler_records(caplog)
+    (record,) = _failure_records(caplog)
     assert "body.count" in record.getMessage()
     assert LEAK_MARKER not in caplog.text
-
-
-def test_스트리밍_중_실패는_로그에_error_이벤트로_응답했다고_표시한다(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    # Given
-    request = Request(
-        {"type": "http", "method": "POST", "path": "/chat", "headers": []}
-    )
-    exc = UpstreamError("LLM 호출 실패: ConnectError")
-
-    # When
-    with caplog.at_level(logging.WARNING, logger=HANDLER_LOGGER):
-        log_failure(request, find_error_rule(exc), exc, streaming=True)
-
-    # Then
-    (record,) = _handler_records(caplog)
-    assert record.levelno == logging.ERROR
-    assert "POST /chat -> 502 UPSTREAM_ERROR" in record.getMessage()
-    assert "스트리밍 중: error 이벤트로 응답" in record.getMessage()

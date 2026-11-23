@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator
 
 import pytest
 
-from app.application.common.time_limit import within_time_limit
+from app.application.common.time_limit import TimeLimit
 from app.common.errors import AgentTimeoutError
 
 pytestmark = pytest.mark.anyio
@@ -33,7 +33,7 @@ async def test_제한_안에_끝나면_항목을_그대로_내놓고_흐름을_�
     items = _Items("가", "나", "다")
 
     # When
-    result = [item async for item in within_time_limit(items.stream(), 1)]
+    result = [item async for item in TimeLimit(1).apply(items.stream())]
 
     # Then
     assert result == ["가", "나", "다"]
@@ -47,7 +47,7 @@ async def test_항목마다_기다린_시간이_짧아도_전체_시간을_넘�
 
     # When / Then
     with pytest.raises(AgentTimeoutError):
-        async for item in within_time_limit(items.stream(), 0.12):
+        async for item in TimeLimit(0.12).apply(items.stream()):
             received.append(item)
     assert 0 < len(received) < 5
     assert items.closed
@@ -59,5 +59,5 @@ async def test_받는_쪽이_느려도_시간_초과는_AgentTimeoutError로_바
 
     # When / Then
     with pytest.raises(AgentTimeoutError):
-        async for _item in within_time_limit(items.stream(), 0.05):
+        async for _item in TimeLimit(0.05).apply(items.stream()):
             await asyncio.sleep(0.1)

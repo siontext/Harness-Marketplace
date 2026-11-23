@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from app.application.common.sentences import stream_sentences
+from app.application.common.sentences import SentenceSplitter
 
 pytestmark = pytest.mark.anyio
 
@@ -15,7 +15,7 @@ async def _chunks(*texts: str) -> AsyncIterator[str]:
 
 
 async def _sentences(*texts: str) -> list[str]:
-    return [sentence async for sentence in stream_sentences(_chunks(*texts))]
+    return [sentence async for sentence in SentenceSplitter().split(_chunks(*texts))]
 
 
 async def test_조각이_나뉘어_와도_문장이_끝날_때마다_내보낸다() -> None:

@@ -124,10 +124,10 @@ flowchart LR
 | 1 | 도메인 (`app/domain/<기능>/` — 도메인 객체, 업무 규칙, 업무 예외. 규칙이 없으면 값만 갖는 객체와 대상 없음 예외) | 0 |
 | 2 | 연결 창구 (`app/application/<기능>/port.py` Protocol + `app/infrastructure/` 로컬 구현 + `Platform` 칸·`local.py`·`tests/fakes.py`의 `fake_platform`) | 1 |
 | 3 | 유스케이스와 서비스 (`app/application/<기능>/` — `usecase.py`, `command.py`, `result.py`, `service.py`) | 2 |
-| 4 | 도구 (`app/infrastructure/tools/`) | 3 |
+| 4 | 도구 (`app/infrastructure/tools/` — `<기능>Tools` 클래스) | 3 |
 | 5 | 프롬프트 (`app/prompts/`) | 0 |
-| 6 | 채팅 기능 (`app/application/agent/` — `ChatUseCase`, `ChatService`, `ChatCommand`)과 조립 (`app/container.py`). 답 만들기 어댑터는 뼈대의 것을 쓴다 | 4, 5 |
-| 7 | API (`app/presentation/` — `/chat`, `/health`, 새 예외의 오류 대응. `main.py`는 조립 함수를 부르기만) | 6 |
+| 6 | 채팅 기능 (`app/application/agent/` — `ChatUseCase`, `ChatService`, `ChatCommand`)과 조립 (`app/container.py`의 `Container`). 답 만들기 어댑터는 뼈대의 것을 쓴다 | 4, 5 |
+| 7 | API (`app/presentation/` — `/chat`, `/health`, 새 예외의 오류 대응. `main.py`는 `Container`를 부르기만) | 6 |
 | 8 | 평가 질문 (`evals/`) | 7 |
 
 - 단계 하나가 체크포인트 하나에 대응한다 (`implementation-checkpoint` 스킬).
@@ -180,7 +180,7 @@ flowchart LR
 | 결과 없음, 규칙에 걸림 | 4. 도구의 "실패 시" 열 |
 | 시간 초과, LLM 출력 형식 깨짐 | 3. 시퀀스 다이어그램의 `alt` |
 | 막아야 할 질문 | 5. 프롬프트·가드레일 |
-| 새 예외 클래스, 새 오류 `code` | 결정 섹션에 이유를 적고, 7. 구현 단계의 대상 열에 넣는다 (`app/common/errors.py`의 예외, `app/presentation/errors.py`의 대응표) |
+| 새 예외 클래스, 새 오류 `code` | 결정 섹션에 이유를 적고, 7. 구현 단계의 대상 열에 넣는다 (`app/common/errors.py`의 예외, `app/presentation/exception/error_rule.py`의 `ErrorRuleBook` 대응표) |
 
 - 뼈대에 있는 예외(`AppError`, `UpstreamError`, `AgentTimeoutError`)와 오류 응답 표(`python:fastapi-conventions`)로 충분하면 적지 않는다.
 - 새 오류 `code`는 사용자 확인이 필요하다 (`python:fastapi-conventions`).

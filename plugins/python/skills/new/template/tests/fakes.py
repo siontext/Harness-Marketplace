@@ -18,7 +18,7 @@ from app.application.agent.port import Guardrail, GuardResult
 from app.infrastructure import Platform
 from app.infrastructure.llm.port import LlmProvider
 from app.infrastructure.prompt.port import PromptStore
-from app.infrastructure.settings import Settings
+from app.infrastructure.settings import DEFAULT_AGENT_TIMEOUT_SECONDS, Settings
 
 FAKE_SYSTEM_PROMPT = "테스트용 시스템 프롬프트"
 
@@ -148,19 +148,24 @@ def fake_platform(llm: BaseChatModel, guardrail: Guardrail | None = None) -> Pla
     )
 
 
-def fake_settings(platform: str = "") -> Settings:
+def fake_settings(
+    platform: str = "",
+    agent_timeout_seconds: float = DEFAULT_AGENT_TIMEOUT_SECONDS,
+) -> Settings:
     """.env 대신 쓰는 테스트용 설정. 칸이 늘어도 바꿀 값만 인자로 받는다.
 
     dict를 **로 풀어 넣으면 숫자 칸(시간 제한 등)이 생길 때 타입 검사에 걸린다.
 
     Args:
         platform: PLATFORM 값. 비우면 로컬.
+        agent_timeout_seconds: 질문 하나의 전체 시간 제한(초).
     """
     return Settings(
         platform=platform,
         llm_base_url="http://localhost:9999/v1",
         llm_api_key="test-key",
         llm_model="test-model",
+        agent_timeout_seconds=agent_timeout_seconds,
     )
 
 

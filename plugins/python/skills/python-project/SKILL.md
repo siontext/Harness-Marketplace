@@ -13,7 +13,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 
 ```text
 <프로젝트>/
-├── main.py                  FastAPI 앱 만들기 — lifespan에서 조립 함수 부르기, 엔드포인트·예외 핸들러 붙이기
+├── main.py                  부트스트랩 — FastAPI 앱 만들기, lifespan에서 조립(Container) 부르기, 전역 예외 핸들러 등록, 라우터 붙이기
 ├── run-application.sh       운영 플랫폼에서 서버를 띄우는 스크립트
 ├── pyproject.toml           패키지·도구 설정
 ├── constraints.txt          운영 플랫폼 패키지 버전 고정 파일 (있을 때)
@@ -21,23 +21,23 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 ├── .env                     실제 값 — git·반출 제외
 ├── app/
 │   ├── common/              모든 계층이 같이 쓰는 것 — errors.py(공통 예외). 표준 라이브러리만
-│   ├── container.py         조립 — 구현을 골라 서비스·도구·에이전트에 넣어 주기
-│   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), errors.py(전역 예외 핸들러)
-│   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, sse_response, ErrorCode, 안내 문구
+│   ├── container.py         조립(Container) — 구현을 골라 서비스·도구·에이전트에 넣어 주기
+│   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), exception/(전역 예외 핸들러·오류 대응표·실패 로그)
+│   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, SseResponse, ErrorCode, 안내 문구
 │   ├── application/
-│   │   ├── common/          기능의 규칙 없이 쓰는 기술 도우미 — time_limit.py(within_time_limit), sentences.py(stream_sentences)
+│   │   ├── common/          기능의 규칙 없이 쓰는 기술 도우미 — time_limit.py(TimeLimit), sentences.py(SentenceSplitter)
 │   │   ├── agent/           채팅 기능 — usecase.py(ChatUseCase), service.py(ChatService), command.py, port.py(AnswerGenerator·Guardrail). LangChain을 모른다
 │   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, command.py, result.py
 │   ├── domain/
 │   │   └── <기능>/          도메인 객체(규칙이 없으면 값만), 업무 규칙, 코드값 Enum, 업무 예외
-│   ├── infrastructure/      포트 구현 — __init__.py(구현 선택), local.py(로컬 묶음), settings.py(설정)
-│   │   ├── agent/           답 만들기 어댑터 — create_agent 조립, LangGraph 메시지를 글자로 번역
+│   ├── infrastructure/      포트 구현 — __init__.py(Platform·구현 선택), local.py(LocalPlatformFactory), settings.py(Settings)
+│   │   ├── agent/           답 만들기 어댑터 — create_agent 조립, LangGraph 메시지를 글자로 번역, LLM 실패 미들웨어
 │   │   ├── llm/             LLM 창구 모양(port.py)과 구현
 │   │   ├── persistence/     저장소 구현(DB·메모리) — <기능>/ 폴더마다 (있을 때만)
 │   │   ├── client/          외부 API를 부르는 구현 — <기능>/ 폴더마다 (있을 때만)
 │   │   ├── prompt/          프롬프트 창구 모양(port.py)과 구현
 │   │   ├── guardrail/       가드레일 구현
-│   │   └── tools/           도구 함수 (@tool)
+│   │   └── tools/           도구 클래스 (<기능>Tools — 메서드를 tool()로 감싼다)
 │   └── prompts/             프롬프트 파일 (.md)
 ├── tests/                   pytest — 반출에 포함
 └── evals/                   평가 질문 (results/는 반출 제외)
@@ -110,7 +110,7 @@ uv pip install --python .venv -r pyproject.toml --extra dev -c constraints.txt
 | `DATABASE_URL` | 대화 기록 저장소 (PostgreSQL) |
 
 - `.env.example`(값이 빈 견본)만 git에 넣는다. `.env`는 git과 반출에서 뺀다.
-- `.env`는 `app/infrastructure/settings.py`가 로컬에서만 읽는다. 다른 모듈에서 `os.environ`을 읽지 않는다.
+- `.env`는 `app/infrastructure/settings.py`의 `Settings.from_env()`가 로컬에서만 읽는다. 다른 모듈에서 `os.environ`을 읽지 않는다.
 - 테스트는 `.env`를 읽지 않는다. 연결 창구 자리에 가짜를 넣는다 (`python-testing`).
 
 ## 실행
