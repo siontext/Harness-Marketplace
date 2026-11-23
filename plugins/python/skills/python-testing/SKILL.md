@@ -25,7 +25,7 @@ def anyio_backend() -> str:
 
 | 층 | 대상 | LLM | 언제 |
 |---|---|---|---|
-| ① 단위 | 도메인 규칙, 업무 서비스, 도구 함수, 응답 처리, 프롬프트 조립 | 안 씀 | 매번 (`pytest`) |
+| ① 단위 | 도메인 규칙, 업무 서비스, 도구, 응답 처리, 프롬프트 조립 | 안 씀 | 매번 (`pytest`) |
 | ② 가짜 LLM 흐름 | "LLM이 이렇게 답하면 이 도구를 부르고 이렇게 답하는가", 엔드포인트 | 가짜 | 매번 (`pytest`) |
 | ③ 연결 확인 | 실제 LLM·Redis·PostgreSQL에 붙는지 | 진짜 | `/python:eval` 시작할 때 |
 | ④ 평가 | 답이 쓸 만한지 | 진짜 | `/python:eval`로만 |
@@ -39,7 +39,7 @@ def anyio_backend() -> str:
 - **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/<기능>/port.py`, `app/application/agent/port.py`, `app/infrastructure/llm/port.py`·`prompt/port.py`의 Protocol), 외부 API, DB, Redis.
 - 내 코드 안의 객체(도메인 객체, 상태, 데이터 모델)는 가짜로 만들지 않는다.
 - 연결 창구 가짜는 Protocol 모양을 따르는 작은 클래스나 `AsyncMock(spec=<Protocol>)`으로 만든다.
-- 테스트는 `.env`를 읽지 않는다. 흐름·엔드포인트 테스트는 `build_platform()`을 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립 함수에 넣는다. `build_platform()` 자체를 확인하는 테스트는 설정(`fake_settings()`)을 직접 넘겨 부른다. `lifespan`은 아래 "서버 시작(lifespan) 테스트"를 따른다.
+- 테스트는 `.env`를 읽지 않는다. 흐름·엔드포인트 테스트는 `Platform.from_settings()`를 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립(`Container`)에 넣는다. `Platform.from_settings()` 자체를 확인하는 테스트는 설정(`fake_settings()`)을 직접 넘겨 부른다. `lifespan`은 아래 "서버 시작(lifespan) 테스트"를 따른다.
 
 ### 가짜 LLM
 
@@ -52,8 +52,8 @@ def anyio_backend() -> str:
 | `fake_llm(*replies)` | 답을 차례로 돌려주는 가짜 LLM을 만든다. 답 자리에 예외를 넣으면 그 차례의 LLM 호출이 실패한다. `streaming=False`면 조각 없이 한 번에 답하는 LLM처럼 군다 |
 | `FakeToolCallingModel.received` | 호출마다 받은 메시지 목록. LLM을 불렀는지, 검사를 거친 문장을 받았는지 확인한다 |
 | `FakeGuardrail` | 정해 둔 문장만 막거나 바꾸고 나머지는 통과시킨다. 검사에 들어온 문장을 기록한다. `input_delay`·`output_delay`로 검사마다 기다리게 할 수 있다 (시간 초과 테스트용) |
-| `fake_platform(llm, ...)` | 가짜 창구로 구현 묶음(`Platform`)을 만든다. 이것을 진짜 조립 함수(`app/container.py`)에 넣는다 |
-| `fake_settings(platform="")` | `.env` 대신 쓰는 설정. LLM 칸에 가짜 주소·키가 들어 있다. `build_platform()`·`lifespan` 테스트에 넘긴다 |
+| `fake_platform(llm, ...)` | 가짜 창구로 구현 묶음(`Platform`)을 만든다. 이것을 진짜 조립(`Container`, `app/container.py`)에 넣는다 |
+| `fake_settings(platform="", agent_timeout_seconds=30)` | `.env` 대신 쓰는 설정. LLM 칸에 가짜 주소·키가 들어 있다. `Container`·`Platform.from_settings()`·`lifespan` 테스트에 넘긴다 |
 
 - `GenericFakeChatModel`은 `bind_tools`가 없고 스트리밍에서 도구 호출을 조각으로 내지 못한다. `FakeToolCallingModel`이 이 둘을 메운다. `GenericFakeChatModel`을 그대로 쓰면 `create_agent`와 `astream(stream_mode="messages")`에서 오류가 난다.
 - 이 가짜는 langchain-core 내부 동작에 기댄다. `tests/test_fakes.py`가 그 동작을 확인하므로 지우지 않는다.
@@ -100,7 +100,7 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
     # Given
     repository = fake_product_repository(Product(product_id="P001", name="아메리카노", price=4500))
     platform = fake_platform(fake_llm(...), products=repository)
-    chat = build_chat_service(platform, timeout_seconds=30)
+    chat = Container(platform, fake_settings()).build_chat_service()
 
     # When
     command = ChatCommand(conversation_id="c-1", message="P001 얼마예요?")
@@ -111,14 +111,15 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
     assert "4,500원" in answer
 ```
 
-- 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립 함수(`app/container.py`)가 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다.
+- 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립(`Container`)이 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다.
+- `tests/`는 pytest 방식을 따른다. 테스트·픽스처·가짜를 만드는 도우미는 함수로 둔다 (`python-style`의 "클래스가 기본"의 예외).
 
 ### 서비스와 도구의 단위 테스트
 
 | 대상 | 만드는 법 | 확인하는 것 |
 |---|---|---|
 | 서비스 | 진짜 서비스 + 가짜 나가는 포트 (`AsyncMock(spec=<Protocol>)`) | 순서, 던지는 예외, 규칙에 걸리면 저장하지 않는 것, 엔티티가 아니라 Result를 돌려주는 것 |
-| 도구 | 진짜 서비스(가짜 포트를 넣은 것)를 유스케이스 자리에 넣어 도구를 만든다 | Result와 예외가 어떤 문장으로 바뀌는지 |
+| 도구 | 진짜 서비스(가짜 포트를 넣은 것)를 유스케이스 자리에 넣어 `<기능>Tools(...).build()`로 도구를 만든다 | Result와 예외가 어떤 문장으로 바뀌는지 |
 
 - 도구를 테스트할 때 서비스를 가짜로 만들지 않는다. 서비스는 내 코드다. 진짜 서비스를 지나야 서비스가 실제로 던지는 예외를 도구가 잡는지 확인된다.
 - 도구 테스트에서 순서나 저장 여부를 다시 확인하지 않는다. 그것은 서비스 테스트의 몫이다.
@@ -138,19 +139,19 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 
 ## 엔드포인트 테스트
 
-- `TestClient(app)`로 서버를 띄우지 않고 부른다. `app.state.chat`에 가짜 창구로 조립한 채팅 서비스(`build_chat_service(fake_platform(...), ...)`)를 `monkeypatch.setattr(app.state, "chat", ..., raising=False)`로 넣는다. `app`은 모듈 하나를 같이 쓰므로 직접 대입하면 다음 테스트로 값이 샌다.
+- `TestClient(app)`로 서버를 띄우지 않고 부른다. `app.state.chat`에 가짜 창구로 조립한 채팅 서비스(`Container(fake_platform(...), fake_settings()).build_chat_service()`)를 `monkeypatch.setattr(app.state, "chat", ..., raising=False)`로 넣는다. `app`은 모듈 하나를 같이 쓰므로 직접 대입하면 다음 테스트로 값이 샌다.
 - **엔드포인트 테스트에서는 `with TestClient(app)`를 쓰지 않는다.** `with`로 열면 `lifespan`이 돌아 `.env`를 읽고, 넣어 둔 가짜 `app.state.chat`을 진짜로 덮어쓴다.
 - 엔드포인트마다 정상 1개 이상, 요청 형식 오류(422) 1개.
 - SSE는 본문을 빈 줄로 나눠 이벤트 목록으로 만든 뒤 `token`들 → `done` 순서와 `data` JSON을 확인한다. 실패 경로는 `error` 이벤트로 끝나는지 확인한다.
 
 ### 서버 시작(lifespan) 테스트
 
-`lifespan`을 확인하는 테스트만 `with TestClient(app)`를 쓴다. `.env`를 읽지 않도록 `main.load_settings`를 가짜 설정으로 바꾼다. 뼈대의 `tests/test_main.py`가 이 방식으로 서버가 켜지고 꺼지는지만 확인한다. 채팅 기능을 만들면 아래처럼 `app.state.chat`을 확인하는 테스트를 더한다.
+`lifespan`을 확인하는 테스트만 `with TestClient(app)`를 쓴다. `.env`를 읽지 않도록 `Settings.from_env`를 가짜 설정(`fake_settings`)으로 바꾼다. 뼈대의 `tests/test_main.py`가 이 방식으로 서버가 켜지고 꺼지는지만 확인한다. 채팅 기능을 만들면 아래처럼 `app.state.chat`을 확인하는 테스트를 더한다.
 
 ```python
 def test_서버가_켜지면_채팅_서비스를_조립해_둔다(monkeypatch: pytest.MonkeyPatch) -> None:
     # Given: .env 대신 가짜 설정. 로컬 창구를 만들지만 LLM은 부르지 않는다.
-    monkeypatch.setattr("main.load_settings", fake_settings)
+    monkeypatch.setattr(Settings, "from_env", fake_settings)
     monkeypatch.setattr(app.state, "chat", None, raising=False)    # 끝나면 되돌린다
 
     # When
@@ -168,12 +169,12 @@ def test_서버가_켜지면_채팅_서비스를_조립해_둔다(monkeypatch: p
 | 기준 | 내용 |
 |---|---|
 | 커버리지 | `app/` 기준 80% 이상 |
-| 필수 테스트 | 업무 서비스 메서드와 도구 함수마다 성공 1개 + 실패 1개 |
+| 필수 테스트 | 업무 서비스 메서드와 도구마다 성공 1개 + 실패 1개 |
 | | 에이전트 흐름마다 대표 경로 1개 (설계 문서 시퀀스 다이어그램의 대표 질문) |
 | | 엔드포인트마다 정상 1개 이상 + 요청 형식 오류(422) 1개 |
 | | 위 "실패 경로 — 필수" 표 |
 
-- **뼈대 코드의 필수 테스트는 뼈대 테스트가 맡는다.** 답 만들기 어댑터(조각·한 번에 답하는 LLM, LLM 실패, 도구 버그), `within_time_limit`(전체 시간 기준), `stream_sentences`, `sse_response`(막힘·오류 이벤트)는 뼈대의 `tests/`에 테스트가 있다. 그 코드를 고치지 않았으면 기능마다 다시 쓰지 않는다. 고쳤으면 그 테스트를 함께 고친다.
+- **뼈대 코드의 필수 테스트는 뼈대 테스트가 맡는다.** 답 만들기 어댑터(조각·한 번에 답하는 LLM, LLM 실패, 도구 버그), `TimeLimit`(전체 시간 기준), `SentenceSplitter`, `SseResponse`(막힘·오류 이벤트), `GlobalExceptionHandler`(`main.py`의 등록 포함)는 뼈대의 `tests/`에 테스트가 있다. 그 코드를 고치지 않았으면 기능마다 다시 쓰지 않는다. 고쳤으면 그 테스트를 함께 고친다.
 - 기능 테스트는 기능 코드가 그 길을 실제로 지나는지만 확인한다 (예: `/chat`이 시간 초과·LLM 실패에서 `error` 이벤트로 끝나는지, 저장소 고장이 흐름에서 삼켜지지 않는지).
 
 - 커버리지는 **로컬에서만** 잰다: `.venv/bin/pytest --cov=app --cov-report=term-missing`.

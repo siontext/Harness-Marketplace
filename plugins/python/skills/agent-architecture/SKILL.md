@@ -1,6 +1,6 @@
 ---
 name: agent-architecture
-description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 답 만들기 포트(AnswerGenerator)와 LangGraph 어댑터, 조립(app/container.py), 공통 영역(app/common, 계층별 common)과 공통 예외 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
+description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 답 만들기 포트(AnswerGenerator)와 LangGraph 어댑터, 조립(app/container.py), 공통 영역(app/common, 계층별 common)과 공통 예외 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향(클래스가 기본)·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
 ---
 
 # Agent Architecture
@@ -33,9 +33,9 @@ app/common/errors.py (공통 예외)  ◀──  모든 레이어
 | `app/domain/<기능>/` | 도메인 객체(엔티티·값 객체)와 업무 규칙, 코드값 Enum, 업무 예외 | `app/common/errors.py`만 |
 | `app/infrastructure` | 포트 구현(어댑터) — 답 만들기(`agent/`), 저장소, 가드레일, 도구. LLM·프롬프트 창구(`llm/`, `prompt/`)와 그 모양(`port.py`), 설정, 구현 선택 | `application`, `domain`, `app/common/errors.py` |
 | `app/container.py` | 조립 — 구현을 서비스·도구·에이전트에 넣어 주기 | 전부 |
-| `main.py` | `FastAPI` 앱 만들기, `lifespan`에서 조립 함수 부르기 | 전부 |
+| `main.py` | 부트스트랩 — `FastAPI` 앱 만들기, `lifespan`에서 조립(`Container`) 부르기, 전역 예외 핸들러 등록 | 전부 |
 | `app/common/` | 모든 계층이 쓰는 것 — `errors.py`(공통 예외) | 표준 라이브러리만 |
-| `app/application/common/` | 애플리케이션 안 여러 기능이 쓰는 도우미 — `time_limit.py` | `app/common/`, 표준 라이브러리 |
+| `app/application/common/` | 애플리케이션 안 여러 기능이 쓰는 도우미 — `time_limit.py`(`TimeLimit`), `sentences.py`(`SentenceSplitter`) | `app/common/`, 표준 라이브러리 |
 
 - **`application`과 `domain`은 `infrastructure`와 `presentation`을 import하지 않는다.** 위반이면 불통과다.
 - `presentation`은 `infrastructure`를 import하지 않는다. 필요한 것은 `container.py`가 만들어 `app.state`에 둔다.
@@ -86,7 +86,7 @@ command = ChatCommand(conversation_id=body.conversation_id, message=body.message
 ```
 
 - Command는 `app/application`에 두는 변하지 않는 값 묶음이다 (`@dataclass(frozen=True)`). pydantic을 쓰지 않는다. 형식 검사는 요청 모델이 이미 했다.
-- `application`은 요청 모델(`ChatRequest`)을 모른다. 넘길 값이 늘면 Command에 칸을 더하고 함수 모양은 그대로 둔다.
+- `application`은 요청 모델(`ChatRequest`)을 모른다. 넘길 값이 늘면 Command에 칸을 더하고 메서드 모양은 그대로 둔다.
 - 바꾸는 곳은 `app/presentation/routes.py`다.
 - 기능의 유스케이스가 받는 값(`GetOrderQuery`, `CancelOrderCommand`)도 같은 규칙이다 (아래 "기능 폴더").
 
@@ -138,15 +138,19 @@ class OrderUseCase(Protocol):
     async def get_order(self, query: GetOrderQuery) -> OrderResult: ...
     async def cancel_order(self, command: CancelOrderCommand) -> OrderResult: ...
 
+# app/application/order/port.py
+class Clock(Protocol):
+    def now(self) -> datetime: ...              # 구현: infrastructure/clock/system_clock.py
+
 # app/application/order/service.py
 class OrderService(OrderUseCase):
-    def __init__(self, orders: OrderRepository, now: Callable[[], datetime]) -> None:
+    def __init__(self, orders: OrderRepository, clock: Clock) -> None:
         self._orders = orders
-        self._now = now
+        self._clock = clock
 
     async def cancel_order(self, command: CancelOrderCommand) -> OrderResult:
         order = await self._find_order(command.order_id)
-        cancelled = order.cancel(self._now())      # 판단은 도메인
+        cancelled = order.cancel(self._clock.now())  # 판단은 도메인
         await self._orders.save(cancelled)
         return OrderResult.from_order(cancelled)    # 엔티티를 밖으로 내보내지 않는다
 
@@ -186,7 +190,7 @@ STATUS_LABELS: dict[OrderStatus, str] = {
 
 - 날짜·시각을 읽기 좋은 표기로 바꾸는 것(시간대, 날짜 형식)도 문장 만들기로 보고 도구가 한다.
 - 조회처럼 전달만 하는 기능도 유스케이스를 거친다. 서비스가 한 줄이어도 도구가 포트를 직접 부르지 않는다. 기준이 하나여야 도구마다 판단이 갈리지 않는다.
-- 서비스는 나가는 포트와 "지금 시각" 같은 바뀌는 값을 생성자로 받는다. 안에서 시계를 읽거나 구현을 만들지 않는다.
+- 서비스는 나가는 포트를 생성자로 받는다. "지금 시각"도 시계 포트(`Clock`)로 받는다. 안에서 시계를 읽거나 구현을 만들지 않는다. 함수(`now: Callable`)를 넘기지 않는다.
 - 도구가 예외를 문장으로 바꾸는 규칙은 `langgraph-conventions`의 "도구 만들기"를 따른다. **문장으로 바꾸는 것은 업무 예외(대상 없음, 규칙에 걸림)뿐이다.** 포트 구현이 외부 시스템(DB, 외부 API) 고장으로 던지는 `UpstreamError`는 도구가 잡지 않는다. 그대로 올라가 `UPSTREAM_ERROR`로 끝난다 (Fail Fast). 고장을 문장으로 바꾸면 LLM이 그 문장을 보고 답을 지어낼 수 있다.
 
 ## 채팅 기능 — ChatUseCase와 ChatService
@@ -200,20 +204,21 @@ class ChatUseCase(Protocol):
 
 # app/application/agent/service.py
 class ChatService(ChatUseCase):
-    def __init__(self, answers: AnswerGenerator, guardrail: Guardrail, timeout_seconds: float) -> None:
+    def __init__(self, answers: AnswerGenerator, guardrail: Guardrail, time_limit: TimeLimit) -> None:
         self._answers = answers
         self._guardrail = guardrail
-        self._timeout_seconds = timeout_seconds
+        self._time_limit = time_limit
+        self._sentences = SentenceSplitter()            # 설정도 구현도 하나뿐인 도우미
 
     def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]:
         sentences = self._checked_sentences(command)
-        return within_time_limit(sentences, self._timeout_seconds)
+        return self._time_limit.apply(sentences)
 
     async def _checked_sentences(self, command: ChatCommand) -> AsyncGenerator[str]:
         checked = await self._guardrail.check_input(command.message)
         if checked.blocked:
-            raise InputBlockedError(checked.message)    # 안내 문구는 sse_response가 보낸다
-        async for sentence in stream_sentences(self._answers.stream(checked.text)):
+            raise InputBlockedError(checked.message)    # 안내 문구는 SseResponse가 보낸다
+        async for sentence in self._sentences.split(self._answers.stream(checked.text)):
             yield await self._check_output(sentence)
 
     async def _check_output(self, sentence: str) -> str:
@@ -223,9 +228,10 @@ class ChatService(ChatUseCase):
         return checked.text                             # 가려졌을 수 있는 문장
 ```
 
-- **서비스의 공개 메서드는 업무 단계만 적는다.** `OrderService.cancel_order`(꺼내기 → 판단 맡기기 → 저장 → 결과)처럼 몇 줄로 읽혀야 한다. 시간 제한(`within_time_limit`), 글자 조각을 문장으로 모으기(`stream_sentences`) 같은 기술은 함수로 빼고 이름으로 부른다. 둘 다 뼈대의 `app/application/common/`에 있다.
-- 서비스가 쓰는 부품(답 만들기 창구, 가드레일, 시간 제한)은 생성자로 받아 필드로 둔다. 부품을 따로 묶은 값(`AgentContext` 같은 것)을 만들어 함수에 넘기지 않는다.
-- `/chat`은 `ChatUseCase`에만 의존한다. 조립 함수가 만든 서비스를 `app.state.chat`에 두고 꺼내 쓴다.
+- **서비스의 공개 메서드는 업무 단계만 적는다.** `OrderService.cancel_order`(꺼내기 → 판단 맡기기 → 저장 → 결과)처럼 몇 줄로 읽혀야 한다. 시간 제한(`TimeLimit`), 글자 조각을 문장으로 모으기(`SentenceSplitter`) 같은 기술은 클래스로 빼고 메서드 이름으로 부른다. 둘 다 뼈대의 `app/application/common/`에 있다.
+- 서비스가 쓰는 부품(답 만들기 창구, 가드레일, 시간 제한)은 생성자로 받아 필드로 둔다. 부품을 따로 묶은 값(`AgentContext` 같은 것)을 만들어 메서드에 넘기지 않는다.
+- 설정 값도 바꿔 끼울 구현도 없는 도우미(`SentenceSplitter`)는 받지 않고 생성자 안에서 만든다. 설정 값이 있는 `TimeLimit`은 `Container`가 만들어 넣는다.
+- `/chat`은 `ChatUseCase`에만 의존한다. 조립(`Container`)이 만든 서비스를 `app.state.chat`에 두고 꺼내 쓴다.
 - Command(`ChatCommand`)는 요청마다 새로 만드는 값(DTO)이고, 서비스는 서버 시작 때 한 번 만드는 객체다.
 
 ## 답 만들기 — AnswerGenerator 포트와 LangGraph 어댑터
@@ -240,11 +246,11 @@ class AnswerGenerator(Protocol):
 # app/infrastructure/agent/langgraph_answer_generator.py — 어댑터 (뼈대에 있다)
 class LangGraphAnswerGenerator(AnswerGenerator):
     def __init__(self, model: BaseChatModel, tools: Sequence[BaseTool], system_prompt: str) -> None:
-        self._agent = create_agent(..., middleware=[_raise_upstream_error_on_llm_failure])
+        self._agent = create_agent(..., middleware=[UpstreamErrorMiddleware()])
 
     async def stream(self, question: str) -> AsyncIterator[str]:
         async for message, _ in self._agent.astream(..., stream_mode="messages"):
-            text = _answer_text(message)       # 조각이든 완성된 답이든 글자만
+            text = self._answer_text(message)  # 조각이든 완성된 답이든 글자만
             if text:
                 yield text
 
@@ -267,19 +273,29 @@ async for text in self._answers.stream(checked.text):
 ## 조립 (app/container.py)
 
 ```python
-def build_chat_service(platform: Platform, timeout_seconds: float) -> ChatUseCase:
-    orders = OrderService(platform.orders, _read_utc_now)
-    answers = LangGraphAnswerGenerator(
-        model=platform.llm.chat_model(),
-        tools=build_order_tools(orders),           # 도구에는 OrderUseCase로 넘어간다
-        system_prompt=platform.prompts.get("system"),
-    )
-    return ChatService(answers, platform.guardrail, timeout_seconds)
+class Container:
+    """연결 창구 묶음과 설정으로 서비스를 조립한다. 서버 시작 때 한 번 만든다."""
+
+    def __init__(self, platform: Platform, settings: Settings) -> None:
+        self._platform = platform
+        self._settings = settings
+
+    def build_chat_service(self) -> ChatUseCase:
+        platform = self._platform
+        orders = OrderService(platform.orders, SystemClock())
+        answers = LangGraphAnswerGenerator(
+            model=platform.llm.chat_model(),
+            tools=OrderTools(orders).build(),          # 도구에는 OrderUseCase로 넘어간다
+            system_prompt=platform.prompts.get("system"),
+        )
+        time_limit = TimeLimit(self._settings.agent_timeout_seconds)
+        return ChatService(answers, platform.guardrail, time_limit)
 ```
 
-- 구현 → 기능 서비스 → 도구 → 답 만들기 어댑터 → 채팅 서비스 순서로 넣어 준다. 돌려주는 타입은 유스케이스(`ChatUseCase`)다. 조립 함수는 `container.py`에만 둔다. 서비스 구현을 아는 곳은 `container.py`뿐이다.
-- `main.py`의 `lifespan`이 `build_platform()`으로 구현 묶음을 만들고 조립 함수를 불러 결과를 `app.state`에 둔다.
-- 테스트는 가짜 구현 묶음을 같은 조립 함수에 넣는다. 테스트용 조립 코드를 따로 만들지 않는다.
+- 구현 → 기능 서비스 → 도구 → 답 만들기 어댑터 → 채팅 서비스 순서로 넣어 준다. 돌려주는 타입은 유스케이스(`ChatUseCase`)다. 서비스 구현을 아는 곳은 `container.py`의 `Container`뿐이다.
+- 만드는 서비스가 늘면 `build_<서비스>()` 메서드를 더한다. 조립 클래스를 따로 만들지 않는다.
+- `main.py`의 `lifespan`이 `Settings.from_env()`로 설정을, `Platform.from_settings()`로 구현 묶음을 만들고 `Container(platform, settings).build_chat_service()` 결과를 `app.state`에 둔다.
+- 테스트는 가짜 구현 묶음을 같은 `Container`에 넣는다. 테스트용 조립 코드를 따로 만들지 않는다.
 
 ## 예외 위치
 
@@ -291,7 +307,7 @@ def build_chat_service(platform: Platform, timeout_seconds: float) -> ChatUseCas
 | 한 레이어 안에서만 쓰는 예외 (예: `PlatformLoadError`) | 그 레이어 안 | 밖에서 구분할 일이 없다 |
 | 업무 예외 — 대상이 없을 때(`OrderNotFoundError`), 업무 규칙에 걸렸을 때(`OrderNotCancellableError`) | `app/domain/<기능>/` (도메인 객체 옆) | 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않는다 |
 | 외부 시스템(DB, 외부 API) 고장 | 포트 구현이 `UpstreamError`(`app/common/errors.py`)를 던진다 | 도구가 잡지 않는다. `UPSTREAM_ERROR`로 끝난다 |
-| 가드레일에 막혔을 때 던지는 예외 (`InputBlockedError`, `OutputBlockedError`) | `app/application/agent/errors.py` (뼈대) | `sse_response`가 잡아 입력 막힘은 안내 문구 답으로, 출력 막힘은 `BLOCKED` 이벤트로 바꾼다. 전역 핸들러까지 가지 않는다 |
+| 가드레일에 막혔을 때 던지는 예외 (`InputBlockedError`, `OutputBlockedError`) | `app/application/agent/errors.py` (뼈대) | `SseResponse`가 잡아 입력 막힘은 안내 문구 답으로, 출력 막힘은 `BLOCKED` 이벤트로 바꾼다. 전역 핸들러까지 가지 않는다 |
 | 예외 → 상태 코드·`code`·안내 문구 대응표, 전역 핸들러 | `app/presentation/errors.py` | HTTP 응답을 만드는 일이다 (`fastapi-conventions`) |
 | `code` 값(`ErrorCode`), 안내 문구 | `app/presentation/response/` | 호출하는 쪽에 보이는 응답의 일부다 |
 
@@ -313,7 +329,7 @@ class OrderNotFoundError(AppError):
 ```
 
 - 새 예외는 `AppError`나 그 하위 예외를 상속한다. 대응표에 없으면 가장 가까운 부모의 규칙으로 답한다.
-- **의도된 결과라도 흐름을 끝내는 것은 예외로 던지고, 가까운 곳에서 이름을 적어 잡는다** (취소 불가는 도구가, 입력·출력 막힘은 `sse_response`가). 값에 표시를 달아 넘기면 받는 쪽이 확인을 빠뜨려도 조용히 지나간다. 이런 예외는 오류가 아니므로 대응표(`ERROR_RULES`)에 넣지 않는다. 잡는 곳을 빠뜨리면 `INTERNAL_ERROR`로 드러난다.
+- **의도된 결과라도 흐름을 끝내는 것은 예외로 던지고, 가까운 곳에서 이름을 적어 잡는다** (취소 불가는 도구가, 입력·출력 막힘은 `SseResponse`가). 값에 표시를 달아 넘기면 받는 쪽이 확인을 빠뜨려도 조용히 지나간다. 이런 예외는 오류가 아니므로 대응표(`ERROR_RULES`)에 넣지 않는다. 잡는 곳을 빠뜨리면 `INTERNAL_ERROR`로 드러난다.
 
 ## 연결 창구 — 포트와 구현
 
@@ -332,7 +348,7 @@ class OrderNotFoundError(AppError):
 
 - 쓰지 않는 창구는 만들지 않는다. 설계 문서의 전체 아키텍처에 있는 것만 만든다.
 - 구현은 창구 종류마다 폴더 하나에 둔다: `infrastructure/agent/`, `llm/`, `persistence/<기능>/`(DB·메모리 저장소), `client/<기능>/`(외부 API를 부르는 구현), `prompt/`, `guardrail/`. 도구는 `infrastructure/tools/`.
-- **업무 기능의 나가는 포트(저장소, 외부 API)도 연결 창구다.** 기능이 생기면 `Platform`(`app/infrastructure/__init__.py`)에 칸을 더하고(예: `orders: OrderRepository`), 같은 변경에서 `local.py`의 `create_platform()`과 `tests/fakes.py`의 `fake_platform`도 고친다. 조립 함수는 `platform.orders`처럼 꺼내 서비스에 넣는다.
+- **업무 기능의 나가는 포트(저장소, 외부 API)도 연결 창구다.** 기능이 생기면 `Platform`(`app/infrastructure/__init__.py`)에 칸을 더하고(예: `orders: OrderRepository`), 같은 변경에서 `local.py`의 `LocalPlatformFactory`와 `tests/fakes.py`의 `fake_platform`도 고친다. `Container`는 `platform.orders`처럼 꺼내 서비스에 넣는다.
 - **구현 클래스는 포트를 괄호에 적는다** (`class InMemoryOrderRepository(OrderRepository):`). Java의 `implements`처럼 어떤 포트의 구현인지 드러나고 IDE에서 구현을 찾을 수 있다.
 - **포트의 메서드에는 본문을 넣지 않는다** (`...`만). 본문을 넣으면 구현 클래스가 그 동작을 물려받아 상속이 된다.
 - 운영 플랫폼용 구현은 공개 하네스에 없다. 사용자 스킬 폴더의 플랫폼 전용 스킬에 견본이 있으면 그것을 따른다.
@@ -362,18 +378,32 @@ class ConversationMemory(Protocol):
 - 운영 플랫폼의 `run-application.sh`에 `PLATFORM` 값을 적는다. 로컬에서는 비워 둔다.
 - **운영용 구현을 불러오지 못하면 오류를 내고 서버를 멈춘다.** 로컬 구현으로 조용히 바꾸지 않는다 (운영에서 가짜 답이 나가는 사고를 막는다).
 - 자동 감지(패키지가 있으면 운영용)는 쓰지 않는다.
-- 고르는 곳은 `app/infrastructure/__init__.py`의 `build_platform()` 한 곳이다. `main.py`가 서버 시작 때 한 번 부른다. `local.py`와 `<운영>.py`는 구현들을 모아 묶음(`Platform`)을 만드는 `create_platform()`을 둔다.
+- 고르는 곳은 `app/infrastructure/__init__.py`의 `Platform.from_settings()` 한 곳이다. `main.py`가 서버 시작 때 한 번 부른다.
+- `local.py`와 `<운영>.py`는 구현들을 모아 묶음(`Platform`)을 만드는 클래스(`PlatformFactory` 구현)를 두고, 그 인스턴스를 모듈의 `factory` 이름으로 내놓는다. `from_settings()`가 이 이름으로 찾는다.
 
 ```python
-def build_platform(settings: Settings | None = None) -> Platform:
-    """PLATFORM 환경 변수에 맞는 연결 창구 묶음을 만든다."""
-    settings = settings or load_settings()
-    name = settings.platform or "local"
-    try:
-        module = importlib.import_module(f"app.infrastructure.{name}")
-    except ImportError as e:
-        raise PlatformLoadError(f"연결 창구를 불러오지 못했다: PLATFORM={name}") from e
-    return module.create_platform(settings)
+# app/infrastructure/__init__.py
+@dataclass(frozen=True)
+class Platform:
+    ...
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> "Platform":
+        """PLATFORM 값에 맞는 구현 모듈의 factory로 연결 창구 묶음을 만든다."""
+        name = settings.platform or LOCAL
+        try:
+            module = importlib.import_module(f"app.infrastructure.{name}")
+        except ImportError as e:
+            raise PlatformLoadError(f"연결 창구를 불러오지 못했다: PLATFORM={name}") from e
+        factory: PlatformFactory = module.factory
+        return factory.create(settings)
+
+# app/infrastructure/local.py
+class LocalPlatformFactory(PlatformFactory):
+    def create(self, settings: Settings) -> Platform:
+        return Platform(llm=OpenAiCompatibleLlm(settings), ...)
+
+factory = LocalPlatformFactory()
 ```
 
 ## LLM과 코드의 역할 나누기
@@ -407,7 +437,8 @@ def build_platform(settings: Settings | None = None) -> Platform:
 |---|---|
 | 추상화 (인터페이스) | `typing.Protocol`로 모양을 정한다 (Java interface 역할). 상속하지 않아도 모양이 맞으면 된다 |
 | 의존성 역전 (DIP) | `application`은 자기 폴더의 Protocol(포트)에만 의존한다. 구현은 `infrastructure`에 있고 바깥에서 넣어 준다 |
-| 의존성 주입 | `app/container.py` 한 곳에서 구현을 골라 조립해 넘겨준다 (Spring이 해 주던 일을 직접). 함수 안에서 구현을 직접 만들지 않는다 |
+| 클래스가 기본 | 기능은 책임을 가진 클래스로 만든다. 모듈 함수는 프레임워크가 함수를 요구하는 곳만 쓴다 (`python-style`의 "클래스가 기본") |
+| 의존성 주입 | `app/container.py`의 `Container` 한 곳에서 구현을 골라 조립해 넘겨준다 (Spring이 해 주던 일을 직접). 클래스 안에서 구현을 직접 만들지 않는다. 설정 값도 바꿔 끼울 구현도 없는 도우미만 생성자 안에서 만든다 |
 | 캡슐화 | 밖에서 쓰지 않는 것은 `_`로 시작한다. 값 묶음은 `@dataclass(frozen=True)`. 내부 리스트는 복사본이나 `tuple`로 돌려준다 |
 | 다형성 | `isinstance` 분기가 반복되면 Protocol 구현을 나눈다 |
 | 조합 > 상속 | 기능을 상속으로 물려받지 않고, 필요한 객체를 인자로 받아서 쓴다 |
@@ -429,6 +460,6 @@ Python에는 `private`, `final`, `new`가 없다. Java 문법을 흉내 내지 �
 | 엔티티 | id를 가진 클래스. 상태는 의미 있는 메서드로만 바꾼다 |
 | 애그리거트 | 엔티티 묶음. 바깥은 루트를 통해서만 접근 |
 | 리포지토리 | `Protocol`은 `app/application/<기능>/port.py`에, 구현은 `app/infrastructure/persistence/<기능>/`에. 구현은 도메인 객체를 돌려주고, 서비스가 Result로 옮겨 담는다 |
-| 도메인 서비스 | 한 객체에 넣기 애매한 규칙을 담는 함수 |
+| 도메인 서비스 | 한 객체에 넣기 애매한 규칙을 담는 클래스 (예: `RefundPolicy`). 상태가 없어도 클래스로 둔다 |
 
 `app/domain/`은 LangChain, FastAPI, pydantic 같은 바깥 패키지를 import하지 않는다. 기능마다 `app/domain/<기능>/` 폴더를 둔다.
