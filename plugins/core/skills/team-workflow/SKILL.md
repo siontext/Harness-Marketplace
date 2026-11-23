@@ -14,6 +14,7 @@ description: 하네스 에이전트(designer, 구현 에이전트, 리뷰 에이
 | 리뷰·커밋 | `java-reviewer` (Java/Kotlin) / `python-reviewer` (Python) | java / python |
 | PR·문서 | `pr-docs` | core |
 
+- 무엇을 만들지(요구사항)가 아직 정리되지 않았으면 설계 전에 `requirements-definition`으로 사용자와 먼저 정한다. 한 주제씩 사용자 확인을 받아야 해서 서브에이전트에게 맡기지 않고 메인이 직접 진행한다.
 - 브레인스토밍·설계 단계에서는 `oop-principles`와 프로젝트 언어의 아키텍처 스킬(Java: `java:layered-architecture`, Python 에이전트: `python:agent-architecture`)을 참조한다.
 - 설계 문서 양식: 웹 백엔드 기능은 `design-doc`, AI 에이전트는 `agent-design-doc`.
 - 설계 방향이 정해지면 문서 작성은 `designer`에게 맡긴다.
