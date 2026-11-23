@@ -1,7 +1,7 @@
 """오류 응답의 안내 문구. 사용자에게 보이는 문구는 이 파일에만 둔다.
 
 예외 내용, 스택, 내부 주소를 넣지 않는다. 어떤 오류에 어떤 문구를 쓰는지는
-app/presentation/errors.py의 대응표가 정한다.
+app/presentation/exception/error_rule.py의 대응표(ErrorRuleBook)가 정한다.
 """
 
 INTERNAL_ERROR = "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."

@@ -12,7 +12,7 @@ from app.application.agent.errors import InputBlockedError, OutputBlockedError
 from app.common.errors import UpstreamError
 from app.presentation.response.sse_response import SseResponse
 
-HANDLER_LOGGER = "app.presentation.errors"
+FAILURE_LOGGER = "app.presentation.exception.failure_logger"
 SSE_LOGGER = "app.presentation.response.sse_response"
 
 Event = tuple[str, dict[str, str]]
@@ -126,12 +126,12 @@ def test_그_밖의_실패는_오류_대응표로_error를_보내고_스트리�
     client = _client(_sentences(then=UpstreamError("LLM 호출 실패: ConnectError")))
 
     # When
-    with caplog.at_level(logging.WARNING, logger=HANDLER_LOGGER):
+    with caplog.at_level(logging.WARNING, logger=FAILURE_LOGGER):
         events = _events(client)
 
     # Then
     (event,) = events
     assert event[0] == "error"
     assert event[1]["code"] == "UPSTREAM_ERROR"
-    (record,) = [r for r in caplog.records if r.name == HANDLER_LOGGER]
+    (record,) = [r for r in caplog.records if r.name == FAILURE_LOGGER]
     assert "스트리밍 중: error 이벤트로 응답" in record.getMessage()

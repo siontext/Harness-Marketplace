@@ -12,7 +12,8 @@ from fastapi import Request
 from fastapi.responses import StreamingResponse
 
 from app.application.agent.errors import InputBlockedError, OutputBlockedError
-from app.presentation.errors import ErrorRuleBook, FailureLogger
+from app.presentation.exception.error_rule import ErrorRuleBook
+from app.presentation.exception.failure_logger import FailureLogger
 from app.presentation.response import messages
 from app.presentation.response.error_code import ErrorCode
 from app.presentation.response.sse_event import SseEvent

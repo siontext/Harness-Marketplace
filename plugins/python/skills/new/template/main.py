@@ -13,7 +13,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.common.errors import AppError
 from app.infrastructure import Platform
 from app.infrastructure.settings import Settings
-from app.presentation.errors import GlobalExceptionHandler
+from app.presentation.exception.global_exception_handler import (
+    GlobalExceptionHandler,
+)
 from app.presentation.routes import router
 
 

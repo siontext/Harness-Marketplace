@@ -1,7 +1,7 @@
 from http import HTTPStatus
 
 from app.common.errors import AgentTimeoutError, AppError, UpstreamError
-from app.presentation.errors import ErrorRuleBook
+from app.presentation.exception.error_rule import ErrorRuleBook
 from app.presentation.response.error_code import ErrorCode
 
 
