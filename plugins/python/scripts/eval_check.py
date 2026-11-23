@@ -4,7 +4,7 @@
 프로젝트 폴더에서 프로젝트 가상환경으로 실행한다:
     .venv/bin/python <이 파일>
 
-연결 창구(app.infrastructure.build_platform)로 LLM을 가져오므로 .env 설정을 그대로 쓴다.
+연결 창구(app.infrastructure.Platform.from_settings)로 LLM을 가져오므로 .env 설정을 그대로 쓴다.
 키·주소는 출력하지 않는다.
 """
 import asyncio
@@ -15,7 +15,8 @@ sys.path.insert(0, str(Path.cwd()))
 
 from langchain_core.tools import tool  # noqa: E402
 
-from app.infrastructure import build_platform  # noqa: E402
+from app.infrastructure import Platform  # noqa: E402
+from app.infrastructure.settings import Settings  # noqa: E402
 
 
 @tool
@@ -29,7 +30,7 @@ def get_weather(city: str) -> str:
 
 
 async def main() -> int:
-    platform = build_platform()
+    platform = Platform.from_settings(Settings.from_env())
     model = platform.llm.chat_model()
     try:
         reply = await model.ainvoke("연결 확인입니다. '확인'이라고만 답하세요.")

@@ -3,18 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from app.infrastructure import Platform, PlatformLoadError, build_platform
+from app.infrastructure import Platform, PlatformLoadError
 from app.infrastructure.guardrail.pass_through import PassThroughGuardrail
 from app.infrastructure.llm.openai_compatible import OpenAiCompatibleLlm
 from app.infrastructure.prompt.file_prompt_store import (
     FilePromptStore,
     PromptNotFoundError,
 )
-from app.infrastructure.settings import (
-    DEFAULT_AGENT_TIMEOUT_SECONDS,
-    Settings,
-    load_settings,
-)
+from app.infrastructure.settings import DEFAULT_AGENT_TIMEOUT_SECONDS, Settings
 from tests.fakes import fake_settings
 
 
@@ -27,7 +23,7 @@ def test_env_파일_값을_읽고_환경_변수가_우선한다(
     monkeypatch.setenv("LLM_MODEL", "from-env")
 
     # When
-    settings = load_settings(env_file)
+    settings = Settings.from_env(env_file)
 
     # Then
     assert settings.llm_model == "from-env"
@@ -36,7 +32,7 @@ def test_env_파일_값을_읽고_환경_변수가_우선한다(
 
 def test_env_파일이_없으면_환경_변수만_쓴다(tmp_path: Path) -> None:
     # When
-    settings = load_settings(tmp_path / "없는파일")
+    settings = Settings.from_env(tmp_path / "없는파일")
 
     # Then
     assert isinstance(settings, Settings)
@@ -54,7 +50,7 @@ def test_시간_제한을_읽는다(
     monkeypatch.setenv("AGENT_TIMEOUT_SECONDS", raw)
 
     # When
-    settings = load_settings(tmp_path / "없는파일")
+    settings = Settings.from_env(tmp_path / "없는파일")
 
     # Then
     assert settings.agent_timeout_seconds == expected
@@ -69,12 +65,12 @@ def test_시간_제한이_숫자가_아니거나_0_이하면_서버가_뜨지_�
 
     # When / Then
     with pytest.raises(ValueError):
-        load_settings(tmp_path / "없는파일")
+        Settings.from_env(tmp_path / "없는파일")
 
 
 def test_PLATFORM이_비어_있으면_로컬_창구를_만든다() -> None:
     # When
-    platform = build_platform(fake_settings(platform=""))
+    platform = Platform.from_settings(fake_settings(platform=""))
 
     # Then
     assert isinstance(platform, Platform)
@@ -84,7 +80,7 @@ def test_PLATFORM이_비어_있으면_로컬_창구를_만든다() -> None:
 def test_없는_PLATFORM이면_로컬로_바꾸지_않고_오류를_낸다() -> None:
     # When / Then
     with pytest.raises(PlatformLoadError):
-        build_platform(fake_settings(platform="nowhere"))
+        Platform.from_settings(fake_settings(platform="nowhere"))
 
 
 def test_프롬프트_파일을_이름으로_읽는다(tmp_path: Path) -> None:
@@ -135,7 +131,7 @@ async def test_창구를_닫으면_등록한_닫기_함수를_모두_부른다()
         closed.append("done")
 
     # 칸 이름으로 바꿔 만든다. Platform에 업무 저장소 칸이 늘어도 깨지지 않는다.
-    platform = replace(build_platform(fake_settings()), closers=(close,))
+    platform = replace(Platform.from_settings(fake_settings()), closers=(close,))
 
     # When
     await platform.aclose()

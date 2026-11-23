@@ -3,6 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.infrastructure.settings import Settings
 from main import app
 from tests.fakes import fake_settings
 
@@ -11,7 +12,7 @@ def test_서버가_켜지고_꺼질_때_env를_읽지_않고_연결_창구를_�
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Given: .env 대신 가짜 설정. 로컬 창구를 만들지만 LLM은 부르지 않는다.
-    monkeypatch.setattr("main.load_settings", fake_settings)
+    monkeypatch.setattr(Settings, "from_env", fake_settings)
 
     # When: with로 열어야 lifespan이 돈다. 엔드포인트 테스트에서는 with를 쓰지 않는다.
     with TestClient(app) as client:

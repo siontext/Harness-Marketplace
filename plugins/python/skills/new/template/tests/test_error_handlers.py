@@ -7,11 +7,7 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field
 
 from app.common.errors import UpstreamError
-from app.presentation.errors import (
-    find_error_rule,
-    log_failure,
-    register_exception_handlers,
-)
+from app.presentation.errors import ErrorRuleBook, FailureLogger
 from main import app as real_app
 
 # 예외 메시지·요청 값에 심어 두고, 응답과 로그로 새는지 확인하는 표식.
@@ -24,9 +20,9 @@ class _ItemRequest(BaseModel):
 
 
 def _build_test_app() -> FastAPI:
-    """핸들러를 붙이고 일부러 오류를 내는 주소를 더한 테스트용 앱."""
+    """main.py에 등록한 핸들러를 그대로 가져오고, 일부러 오류를 내는 주소를 더한 앱."""
     test_app = FastAPI()
-    register_exception_handlers(test_app)
+    test_app.exception_handlers.update(real_app.exception_handlers)
 
     @test_app.get("/ok")
     async def ok() -> dict[str, str]:
@@ -235,7 +231,7 @@ def test_스트리밍_중_실패는_로그에_error_이벤트로_응답했다고
 
     # When
     with caplog.at_level(logging.WARNING, logger=HANDLER_LOGGER):
-        log_failure(request, find_error_rule(exc), exc, streaming=True)
+        FailureLogger().log(request, ErrorRuleBook().find(exc), exc, streaming=True)
 
     # Then
     (record,) = _handler_records(caplog)

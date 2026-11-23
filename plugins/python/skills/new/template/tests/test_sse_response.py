@@ -6,12 +6,11 @@ from collections.abc import AsyncIterator, Callable
 
 import pytest
 from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
 from app.application.agent.errors import InputBlockedError, OutputBlockedError
 from app.common.errors import UpstreamError
-from app.presentation.response.sse_response import sse_response
+from app.presentation.response.sse_response import SseResponse
 
 HANDLER_LOGGER = "app.presentation.errors"
 SSE_LOGGER = "app.presentation.response.sse_response"
@@ -20,12 +19,12 @@ Event = tuple[str, dict[str, str]]
 
 
 def _client(sentences: Callable[[], AsyncIterator[str]]) -> TestClient:
-    """문장 흐름 하나를 sse_response로 돌려주는 엔드포인트만 있는 앱."""
+    """문장 흐름 하나를 SseResponse로 돌려주는 엔드포인트만 있는 앱."""
     app = FastAPI()
 
     @app.post("/stream")
-    async def stream(request: Request) -> StreamingResponse:
-        return sse_response(sentences(), "c-1", request)
+    async def stream(request: Request) -> SseResponse:
+        return SseResponse(sentences(), "c-1", request)
 
     return TestClient(app)
 
