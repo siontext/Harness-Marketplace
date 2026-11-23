@@ -308,10 +308,10 @@ class Container:
 | 업무 예외 — 대상이 없을 때(`OrderNotFoundError`), 업무 규칙에 걸렸을 때(`OrderNotCancellableError`) | `app/domain/<기능>/` (도메인 객체 옆) | 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않는다 |
 | 외부 시스템(DB, 외부 API) 고장 | 포트 구현이 `UpstreamError`(`app/common/errors.py`)를 던진다 | 도구가 잡지 않는다. `UPSTREAM_ERROR`로 끝난다 |
 | 가드레일에 막혔을 때 던지는 예외 (`InputBlockedError`, `OutputBlockedError`) | `app/application/agent/errors.py` (뼈대) | `SseResponse`가 잡아 입력 막힘은 안내 문구 답으로, 출력 막힘은 `BLOCKED` 이벤트로 바꾼다. 전역 핸들러까지 가지 않는다 |
-| 예외 → 상태 코드·`code`·안내 문구 대응표, 전역 핸들러 | `app/presentation/errors.py` | HTTP 응답을 만드는 일이다 (`fastapi-conventions`) |
+| 예외 → 상태 코드·`code`·안내 문구 대응표, 전역 핸들러 | `app/presentation/exception/` (`ErrorRuleBook`, `GlobalExceptionHandler`) | HTTP 응답을 만드는 일이다 (`fastapi-conventions`) |
 | `code` 값(`ErrorCode`), 안내 문구 | `app/presentation/response/` | 호출하는 쪽에 보이는 응답의 일부다 |
 
-- 예외 클래스에 상태 코드나 `code`를 넣지 않는다. 대응은 `app/presentation/errors.py`의 표 한 곳에만 둔다.
+- 예외 클래스에 상태 코드나 `code`를 넣지 않는다. 대응은 `ErrorRuleBook`(`app/presentation/exception/error_rule.py`)의 표 한 곳에만 둔다.
 - **업무 예외는 대상 값을 생성자로 받아 메시지를 스스로 만든다.** 던지는 쪽은 값만 넘긴다. 문구가 예외 한 곳에만 있어 던지는 곳마다 달라지지 않고, 잡는 쪽은 값(`e.order_id`)을 속성으로 쓴다.
 
 ```python
@@ -329,7 +329,7 @@ class OrderNotFoundError(AppError):
 ```
 
 - 새 예외는 `AppError`나 그 하위 예외를 상속한다. 대응표에 없으면 가장 가까운 부모의 규칙으로 답한다.
-- **의도된 결과라도 흐름을 끝내는 것은 예외로 던지고, 가까운 곳에서 이름을 적어 잡는다** (취소 불가는 도구가, 입력·출력 막힘은 `SseResponse`가). 값에 표시를 달아 넘기면 받는 쪽이 확인을 빠뜨려도 조용히 지나간다. 이런 예외는 오류가 아니므로 대응표(`ERROR_RULES`)에 넣지 않는다. 잡는 곳을 빠뜨리면 `INTERNAL_ERROR`로 드러난다.
+- **의도된 결과라도 흐름을 끝내는 것은 예외로 던지고, 가까운 곳에서 이름을 적어 잡는다** (취소 불가는 도구가, 입력·출력 막힘은 `SseResponse`가). 값에 표시를 달아 넘기면 받는 쪽이 확인을 빠뜨려도 조용히 지나간다. 이런 예외는 오류가 아니므로 대응표(`ErrorRuleBook`)에 넣지 않는다. 잡는 곳을 빠뜨리면 `INTERNAL_ERROR`로 드러난다.
 
 ## 연결 창구 — 포트와 구현
 

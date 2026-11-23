@@ -1,6 +1,6 @@
 ---
 name: fastapi-conventions
-description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py(lifespan)와 app/presentation 파일 배치(routes·schemas·errors·response), /chat·/health, pydantic 요청·응답, 공통 응답 틀(ApiResponse·SseEvent·SseResponse), 전역 예외 핸들러(GlobalExceptionHandler)와 main.py 등록, 엔드포인트는 세 단계만, SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 app/presentation 코드를 작성하거나 리뷰할 때 참조.
+description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 FastAPI 창구 규칙 — main.py(lifespan)와 app/presentation 파일 배치(routes·schemas·exception·response), /chat·/health, pydantic 요청·응답, 공통 응답 틀(ApiResponse·SseEvent·SseResponse), 전역 예외 핸들러(GlobalExceptionHandler)와 main.py 등록, 엔드포인트는 세 단계만, SSE 스트리밍(기본)과 한 번에 응답(대안), 스트리밍 중 출력 가드레일, 오류 응답 통일, 시간 제한. main.py나 app/presentation 코드를 작성하거나 리뷰할 때 참조.
 ---
 
 # FastAPI Conventions
@@ -14,7 +14,9 @@ description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 Fast
 | `main.py` | 부트스트랩 — `FastAPI` 앱 만들기, `lifespan`, 전역 예외 핸들러 등록(어떤 예외를 어느 메서드가 잡는지), 라우터 붙이기. 엔드포인트나 모델을 직접 적지 않는다 |
 | `app/presentation/routes.py` | 엔드포인트 (`APIRouter`) |
 | `app/presentation/schemas.py` | 엔드포인트별 요청·응답 내용 (`ChatRequest`, `HealthStatus` 등). 공통 응답 틀은 두지 않는다 |
-| `app/presentation/errors.py` | 오류 규칙(`ErrorRule`), 예외 → 규칙 대응표, 규칙 찾기(`ErrorRuleBook`), 실패 로그(`FailureLogger`), 전역 예외 핸들러(`GlobalExceptionHandler`) |
+| `app/presentation/exception/error_rule.py` | `ErrorRule` — 오류 하나를 무엇으로 답할지 정한 값. `ErrorRuleBook` — 예외 → 규칙 대응표를 갖고 규칙을 찾는다 |
+| `app/presentation/exception/failure_logger.py` | `FailureLogger` — 실패 로그 |
+| `app/presentation/exception/global_exception_handler.py` | `GlobalExceptionHandler` — 전역 예외 핸들러 |
 | `app/presentation/response/api_response.py` | `ApiResponse` — JSON 응답의 공통 틀 |
 | `app/presentation/response/sse_event.py` | `SseEvent` — 스트리밍 이벤트 하나의 공통 틀 |
 | `app/presentation/response/sse_response.py` | `SseResponse` — 문장 흐름을 SSE 응답(`token`들 → `done`, 실패하면 `error`)으로 보내는 `StreamingResponse`. 뼈대에 있다 |
@@ -23,6 +25,7 @@ description: 에이전트를 앱·다른 서버가 부를 수 있게 여는 Fast
 
 - `app/presentation`은 `app/application`을 부르고, 그 반대는 금지다. `app/infrastructure`는 import하지 않는다 (`agent-architecture`).
 - 응답 틀은 종류마다 `app/presentation/response/`에 파일 하나로 둔다. 목록 조회가 생기면 `page_response.py`(`PageResponse`)를 더한다.
+- 전역 예외 처리는 `app/presentation/exception/`에 역할마다 파일 하나로 둔다 (아래 "전역 예외 처리 (app/presentation/exception/)"). 예외 클래스를 두는 `app/common/errors.py`와 섞지 않는다.
 
 ### 엔드포인트는 세 단계만
 
@@ -73,7 +76,7 @@ app.exception_handler(Exception)(handler.handle_unexpected)
 app.include_router(router)
 ```
 
-- **전역 예외 핸들러는 `main.py`에서 등록한다.** 등록은 "이 핸들러를 쓰겠다"는 연결이라 부트스트랩의 일이다. 핸들러 메서드 자체는 `app/presentation/errors.py`의 `GlobalExceptionHandler`에 둔다 (아래 "app/presentation/errors.py 안의 순서").
+- **전역 예외 핸들러는 `main.py`에서 등록한다.** 등록은 "이 핸들러를 쓰겠다"는 연결이라 부트스트랩의 일이다. 핸들러 메서드 자체는 `app/presentation/exception/global_exception_handler.py`의 `GlobalExceptionHandler`에 둔다 (아래 "전역 예외 처리 (app/presentation/exception/)").
 - 등록은 뼈대의 네 줄을 그대로 쓴다. `AppError`를 `Exception`과 따로 등록해야 응답 뒤에 예외가 다시 던져지지 않는다. 404·405는 Starlette의 `HTTPException`으로 등록해야 잡힌다.
 - 핸들러는 `app.exception_handler(<예외>)(<메서드>)`로 등록한다. `app.add_exception_handler`는 메서드의 예외 인자 타입 때문에 타입 검사에 걸린다.
 
@@ -218,7 +221,7 @@ yield SseEvent.done(conversation_id).encode()
 ```
 
 - `InputBlockedError`·`OutputBlockedError`는 `app/application/agent/errors.py`(뼈대에 있다)에 있고 가드레일이 준 안내 문구를 담는다. **문구가 비어 있으면 `SseResponse`가 `messages.INPUT_BLOCKED`·`messages.BLOCKED`를 쓴다.** 운영 플랫폼 가드레일이 문구 없이 막을 수 있어서, 채팅 서비스가 문구를 직접 내보내면 빈 답이 나갈 수 있다.
-- **두 예외를 오류 대응표(`ERROR_RULES`)에 넣지 않는다.** 막힌 것은 오류가 아니라서 상태 코드가 없다. LLM 실패 같은 오류와 같은 `except`에서 처리하지 않는다.
+- **두 예외를 오류 대응표(`ErrorRuleBook`)에 넣지 않는다.** 막힌 것은 오류가 아니라서 상태 코드가 없다. LLM 실패 같은 오류와 같은 `except`에서 처리하지 않는다.
 - 로그에는 막혔다는 사실만 남기고 막힌 내용은 남기지 않는다.
 - 한 번에 응답 방식에서는 엔드포인트가 두 예외를 잡아 안내 문구(비면 기본 문구)를 정상 답(200)으로 돌려준다.
 
@@ -245,10 +248,10 @@ class ChatResponse(BaseModel):
 | LLM·외부 시스템 오류 | 502 (스트리밍 중이면 `error` 이벤트) | `UPSTREAM_ERROR` |
 | 그 밖의 오류 | 500 | `INTERNAL_ERROR` |
 
-- 오류 본문은 항상 `ApiResponse` 실패 모양(`{"code": "...", "message": "...", "data": null}`)이다. 전역 예외 핸들러(`app/presentation/errors.py`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
-- 예외 클래스는 `app/common/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `app/presentation/errors.py`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
+- 오류 본문은 항상 `ApiResponse` 실패 모양(`{"code": "...", "message": "...", "data": null}`)이다. 전역 예외 핸들러(`GlobalExceptionHandler`) 한곳에서 만든다. 엔드포인트에서 예외를 잡아 오류 응답을 직접 만들지 않는다.
+- 예외 클래스는 `app/common/errors.py`에 두고 상태 코드를 넣지 않는다. 어떤 예외를 어떤 상태 코드·`code`로 답할지는 `ErrorRuleBook`의 대응표에만 적는다 (`agent-architecture`의 "예외 위치").
 - 스트리밍이 시작된 뒤의 예외는 전역 핸들러가 응답을 바꾸지 못한다. `SseResponse`가 `except Exception`으로 잡아 `error` 이벤트로 보내고, `code`·`message`는 같은 대응표(`ErrorRuleBook.find`)에서 가져온다.
-- 스트리밍 중 실패의 로그는 `app/presentation/errors.py`의 `FailureLogger.log(request, rule, exc, streaming=True)`로 남긴다. 전역 핸들러와 같은 클래스라 로그 규칙이 한곳에 있다. 로그 코드를 `routes.py`에 따로 짜지 않는다.
+- 스트리밍 중 실패의 로그는 `FailureLogger.log(request, rule, exc, streaming=True)`로 남긴다. 전역 핸들러와 같은 클래스라 로그 규칙이 한곳에 있다. 로그 코드를 `routes.py`에 따로 짜지 않는다.
 - LLM 호출 실패는 에이전트 쪽에서 `UpstreamError`로 바꿔 던진다 (`langgraph-conventions`의 "LLM 호출 실패 → UpstreamError"). 바꾸지 않으면 `INTERNAL_ERROR`로 나간다.
 - 도구가 부르는 외부 시스템(DB, 외부 API)의 고장도 같다. 포트 구현이 `UpstreamError`를 던지고, 도구는 잡지 않는다. 그래서 `UPSTREAM_ERROR`로 끝난다 (`agent-architecture`의 "예외 위치").
 - 위 표에 없는 `code`를 새로 만들지 않는다. 필요하면 설계 문서 결정 섹션에 적고 사용자에게 확인한다.
@@ -256,19 +259,25 @@ class ChatResponse(BaseModel):
 - 안내 문구는 `app/presentation/response/messages.py`에 상수로 모은다. 규칙이나 핸들러 안에 문장을 직접 적지 않는다.
 - 가드레일에 막힌 것은 오류가 아니다. 한 번에 응답이면 정상 답으로 안내 문구를 보낸다. 스트리밍 중 출력 검사에 막히면 이미 시작된 응답을 끝내야 해서 `BLOCKED` 이벤트를 쓴다. 알리는 방법은 위 "막혔을 때 알리는 방법"을 따른다.
 
-### app/presentation/errors.py 안의 순서
+### 전역 예외 처리 (app/presentation/exception/)
 
-규칙 값(대응표)을 묶음별로 모아 구분 주석(`# ── 이름 ──`)을 달고, 그 아래에 클래스를 둔다.
-
-| 순서 | 묶음 | 들어가는 것 |
+| 파일 | 클래스 | 하는 일 |
 |---|---|---|
-| 1 | 오류 규칙 | `ErrorRule` (상태 코드·`code`·안내 문구 값, `to_response()`), `NO_BODY_STATUS_CODES` |
-| 2 | 예상하지 못한 오류 (기본값) | `INTERNAL_ERROR_RULE` |
-| 3 | 우리가 만든 예외 | `ERROR_RULES` (예외 클래스 → 규칙) |
-| 4 | FastAPI가 던지는 예외 | `INVALID_REQUEST_RULE`, `HTTP_CLIENT_ERROR_MESSAGES` |
-| 5 | 규칙 찾기 | `ErrorRuleBook` (`find`, `find_for_status`) |
-| 6 | 실패 로그 | `FailureLogger` (`log`, `log_invalid_request`) |
-| 7 | 전역 예외 핸들러 | `GlobalExceptionHandler` — 예외 종류마다 메서드 하나 |
+| `error_rule.py` | `ErrorRule` | 오류 하나를 무엇으로 답할지 정한 값 (상태 코드·`code`·안내 문구). `to_response()`로 응답이 된다 |
+| `error_rule.py` | `ErrorRuleBook` | 예외 → 규칙 대응표를 갖고, 올라온 예외에 맞는 규칙을 찾는다 |
+| `failure_logger.py` | `FailureLogger` | 실패를 로그에 남긴다 (`log`, `log_invalid_request`) |
+| `global_exception_handler.py` | `GlobalExceptionHandler` | 예외 종류마다 메서드 하나로 답한다 |
+
+`ErrorRuleBook`의 대응표는 클래스 상수로 두고, 묶음마다 구분 주석(`# ── 이름 ──`)을 단다.
+
+| 순서 | 묶음 | 상수 | 묻는 메서드 |
+|---|---|---|---|
+| 1 | 예상하지 못한 오류 (기본값) | `_INTERNAL_ERROR_RULE` | `find_for_unexpected()`, `find()`의 기본값 |
+| 2 | 우리가 만든 예외 | `_ERROR_RULES` (예외 클래스 → 규칙) | `find(exc)` |
+| 3 | FastAPI가 던지는 예외 | `_INVALID_REQUEST_RULE`, `_HTTP_CLIENT_ERROR_MESSAGES` | `find_for_invalid_request()`, `find_for_status(status_code)` |
+
+- **대응표는 `ErrorRuleBook`만 갖는다.** 모듈 전역에 두지 않고 `ErrorRuleBook`의 클래스 상수(`ClassVar`, `_` 접두사)로 둔다. 핸들러와 `SseResponse`는 표를 직접 꺼내지 않고 `ErrorRuleBook`의 `find` 메서드로 묻는다.
+- 같은 이유로 본문을 실을 수 없는 상태 코드(`_NO_BODY_STATUS_CODES`)는 `ErrorRule`에, 스트리밍 중 실패 표시(`_STREAMING_LOG_SUFFIX`)는 `FailureLogger`에 둔다.
 
 | `GlobalExceptionHandler` 메서드 | 맡는 예외 | 답 |
 |---|---|---|
@@ -278,8 +287,8 @@ class ChatResponse(BaseModel):
 | `handle_unexpected` | 그 밖의 모든 예외 | 500 · `INTERNAL_ERROR` |
 
 - **핸들러는 `GlobalExceptionHandler` 클래스 하나에 두고, 예외 종류 하나에 메서드 하나를 둔다.** 메서드 이름과 독스트링으로 어떤 예외를 맡는지 보인다 (Kotlin의 `@RestControllerAdvice` `GlobalExceptionHandler`와 같은 모양). 어느 메서드가 어떤 예외를 잡는지는 `main.py`에서 등록한다.
-- 메서드에 상태 코드·`code`·안내 문구를 적지 않는다. 규칙은 대응표에서 찾고(`ErrorRuleBook`), 응답은 규칙이 만든다(`ErrorRule.to_response()`).
-- 우리가 만든 예외는 `handle_app_error` 하나가 맡는다. 예외가 늘어도 대응표에 한 줄만 더한다. 응답 말고 다른 일(알림 등)을 해야 하는 예외가 생기면 그 예외의 메서드를 더하고 `main.py`에 등록한다.
+- 메서드에 상태 코드·`code`·안내 문구를 적지 않는다. 규칙은 `ErrorRuleBook`에 묻고, 응답은 규칙이 만든다(`ErrorRule.to_response()`).
+- 우리가 만든 예외는 `handle_app_error` 하나가 맡는다. 예외가 늘어도 `_ERROR_RULES`에 한 줄만 더한다. 응답 말고 다른 일(알림 등)을 해야 하는 예외가 생기면 그 예외의 메서드를 더하고 `main.py`에 등록한다.
 - `ErrorRuleBook`·`FailureLogger`는 설정 값도 바꿔 끼울 구현도 없어서 `GlobalExceptionHandler`와 `SseResponse`가 생성자 안에서 만든다.
 
 ### 새 예외를 추가할 때
@@ -289,7 +298,7 @@ class ChatResponse(BaseModel):
 | 1 | `app/common/errors.py` | 예외 클래스 (`AppError`나 그 하위 예외를 물려받는다) |
 | 2 | `app/presentation/response/error_code.py` | `code` 값 |
 | 3 | `app/presentation/response/messages.py` | 안내 문구 |
-| 4 | `app/presentation/errors.py`의 `ERROR_RULES` | 예외 클래스 → `ErrorRule(상태 코드, code, 안내 문구)` |
+| 4 | `app/presentation/exception/error_rule.py`의 `ErrorRuleBook._ERROR_RULES` | 예외 클래스 → `ErrorRule(상태 코드, code, 안내 문구)` |
 
 - 응답이 기존 예외와 같고 로그에서만 구분하면 되는 예외는 1번만 한다. 표에 없는 하위 예외는 가장 가까운 부모의 규칙을 따른다.
 - 던지는 쪽(도메인, 서비스, 에이전트, 포트 구현)은 예외 클래스만 쓴다: `raise UpstreamError("상품 조회 실패: id=123")`. 규칙 값이나 `ErrorCode`를 가져다 쓰지 않는다.

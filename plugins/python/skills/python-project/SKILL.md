@@ -22,7 +22,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 ├── app/
 │   ├── common/              모든 계층이 같이 쓰는 것 — errors.py(공통 예외). 표준 라이브러리만
 │   ├── container.py         조립(Container) — 구현을 골라 서비스·도구·에이전트에 넣어 주기
-│   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), errors.py(GlobalExceptionHandler·오류 대응표)
+│   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), exception/(전역 예외 핸들러·오류 대응표·실패 로그)
 │   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, SseResponse, ErrorCode, 안내 문구
 │   ├── application/
 │   │   ├── common/          기능의 규칙 없이 쓰는 기술 도우미 — time_limit.py(TimeLimit), sentences.py(SentenceSplitter)
