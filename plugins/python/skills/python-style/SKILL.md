@@ -63,6 +63,22 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 - **한 메서드 안의 문장은 같은 높이로 적는다 (추상화 수준 통일, SLAP).** 업무 단계(검사한다, 저장한다)와 기술 세부(`asyncio` 사용법, 정규식 반복, 재시도 반복)를 한 메서드에 섞지 않는다. 기술 세부는 이름 붙은 메서드나 도우미 클래스(`TimeLimit`)로 빼고 그 이름으로 부른다.
 - **기본값에 리스트·딕셔너리 같은 변하는 값 금지.** `def f(items: list[str] = [])` ✕ → `items: list[str] | None = None` 후 안에서 만든다.
 
+### 클래스 안 배치 순서
+
+위에서 아래로 읽으면 "무엇을 하는 클래스인지 → 어떻게 하는지" 순서가 되게 놓는다 (내려가기 규칙, Stepdown Rule). Java 클래스의 배치와 같다.
+
+| 순서 | 무엇 | 예 |
+|---|---|---|
+| 1 | 상수, 필드 (Enum 값 포함) | `name: str`, `GWA_WA = ("과", "와")` |
+| 2 | 생성자와 만들어질 때 도는 검사, 생성 메서드 | `__init__`, `__post_init__`, `of()`, `from_order()` |
+| 3 | 공개 메서드. 그 클래스의 핵심 동작부터 | `cancel()`, `fill()` |
+| 4 | 값만 돌려주는 공개 메서드와 프로퍼티 (getter 성격) | `items`, `list_forms()` |
+| 5 | 비공개 메서드. 부르는 순서대로 | `_replace()`, `_has_final_consonant()` |
+
+- 핵심 동작이 값만 돌려주는 메서드보다 아래에 있으면 안 된다.
+- 비공개 메서드를 공개 메서드 사이에 끼우지 않는다. 공개 메서드를 다 읽으면 그 클래스가 하는 일이 보여야 한다.
+- 모듈 수준 상수는 import 다음, 클래스 앞에 둔다.
+
 ## 타입 표시
 
 - **모든 메서드·함수**의 인자와 반환값에 타입을 적는다. 반환이 없으면 `-> None`.
@@ -94,7 +110,7 @@ class Money:
 
     def __post_init__(self) -> None:
         if self.amount < 0:
-            raise InvalidMoneyError(f"금액은 0 이상이어야 한다: amount={self.amount}")
+            raise InvalidMoneyError(self.amount)  # 문구는 예외가 만든다
 ```
 
 ## 예외 처리
@@ -107,7 +123,30 @@ class Money:
   - `SseResponse`가 `error` 이벤트로 바꾸는 곳 (`fastapi-conventions`). 스트리밍이 시작된 뒤에는 전역 핸들러가 잡지 못해 여기가 마지막 경계다.
 - 예외를 바꿔 던질 때는 원인을 잇는다: `raise ProductLookupError(...) from e`.
 - 예외 메시지에 맥락을 넣는다 (예: `"상품을 찾을 수 없다: product_id=P001"`). 키·개인정보는 넣지 않는다.
-- **업무 예외는 대상 값을 생성자로 받아 메시지를 스스로 만든다.** 던지는 쪽은 `raise ProductNotFoundError(product_id)`처럼 값만 넘긴다. 문구를 던지는 곳마다 적지 않는다 (`agent-architecture`의 "예외 위치").
+- **프로젝트가 만든 예외는 대상 값을 받아 메시지를 스스로 만든다.** 던지는 쪽은 `raise ProductNotFoundError(product_id)`처럼 값만 넘긴다. 문구를 던지는 곳마다 적지 않는다 (`agent-architecture`의 "예외 위치"). `raise SomeError(f"… {값}")`처럼 던지는 자리에서 문구를 조립하면 위반이다.
+- **이유가 여러 개인 예외는 이유마다 생성 메서드(`@classmethod`)를 둔다.** 잡는 쪽이 이유를 구분해 다르게 처리하지 않으면 클래스를 이유 수만큼 늘리지 않는다. 문구는 생성 메서드 안에만 적는다.
+
+```python
+class SetupError(AppError):
+    """설정이 비었거나 틀렸을 때."""
+
+    @classmethod
+    def blank_value(cls, key: str) -> "SetupError":
+        return cls(f"설정값이 비었다: key={key}")
+
+    @classmethod
+    def unknown_source(cls, source: str) -> "SetupError":
+        return cls(f"모르는 저장소 종류다: source={source}")
+
+
+raise SetupError.blank_value("LLM_GATEWAY.URL")   # 던지는 쪽은 값만 넘긴다
+```
+
+| 경우 | 모양 |
+|---|---|
+| 이유가 하나 | 생성자가 값을 받는다 — `raise OrderNotFoundError(order_id)` |
+| 이유가 여러 개, 잡는 쪽이 구분하지 않음 | 이유별 생성 메서드 — `raise SetupError.blank_value(key)` |
+| 이유가 여러 개, 잡는 쪽이 구분해 다르게 처리 | 이유마다 하위 예외 클래스 |
 
 ```python
 class ProductNotFoundError(AppError):

@@ -103,6 +103,8 @@ skills:
   - 포트와 유스케이스가 `ABC`이고 모든 메서드에 `@abstractmethod`가 있으며 본문이 없다. 구현 클래스(테스트용 가짜 포함)가 포트를 괄호에 적어 상속하고, 구현하거나 덮어쓴 메서드에 `@override`(`typing_extensions`)가 있다. 어댑터 이름이 `Adapter`로 끝나고 파일 이름이 클래스 이름과 같다 (`agent-architecture`의 "연결 창구")
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — 포트(ABC) 의존, `Container` 조립, frozen dataclass, 조합 우선
 - **클래스가 기본** (`python-style`의 "클래스가 기본") — `app/`에 모듈 수준 함수가 없다 (FastAPI 엔드포인트와 `lifespan`만 예외). 도우미가 클래스의 비공개 메서드다. 정적 메서드만 모은 클래스가 없다. 오류 대응표가 모듈 전역이 아니라 `ErrorRuleBook` 안에 있다. 의존하는 동작을 함수(`Callable`)로 받지 않고 포트로 받는다. 미들웨어가 `AgentMiddleware` 클래스다
+- **예외 문구** (`python-style`의 "예외 처리") — 프로젝트가 만든 예외가 값을 받아 메시지를 스스로 만드는가. 던지는 자리에서 문구를 조립(`raise SomeError(f"…")`)하지 않는가. 이유가 여러 개인 예외는 이유별 생성 메서드를 두었는가
+- **클래스 안 배치 순서** (`python-style`의 "클래스 안 배치 순서") — 상수·필드 → 생성자·생성 메서드 → 공개 메서드(핵심 동작부터) → 값만 돌려주는 메서드·프로퍼티 → 비공개 메서드(부르는 순서) 순서인가. 비공개 메서드가 공개 메서드 사이에 끼어 있지 않은가
 - **서비스 메서드의 높이** (`python-style`의 "같은 높이로", `agent-architecture`의 "채팅 기능") — 서비스의 공개 메서드가 업무 단계만 적혀 있는가. 시간 제한·문장 나누기 같은 기술 세부가 섞여 있지 않고, 시간 제한은 뼈대의 `TimeLimit`, 문장 나누기는 `SentenceSplitter`를 쓰는가
 - **엔드포인트** (`fastapi-conventions`의 "엔드포인트는 세 단계만") — 엔드포인트 함수가 요청 → Command, 유스케이스 부르기, 응답 틀에 담기만 하는가. SSE 이벤트 만들기·`try/except`·실패 로그를 직접 적지 않고 `SseResponse`를 쓰는가
 - **응답 틀** (`fastapi-conventions`) — `/health`를 뺀 JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/presentation/response/messages.py`에 있다

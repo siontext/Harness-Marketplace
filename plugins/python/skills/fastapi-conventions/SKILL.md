@@ -301,7 +301,7 @@ class ChatResponse(BaseModel):
 | 4 | `app/presentation/exception/error_rule.py`의 `ErrorRuleBook._ERROR_RULES` | 예외 클래스 → `ErrorRule(상태 코드, code, 안내 문구)` |
 
 - 응답이 기존 예외와 같고 로그에서만 구분하면 되는 예외는 1번만 한다. 표에 없는 하위 예외는 가장 가까운 부모의 규칙을 따른다.
-- 던지는 쪽(도메인, 서비스, 에이전트, 포트 구현)은 예외 클래스만 쓴다: `raise UpstreamError("상품 조회 실패: id=123")`. 규칙 값이나 `ErrorCode`를 가져다 쓰지 않는다.
+- 던지는 쪽(도메인, 서비스, 에이전트, 포트 구현)은 예외 클래스만 쓰고 값만 넘긴다: `raise UpstreamError.product_lookup_failed(product_id)`. 규칙 값이나 `ErrorCode`를 가져다 쓰지 않는다.
 - 업무 예외(대상 없음, 규칙에 걸림)는 `app/domain/<기능>/`에 두고 도구가 잡아 문장으로 바꾼다. 전역 핸들러까지 가지 않으므로 예외 클래스만 `app/domain/<기능>/`에 만들고 2~4번은 하지 않는다.
 
 ## 시간 제한

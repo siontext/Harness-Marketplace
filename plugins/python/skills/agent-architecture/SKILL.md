@@ -323,7 +323,7 @@ class Container:
 | `code` 값(`ErrorCode`), 안내 문구 | `app/presentation/response/` | 호출하는 쪽에 보이는 응답의 일부다 |
 
 - 예외 클래스에 상태 코드나 `code`를 넣지 않는다. 대응은 `ErrorRuleBook`(`app/presentation/exception/error_rule.py`)의 표 한 곳에만 둔다.
-- **업무 예외는 대상 값을 생성자로 받아 메시지를 스스로 만든다.** 던지는 쪽은 값만 넘긴다. 문구가 예외 한 곳에만 있어 던지는 곳마다 달라지지 않고, 잡는 쪽은 값(`e.order_id`)을 속성으로 쓴다.
+- **프로젝트가 만든 예외는 대상 값을 받아 메시지를 스스로 만든다.** 던지는 쪽은 값만 넘긴다. 문구가 예외 한 곳에만 있어 던지는 곳마다 달라지지 않고, 잡는 쪽은 값(`e.order_id`)을 속성으로 쓴다. 이유가 여러 개인 예외(`UpstreamError` 등)는 이유마다 생성 메서드를 둔다 — `raise UpstreamError.llm_call_failed(type(e).__name__)` (`python-style`의 "예외 처리").
 
 ```python
 # app/domain/order/order.py
@@ -416,7 +416,7 @@ class Platform:
         try:
             module = importlib.import_module(f"app.infrastructure.{name}")
         except ImportError as e:
-            raise PlatformLoadError(f"연결 창구를 불러오지 못했다: PLATFORM={name}") from e
+            raise PlatformLoadError(name) from e
         factory: PlatformFactory = module.factory
         return factory.create(settings)
 

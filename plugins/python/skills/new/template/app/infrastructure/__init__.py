@@ -18,7 +18,15 @@ LOCAL = "local"
 
 
 class PlatformLoadError(RuntimeError):
-    """PLATFORM 값에 맞는 연결 창구를 불러오지 못했을 때."""
+    """PLATFORM 값에 맞는 연결 창구를 불러오지 못했을 때.
+
+    Attributes:
+        platform: 불러오지 못한 PLATFORM 값.
+    """
+
+    def __init__(self, platform: str) -> None:
+        super().__init__(f"연결 창구를 불러오지 못했다: PLATFORM={platform}")
+        self.platform = platform
 
 
 @dataclass(frozen=True)
@@ -48,9 +56,7 @@ class Platform:
         try:
             module = importlib.import_module(f"app.infrastructure.{name}")
         except ImportError as e:
-            raise PlatformLoadError(
-                f"연결 창구를 불러오지 못했다: PLATFORM={name}"
-            ) from e
+            raise PlatformLoadError(name) from e
         factory: PlatformFactory = module.factory
         return factory.create(settings)
 

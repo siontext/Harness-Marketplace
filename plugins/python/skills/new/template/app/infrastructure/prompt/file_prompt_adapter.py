@@ -11,7 +11,15 @@ PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
 
 
 class PromptNotFoundError(LookupError):
-    """요청한 이름의 프롬프트 파일이 없을 때."""
+    """요청한 이름의 프롬프트 파일이 없을 때.
+
+    Attributes:
+        file_name: 찾지 못한 파일 이름.
+    """
+
+    def __init__(self, file_name: str) -> None:
+        super().__init__(f"프롬프트 파일이 없다: {file_name}")
+        self.file_name = file_name
 
 
 class FilePromptAdapter(PromptStore):
@@ -24,5 +32,5 @@ class FilePromptAdapter(PromptStore):
     def get(self, name: str) -> str:
         path = self._prompt_dir / f"{name}.md"
         if not path.is_file():
-            raise PromptNotFoundError(f"프롬프트 파일이 없다: {path.name}")
+            raise PromptNotFoundError(path.name)
         return path.read_text(encoding="utf-8")

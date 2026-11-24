@@ -15,7 +15,7 @@ class _OrderRuleError(AppError):
 
 def test_UpstreamError는_502와_UPSTREAM_ERROR로_바뀐다() -> None:
     # Given
-    exc = UpstreamError("LLM 호출 실패: model=test-model")
+    exc = UpstreamError.llm_call_failed("model=test-model")
 
     # When
     rule = ErrorRuleBook().find(exc)
@@ -30,7 +30,7 @@ def test_UpstreamError는_502와_UPSTREAM_ERROR로_바뀐다() -> None:
 
 def test_AgentTimeoutError는_504와_TIMEOUT으로_바뀐다() -> None:
     # Given
-    exc = AgentTimeoutError("에이전트 실행 시간 초과")
+    exc = AgentTimeoutError(30.0)
 
     # When
     rule = ErrorRuleBook().find(exc)
