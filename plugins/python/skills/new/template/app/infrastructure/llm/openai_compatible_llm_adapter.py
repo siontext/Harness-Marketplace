@@ -9,7 +9,7 @@ from app.infrastructure.llm.port import LlmProvider
 from app.infrastructure.settings import Settings
 
 
-class OpenAiCompatibleLlm(LlmProvider):
+class OpenAiCompatibleLlmAdapter(LlmProvider):
     """.env의 OpenAI 호환 API로 채팅 모델을 만든다."""
 
     def __init__(self, settings: Settings) -> None:

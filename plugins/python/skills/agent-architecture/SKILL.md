@@ -146,7 +146,7 @@ class OrderUseCase(ABC):
 # app/application/order/port.py
 class Clock(ABC):
     @abstractmethod
-    def now(self) -> datetime: ...              # 구현: infrastructure/clock/system_clock.py
+    def now(self) -> datetime: ...              # 구현: infrastructure/clock/system_clock_adapter.py
 
 # app/application/order/service.py
 class OrderService(OrderUseCase):
@@ -253,8 +253,8 @@ class AnswerGenerator(ABC):
     @abstractmethod
     def stream(self, question: str) -> AsyncIterator[str]: ...
 
-# app/infrastructure/agent/langgraph_answer_generator.py — 어댑터 (뼈대에 있다)
-class LangGraphAnswerGenerator(AnswerGenerator):
+# app/infrastructure/agent/langgraph_answer_adapter.py — 어댑터 (뼈대에 있다)
+class LangGraphAnswerAdapter(AnswerGenerator):
     def __init__(self, model: BaseChatModel, tools: Sequence[BaseTool], system_prompt: str) -> None:
         self._agent = create_agent(..., middleware=[UpstreamErrorMiddleware()])
 
@@ -278,7 +278,7 @@ async for text in self._answers.stream(checked.text):
 | LLM 호출 실패 | LLM 라이브러리의 예외 | `UpstreamError` |
 
 - **어댑터는 조각(`AIMessageChunk`)과 완성된 답(`AIMessage`)을 둘 다 받는다.** LLM이 조각 보내기를 지원하지 않거나 꺼져 있으면 완성된 답 하나만 온다. 조각만 받으면 이때 빈 답이 나간다.
-- 뼈대의 `LangGraphAnswerGenerator`를 그대로 쓴다. 새로 만들지 않는다. `StateGraph`로 만드는 에이전트는 같은 `AnswerGenerator`를 구현하는 어댑터를 `infrastructure/agent/`에 더한다.
+- 뼈대의 `LangGraphAnswerAdapter`를 그대로 쓴다. 새로 만들지 않는다. `StateGraph`로 만드는 에이전트는 같은 `AnswerGenerator`를 구현하는 어댑터를 `infrastructure/agent/`에 더한다.
 - `application`에서 LangChain·LangGraph를 import하면 위반이다.
 
 ## 조립 (app/container.py)
@@ -293,8 +293,8 @@ class Container:
 
     def build_chat_service(self) -> ChatUseCase:
         platform = self._platform
-        orders = OrderService(platform.orders, SystemClock())
-        answers = LangGraphAnswerGenerator(
+        orders = OrderService(platform.orders, SystemClockAdapter())
+        answers = LangGraphAnswerAdapter(
             model=platform.llm.chat_model(),
             tools=OrderTools(orders).build(),          # 도구에는 OrderUseCase로 넘어간다
             system_prompt=platform.prompts.get("system"),
@@ -361,7 +361,14 @@ class OrderNotFoundError(AppError):
 - 구현은 창구 종류마다 폴더 하나에 둔다: `infrastructure/agent/`, `llm/`, `persistence/<기능>/`(DB·메모리 저장소), `client/<기능>/`(외부 API를 부르는 구현), `prompt/`, `guardrail/`. 도구는 `infrastructure/tools/`.
 - **업무 기능의 나가는 포트(저장소, 외부 API)도 연결 창구다.** 기능이 생기면 `Platform`(`app/infrastructure/__init__.py`)에 칸을 더하고(예: `orders: OrderRepository`), 같은 변경에서 `local.py`의 `LocalPlatformFactory`와 `tests/fakes.py`의 `fake_platform`도 고친다. `Container`는 `platform.orders`처럼 꺼내 서비스에 넣는다.
 - **포트는 `abc.ABC`를 상속하고 모든 메서드에 `@abstractmethod`를 붙인다.** Java의 `interface` 역할이다. 구현 클래스가 메서드를 빠뜨리면 객체를 만들 때 `TypeError`가 난다.
-- **구현 클래스는 포트를 괄호에 적어 상속한다** (`class InMemoryOrderRepository(OrderRepository):`). Java의 `implements`처럼 어떤 포트의 구현인지 드러나고 IDE에서 구현을 찾을 수 있다. 상속하지 않으면 메서드 모양이 같아도 타입 검사에 걸린다. 테스트용 가짜 클래스도 포트를 상속한다.
+- **구현 클래스는 포트를 괄호에 적어 상속한다** (`class InMemoryOrderAdapter(OrderRepository):`). Java의 `implements`처럼 어떤 포트의 구현인지 드러나고 IDE에서 구현을 찾을 수 있다. 상속하지 않으면 메서드 모양이 같아도 타입 검사에 걸린다. 테스트용 가짜 클래스도 포트를 상속한다.
+- **어댑터(포트 구현 클래스) 이름은 `Adapter`로 끝낸다.** Java 하네스(`java:layered-architecture`)와 같다. 이름만 봐도 어댑터인 것이 보인다. 파일 이름은 클래스 이름을 그대로 옮긴다 (`InMemoryOrderAdapter` → `in_memory_order_adapter.py`). 포트 이름(`OrderRepository`, `LlmProvider`)에는 `Adapter`를 붙이지 않는다. 테스트용 가짜는 어댑터가 아니므로 `Fake<포트 이름>`으로 둔다 (`FakeLlmProvider`).
+
+| 경우 | 이름 | 예 |
+|---|---|---|
+| 포트의 구현이 하나 | 도메인 + 역할 + `Adapter` | `OrderPersistenceAdapter`, `PaymentApiAdapter` |
+| 포트의 구현이 둘 이상 (로컬·운영, 메모리·DB) | 역할 대신 구분하는 이름(기술·상대)을 앞에 붙인다 | `InMemoryOrderAdapter`, `PostgresOrderAdapter`, `OpenAiCompatibleLlmAdapter` |
+
 - **포트 메서드를 구현한 메서드에는 `@override`를 붙인다** (`from typing_extensions import override`). Java의 `@Override` 역할이다. 어떤 메서드가 포트의 구현인지 드러나고, 포트에서 이름이 바뀌거나 없어진 메서드가 구현에 남으면 타입 검사에 걸린다. 테스트용 가짜 클래스도 같다 (`python-style`의 "타입 표시").
 - **포트에는 추상 메서드만 둔다.** 본문은 `...`만 적는다. 필드, `__init__`, 본문이 있는 메서드를 넣지 않는다. 넣으면 구현 클래스가 그 동작을 물려받아 기능 상속이 된다.
 - 운영 플랫폼용 구현은 공개 하네스에 없다. 사용자 스킬 폴더의 플랫폼 전용 스킬에 견본이 있으면 그것을 따른다.
@@ -417,7 +424,7 @@ class Platform:
 class LocalPlatformFactory(PlatformFactory):
     @override
     def create(self, settings: Settings) -> Platform:
-        return Platform(llm=OpenAiCompatibleLlm(settings), ...)
+        return Platform(llm=OpenAiCompatibleLlmAdapter(settings), ...)
 
 factory = LocalPlatformFactory()
 ```

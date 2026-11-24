@@ -18,7 +18,7 @@ from app.application.agent.port import AnswerGenerator
 from app.common.errors import UpstreamError
 
 
-class LangGraphAnswerGenerator(AnswerGenerator):
+class LangGraphAnswerAdapter(AnswerGenerator):
     """create_agent로 만든 에이전트가 낸 답을 글자 조각으로 내놓는다."""
 
     def __init__(

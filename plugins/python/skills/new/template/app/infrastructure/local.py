@@ -3,9 +3,13 @@
 from typing_extensions import override
 
 from app.infrastructure import Platform, PlatformFactory
-from app.infrastructure.guardrail.pass_through import PassThroughGuardrail
-from app.infrastructure.llm.openai_compatible import OpenAiCompatibleLlm
-from app.infrastructure.prompt.file_prompt_store import FilePromptStore
+from app.infrastructure.guardrail.pass_through_guardrail_adapter import (
+    PassThroughGuardrailAdapter,
+)
+from app.infrastructure.llm.openai_compatible_llm_adapter import (
+    OpenAiCompatibleLlmAdapter,
+)
+from app.infrastructure.prompt.file_prompt_adapter import FilePromptAdapter
 from app.infrastructure.settings import Settings
 
 
@@ -15,9 +19,9 @@ class LocalPlatformFactory(PlatformFactory):
     @override
     def create(self, settings: Settings) -> Platform:
         return Platform(
-            llm=OpenAiCompatibleLlm(settings),
-            prompts=FilePromptStore(),
-            guardrail=PassThroughGuardrail(),
+            llm=OpenAiCompatibleLlmAdapter(settings),
+            prompts=FilePromptAdapter(),
+            guardrail=PassThroughGuardrailAdapter(),
         )
 
 

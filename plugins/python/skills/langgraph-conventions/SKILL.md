@@ -39,7 +39,7 @@ result = await agent.ainvoke({"messages": messages})
 ```
 
 - `create_agent`는 `from langchain.agents import create_agent`.
-- 에이전트는 답 만들기 어댑터(`app/infrastructure/agent/langgraph_answer_generator.py`, 뼈대에 있다)가 만든다. LLM·프롬프트·도구는 생성자로 받는다 (`agent-architecture`의 "답 만들기"). `application`은 LangChain·LangGraph를 import하지 않는다.
+- 에이전트는 답 만들기 어댑터(`app/infrastructure/agent/langgraph_answer_adapter.py`, 뼈대에 있다)가 만든다. LLM·프롬프트·도구는 생성자로 받는다 (`agent-architecture`의 "답 만들기"). `application`은 LangChain·LangGraph를 import하지 않는다.
 
 ### LLM 호출 실패 → UpstreamError
 

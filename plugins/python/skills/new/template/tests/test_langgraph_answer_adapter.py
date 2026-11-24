@@ -5,8 +5,8 @@ from langchain.tools import tool
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 
 from app.common.errors import UpstreamError
-from app.infrastructure.agent.langgraph_answer_generator import (
-    LangGraphAnswerGenerator,
+from app.infrastructure.agent.langgraph_answer_adapter import (
+    LangGraphAnswerAdapter,
 )
 from tests.fakes import FakeToolCallingModel, fake_llm
 
@@ -43,7 +43,7 @@ def _tool_call(name: str) -> AIMessage:
 
 
 async def _ask(llm: FakeToolCallingModel, question: str = "A1 알려 줘") -> str:
-    answers = LangGraphAnswerGenerator(
+    answers = LangGraphAnswerAdapter(
         model=llm, tools=[get_item, broken_tool], system_prompt=SYSTEM_PROMPT
     )
     return "".join([text async for text in answers.stream(question)])
