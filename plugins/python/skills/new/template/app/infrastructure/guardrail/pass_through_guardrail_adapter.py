@@ -5,7 +5,7 @@ from typing_extensions import override
 from app.application.agent.port import Guardrail, GuardResult
 
 
-class PassThroughGuardrail(Guardrail):
+class PassThroughGuardrailAdapter(Guardrail):
     """로컬에서는 검사 없이 그대로 통과시킨다. 필수 규칙은 코드에 따로 둔다."""
 
     @override

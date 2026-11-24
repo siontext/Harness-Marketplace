@@ -14,7 +14,7 @@ class PromptNotFoundError(LookupError):
     """요청한 이름의 프롬프트 파일이 없을 때."""
 
 
-class FilePromptStore(PromptStore):
+class FilePromptAdapter(PromptStore):
     """app/prompts/<이름>.md 파일에서 프롬프트를 읽는다."""
 
     def __init__(self, prompt_dir: Path = PROMPT_DIR) -> None:

@@ -4,10 +4,14 @@ from pathlib import Path
 import pytest
 
 from app.infrastructure import Platform, PlatformLoadError
-from app.infrastructure.guardrail.pass_through import PassThroughGuardrail
-from app.infrastructure.llm.openai_compatible import OpenAiCompatibleLlm
-from app.infrastructure.prompt.file_prompt_store import (
-    FilePromptStore,
+from app.infrastructure.guardrail.pass_through_guardrail_adapter import (
+    PassThroughGuardrailAdapter,
+)
+from app.infrastructure.llm.openai_compatible_llm_adapter import (
+    OpenAiCompatibleLlmAdapter,
+)
+from app.infrastructure.prompt.file_prompt_adapter import (
+    FilePromptAdapter,
     PromptNotFoundError,
 )
 from app.infrastructure.settings import DEFAULT_AGENT_TIMEOUT_SECONDS, Settings
@@ -74,7 +78,7 @@ def test_PLATFORM이_비어_있으면_로컬_창구를_만든다() -> None:
 
     # Then
     assert isinstance(platform, Platform)
-    assert isinstance(platform.guardrail, PassThroughGuardrail)
+    assert isinstance(platform.guardrail, PassThroughGuardrailAdapter)
 
 
 def test_없는_PLATFORM이면_로컬로_바꾸지_않고_오류를_낸다() -> None:
@@ -88,7 +92,7 @@ def test_프롬프트_파일을_이름으로_읽는다(tmp_path: Path) -> None:
     (tmp_path / "system.md").write_text("역할 지시", encoding="utf-8")
 
     # When
-    text = FilePromptStore(tmp_path).get("system")
+    text = FilePromptAdapter(tmp_path).get("system")
 
     # Then
     assert text == "역할 지시"
@@ -97,12 +101,12 @@ def test_프롬프트_파일을_이름으로_읽는다(tmp_path: Path) -> None:
 def test_없는_프롬프트를_찾으면_오류를_낸다(tmp_path: Path) -> None:
     # When / Then
     with pytest.raises(PromptNotFoundError):
-        FilePromptStore(tmp_path).get("없음")
+        FilePromptAdapter(tmp_path).get("없음")
 
 
 def test_LLM_창구는_설정의_모델_이름으로_채팅_모델을_만든다() -> None:
     # When
-    model = OpenAiCompatibleLlm(fake_settings()).chat_model()
+    model = OpenAiCompatibleLlmAdapter(fake_settings()).chat_model()
 
     # Then
     assert getattr(model, "model_name", None) == "test-model"
@@ -111,7 +115,7 @@ def test_LLM_창구는_설정의_모델_이름으로_채팅_모델을_만든다(
 @pytest.mark.anyio
 async def test_로컬_가드레일은_입력과_출력을_그대로_통과시킨다() -> None:
     # Given
-    guardrail = PassThroughGuardrail()
+    guardrail = PassThroughGuardrailAdapter()
 
     # When
     checked_in = await guardrail.check_input("질문")
