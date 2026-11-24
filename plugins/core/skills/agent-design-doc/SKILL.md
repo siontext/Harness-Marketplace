@@ -186,7 +186,7 @@ sequenceDiagram
 | 0 | 설정·의존성 (`pyproject.toml`, `.env.example`) | — |
 | 1 | 도메인 (`app/domain/<기능>/` — 도메인 객체, 업무 규칙, 업무 예외. 규칙이 없으면 값만 갖는 객체와 대상 없음 예외) | 0 |
 | 2 | 연결 창구 (`app/application/<기능>/port.py` 포트(ABC) + `app/infrastructure/` 로컬 구현 + `Platform` 칸·`local.py`·`tests/fakes.py`의 `fake_platform`) | 1 |
-| 3 | 유스케이스와 서비스 (`app/application/<기능>/` — `usecase.py`, `command.py`, `result.py`, `service.py`) | 2 |
+| 3 | 유스케이스와 서비스 (`app/application/<기능>/` — `usecase.py`, `service.py`, `dto/command.py`, `dto/result.py`) | 2 |
 | 4 | 도구 (`app/infrastructure/tools/` — `<기능>Tools` 클래스) | 3 |
 | 5 | 프롬프트 (`app/prompts/`) | 0 |
 | 6 | 채팅 기능 (`app/application/agent/` — `ChatUseCase`, `ChatService`, `ChatCommand`)과 조립 (`app/container.py`의 `Container`). 답 만들기 어댑터는 뼈대의 것을 쓴다 | 4, 5 |

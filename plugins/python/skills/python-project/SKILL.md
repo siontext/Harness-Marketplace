@@ -26,8 +26,8 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 │   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, SseResponse, ErrorCode, 안내 문구
 │   ├── application/
 │   │   ├── common/          기능의 규칙 없이 쓰는 기술 도우미 — time_limit.py(TimeLimit), sentences.py(SentenceSplitter)
-│   │   ├── agent/           채팅 기능 — usecase.py(ChatUseCase), service.py(ChatService), command.py, port.py(AnswerGenerator·Guardrail). LangChain을 모른다
-│   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, command.py, result.py
+│   │   ├── agent/           채팅 기능 — usecase.py(ChatUseCase), service.py(ChatService), port.py(AnswerGenerator·Guardrail), dto/command.py(ChatCommand). LangChain을 모른다
+│   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, dto/(command.py, result.py)
 │   ├── domain/
 │   │   └── <기능>/          도메인 객체(규칙이 없으면 값만), 업무 규칙, 코드값 Enum, 업무 예외
 │   ├── infrastructure/      포트 구현 — __init__.py(Platform·구현 선택), local.py(LocalPlatformFactory), settings.py(Settings)

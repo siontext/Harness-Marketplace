@@ -131,7 +131,7 @@ class OrderTools:
 ## 가드레일 연결
 
 ```python
-# app/application/agent/command.py
+# app/application/agent/dto/command.py
 @dataclass(frozen=True)
 class ChatCommand:
     """에이전트에 넘기는 질문 한 건."""

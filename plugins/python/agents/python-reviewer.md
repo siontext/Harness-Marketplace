@@ -89,7 +89,7 @@ skills:
 - **채팅 기능과 답 만들기** (`agent-architecture`) — `ChatService`가 `ChatUseCase`를 구현하고 부품을 생성자로 받는가(부품 묶음을 메서드에 넘기지 않는가), `/chat`이 `ChatUseCase`에만 의존하는가, 채팅 서비스가 `AnswerGenerator` 포트로 글자만 받는가. 어댑터가 조각(`AIMessageChunk`)과 완성된 답(`AIMessage`)을 둘 다 글자로 바꾸고, 두 경우를 테스트하는가
 - **예외** — LLM 호출 실패가 `UpstreamError`로 바뀌는가 (`langgraph-conventions`). 입력·출력 가드레일 막힘을 `InputBlockedError`·`OutputBlockedError`로 던지고 `SseResponse`가 따로 잡으며 `ErrorRuleBook`의 대응표에 넣지 않았는가. 채팅 서비스가 가드레일 문구를 직접 답으로 내보내지 않는가 (`fastapi-conventions`). `except Exception`이 허용된 두 곳(`python-style`)에만 있고 이유 주석이 있는가
 - **기능 폴더와 도구** (`agent-architecture`의 "기능 폴더"):
-  - 업무 기능마다 `app/application/<기능>/`에 `usecase.py`·`port.py`·`service.py`·`command.py`·`result.py`가 있고, 포트가 쓰는 기능 폴더에 있다 (모든 포트를 한 파일에 모으지 않았다)
+  - 업무 기능마다 `app/application/<기능>/`에 `usecase.py`·`port.py`·`service.py`와 `dto/`(`command.py`·`result.py`)가 있고, 포트가 쓰는 기능 폴더에 있다 (모든 포트를 한 파일에 모으지 않았다)
   - 유스케이스 메서드가 Command/Query를 받고 Result를 돌려주며, 서비스가 유스케이스를 괄호에 적어 구현한다
   - 서비스가 엔티티를 밖으로 돌려주지 않는다. Result에 엔티티가 없다 (코드값 Enum은 허용)
   - 기능마다 `app/domain/<기능>/`에 도메인 객체가 있고(규칙이 없으면 값만 갖는 객체), 저장소가 도메인 객체를 돌려준다
