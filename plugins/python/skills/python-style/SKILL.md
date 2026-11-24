@@ -69,6 +69,7 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 - 3.11 문법: `list[str]`, `dict[str, int]`, `str | None`. `List`, `Optional` 같은 `typing` 옛 이름 금지.
 - `Any` 피하기. 모양이 정해진 딕셔너리는 TypedDict나 pydantic 모델로.
 - 인터페이스(포트·유스케이스)는 `abc.ABC`와 `@abstractmethod`로 정한다 (`agent-architecture`).
+- **부모 클래스의 메서드를 구현하거나 덮어쓰는 메서드에는 `@override`를 붙인다.** 포트·유스케이스의 구현, 프레임워크 클래스(`AgentMiddleware` 등)를 물려받아 덮어쓰는 메서드, 테스트용 가짜가 모두 해당한다. Python 3.11에는 `typing.override`가 없으므로 `from typing_extensions import override`로 가져온다. `__init__` 같은 특수 메서드에는 붙이지 않는다. 다른 데코레이터와 함께 쓸 때는 `@override`를 맨 위에 둔다.
 - 타입 검사는 Pyrefly가 맡는다.
 
 ## 데이터 모델

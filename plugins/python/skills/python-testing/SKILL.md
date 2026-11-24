@@ -38,7 +38,7 @@ def anyio_backend() -> str:
 
 - **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/<기능>/port.py`, `app/application/agent/port.py`, `app/infrastructure/llm/port.py`·`prompt/port.py`의 포트), 외부 API, DB, Redis.
 - 내 코드 안의 객체(도메인 객체, 상태, 데이터 모델)는 가짜로 만들지 않는다.
-- 연결 창구 가짜는 포트를 상속한 작은 클래스나 `AsyncMock(spec=<포트>)`으로 만든다.
+- 연결 창구 가짜는 포트를 상속한 작은 클래스나 `AsyncMock(spec=<포트>)`으로 만든다. 가짜 클래스도 구현한 메서드에 `@override`를 붙인다.
 - 테스트는 `.env`를 읽지 않는다. 테스트에서 `Settings()`를 직접 부르지 않고 `fake_settings()`를 쓴다. `Settings(...)`는 칸을 넘겨도 넘기지 않은 칸을 환경 변수와 `.env`에서 읽기 때문이다. 설정 읽기 자체를 확인하는 테스트만 `Settings(_env_file=<임시 파일>)`로 만든다. 흐름·엔드포인트 테스트는 `Platform.from_settings()`를 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립(`Container`)에 넣는다. `Platform.from_settings()` 자체를 확인하는 테스트는 설정(`fake_settings()`)을 직접 넘겨 부른다. `lifespan`은 아래 "서버 시작(lifespan) 테스트"를 따른다.
 
 ### 가짜 LLM

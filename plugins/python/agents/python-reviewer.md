@@ -100,7 +100,7 @@ skills:
   - 도구 안에 판단·계산·저장 순서가 없다 (서비스 호출과 문장 변환만)
   - 업무 서비스가 LLM용 문장을 만들지 않는다 (값이나 예외로 알린다)
   - 도메인 Enum의 값이 코드이고, 표시용 이름과 안내 문장은 도구의 표에 있다
-  - 포트와 유스케이스가 `ABC`이고 모든 메서드에 `@abstractmethod`가 있으며 본문이 없다. 구현 클래스(테스트용 가짜 포함)가 포트를 괄호에 적어 상속한다
+  - 포트와 유스케이스가 `ABC`이고 모든 메서드에 `@abstractmethod`가 있으며 본문이 없다. 구현 클래스(테스트용 가짜 포함)가 포트를 괄호에 적어 상속하고, 구현하거나 덮어쓴 메서드에 `@override`(`typing_extensions`)가 있다
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — 포트(ABC) 의존, `Container` 조립, frozen dataclass, 조합 우선
 - **클래스가 기본** (`python-style`의 "클래스가 기본") — `app/`에 모듈 수준 함수가 없다 (FastAPI 엔드포인트와 `lifespan`만 예외). 도우미가 클래스의 비공개 메서드다. 정적 메서드만 모은 클래스가 없다. 오류 대응표가 모듈 전역이 아니라 `ErrorRuleBook` 안에 있다. 의존하는 동작을 함수(`Callable`)로 받지 않고 포트로 받는다. 미들웨어가 `AgentMiddleware` 클래스다
 - **서비스 메서드의 높이** (`python-style`의 "같은 높이로", `agent-architecture`의 "채팅 기능") — 서비스의 공개 메서드가 업무 단계만 적혀 있는가. 시간 제한·문장 나누기 같은 기술 세부가 섞여 있지 않고, 시간 제한은 뼈대의 `TimeLimit`, 문장 나누기는 `SentenceSplitter`를 쓰는가

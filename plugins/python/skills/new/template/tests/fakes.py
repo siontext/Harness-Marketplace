@@ -13,6 +13,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from pydantic import Field
+from typing_extensions import override
 
 from app.application.agent.port import Guardrail, GuardResult
 from app.infrastructure import Platform
@@ -32,9 +33,11 @@ class FakeToolCallingModel(GenericFakeChatModel):
 
     received: list[list[BaseMessage]] = Field(default_factory=list)
 
+    @override
     def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> "FakeToolCallingModel":
         return self
 
+    @override
     def _generate(
         self,
         messages: list[BaseMessage],
@@ -45,6 +48,7 @@ class FakeToolCallingModel(GenericFakeChatModel):
         self.received.append(list(messages))
         return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
 
+    @override
     def _stream(
         self,
         messages: list[BaseMessage],
@@ -71,6 +75,7 @@ class FakeLlmProvider(LlmProvider):
     def __init__(self, model: BaseChatModel) -> None:
         self._model = model
 
+    @override
     def chat_model(self) -> BaseChatModel:
         return self._model
 
@@ -78,6 +83,7 @@ class FakeLlmProvider(LlmProvider):
 class FakePromptStore(PromptStore):
     """어떤 이름이든 같은 문장을 돌려주는 가짜 프롬프트 창구."""
 
+    @override
     def get(self, name: str) -> str:
         return FAKE_SYSTEM_PROMPT
 
@@ -107,11 +113,13 @@ class FakeGuardrail(Guardrail):
         self.checked_inputs: list[str] = []
         self.checked_outputs: list[str] = []
 
+    @override
     async def check_input(self, text: str) -> GuardResult:
         self.checked_inputs.append(text)
         await asyncio.sleep(self._input_delay)
         return self._input_results.get(text, GuardResult(text=text))
 
+    @override
     async def check_output(self, text: str) -> GuardResult:
         self.checked_outputs.append(text)
         await asyncio.sleep(self._output_delay)

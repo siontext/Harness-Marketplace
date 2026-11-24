@@ -49,6 +49,7 @@ LLM 호출이 실패하면 LLM 라이브러리의 예외가 올라온다. 그대
 class UpstreamErrorMiddleware(AgentMiddleware):
     """LLM 호출 실패를 UpstreamError로 바꿔 던진다. 도구 실행은 감싸지 않는다."""
 
+    @override
     async def awrap_model_call(
         self,
         request: ModelRequest,

@@ -153,6 +153,7 @@ class OrderService(OrderUseCase):
         self._orders = orders
         self._clock = clock
 
+    @override
     async def cancel_order(self, command: CancelOrderCommand) -> OrderResult:
         order = await self._find_order(command.order_id)
         cancelled = order.cancel(self._clock.now())  # 판단은 도메인
@@ -166,7 +167,7 @@ class OrderService(OrderUseCase):
         return order
 ```
 
-- **유스케이스(`usecase.py`)는 `ABC`이고 모든 메서드에 `@abstractmethod`를 붙인다. 본문은 넣지 않는다.** 서비스는 `class OrderService(OrderUseCase):`로 구현임을 적는다.
+- **유스케이스(`usecase.py`)는 `ABC`이고 모든 메서드에 `@abstractmethod`를 붙인다. 본문은 넣지 않는다.** 서비스는 `class OrderService(OrderUseCase):`로 구현임을 적고, 유스케이스 메서드를 구현한 메서드에 `@override`를 붙인다.
 - **유스케이스 메서드는 Command/Query를 받고 Result를 돌려준다.** 상태를 바꾸지 않는 요청은 `...Query`, 바꾸는 요청은 `...Command`로 이름 붙이고 둘 다 `command.py` 한 파일에 둔다. 셋 다 `@dataclass(frozen=True)`이고 pydantic을 쓰지 않는다.
 - **DTO(Command·Query·Result)는 그 기능 폴더의 `command.py`·`result.py`에 둔다.** 채팅 기능도 `agent/command.py`다. 모든 기능의 DTO를 모으는 폴더(`application/dto/` 등)를 따로 만들지 않는다. 한 기능의 Command가 많아 파일이 길어지면 `command.py`를 `command/` 패키지로 바꾼다.
 - **서비스는 엔티티를 밖으로 돌려주지 않는다.** Result로 옮겨 담아 돌려준다. Result에는 부르는 쪽이 필요한 값만 담는다. 도메인의 코드값 Enum은 그대로 써도 되고, 엔티티는 담지 않는다. 엔티티가 바뀌어도 옮겨 담는 곳(서비스·`from_<엔티티>`)에서 멈추고 도구까지 번지지 않는다.
@@ -216,6 +217,7 @@ class ChatService(ChatUseCase):
         self._time_limit = time_limit
         self._sentences = SentenceSplitter()            # 설정도 구현도 하나뿐인 도우미
 
+    @override
     def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]:
         sentences = self._checked_sentences(command)
         return self._time_limit.apply(sentences)
@@ -255,6 +257,7 @@ class LangGraphAnswerGenerator(AnswerGenerator):
     def __init__(self, model: BaseChatModel, tools: Sequence[BaseTool], system_prompt: str) -> None:
         self._agent = create_agent(..., middleware=[UpstreamErrorMiddleware()])
 
+    @override
     async def stream(self, question: str) -> AsyncIterator[str]:
         async for message, _ in self._agent.astream(..., stream_mode="messages"):
             text = self._answer_text(message)  # 조각이든 완성된 답이든 글자만
@@ -358,6 +361,7 @@ class OrderNotFoundError(AppError):
 - **업무 기능의 나가는 포트(저장소, 외부 API)도 연결 창구다.** 기능이 생기면 `Platform`(`app/infrastructure/__init__.py`)에 칸을 더하고(예: `orders: OrderRepository`), 같은 변경에서 `local.py`의 `LocalPlatformFactory`와 `tests/fakes.py`의 `fake_platform`도 고친다. `Container`는 `platform.orders`처럼 꺼내 서비스에 넣는다.
 - **포트는 `abc.ABC`를 상속하고 모든 메서드에 `@abstractmethod`를 붙인다.** Java의 `interface` 역할이다. 구현 클래스가 메서드를 빠뜨리면 객체를 만들 때 `TypeError`가 난다.
 - **구현 클래스는 포트를 괄호에 적어 상속한다** (`class InMemoryOrderRepository(OrderRepository):`). Java의 `implements`처럼 어떤 포트의 구현인지 드러나고 IDE에서 구현을 찾을 수 있다. 상속하지 않으면 메서드 모양이 같아도 타입 검사에 걸린다. 테스트용 가짜 클래스도 포트를 상속한다.
+- **포트 메서드를 구현한 메서드에는 `@override`를 붙인다** (`from typing_extensions import override`). Java의 `@Override` 역할이다. 어떤 메서드가 포트의 구현인지 드러나고, 포트에서 이름이 바뀌거나 없어진 메서드가 구현에 남으면 타입 검사에 걸린다. 테스트용 가짜 클래스도 같다 (`python-style`의 "타입 표시").
 - **포트에는 추상 메서드만 둔다.** 본문은 `...`만 적는다. 필드, `__init__`, 본문이 있는 메서드를 넣지 않는다. 넣으면 구현 클래스가 그 동작을 물려받아 기능 상속이 된다.
 - 운영 플랫폼용 구현은 공개 하네스에 없다. 사용자 스킬 폴더의 플랫폼 전용 스킬에 견본이 있으면 그것을 따른다.
 - 테스트는 연결 창구 자리에 가짜를 넣는다. 로컬 Redis·PostgreSQL이 꺼져 있어도 테스트는 돈다 (`python-testing`).
@@ -410,6 +414,7 @@ class Platform:
 
 # app/infrastructure/local.py
 class LocalPlatformFactory(PlatformFactory):
+    @override
     def create(self, settings: Settings) -> Platform:
         return Platform(llm=OpenAiCompatibleLlm(settings), ...)
 
@@ -445,7 +450,7 @@ factory = LocalPlatformFactory()
 
 | 원칙 | Python에서 |
 |---|---|
-| 추상화 (인터페이스) | `abc.ABC`와 `@abstractmethod`로 포트를 정한다 (Java `interface` 역할). 구현 클래스는 포트를 상속한다 (Java `implements` 역할) |
+| 추상화 (인터페이스) | `abc.ABC`와 `@abstractmethod`로 포트를 정한다 (Java `interface` 역할). 구현 클래스는 포트를 상속하고 (Java `implements` 역할), 구현한 메서드에 `@override`를 붙인다 (Java `@Override` 역할) |
 | 의존성 역전 (DIP) | `application`은 자기 폴더의 포트(ABC)에만 의존한다. 구현은 `infrastructure`에 있고 바깥에서 넣어 준다 |
 | 클래스가 기본 | 기능은 책임을 가진 클래스로 만든다. 모듈 함수는 프레임워크가 함수를 요구하는 곳만 쓴다 (`python-style`의 "클래스가 기본") |
 | 의존성 주입 | `app/container.py`의 `Container` 한 곳에서 구현을 골라 조립해 넘겨준다 (Spring이 해 주던 일을 직접). 클래스 안에서 구현을 직접 만들지 않는다. 설정 값도 바꿔 끼울 구현도 없는 도우미만 생성자 안에서 만든다 |

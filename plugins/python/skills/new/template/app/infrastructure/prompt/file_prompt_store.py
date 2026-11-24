@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from typing_extensions import override
+
 from app.infrastructure.prompt.port import PromptStore
 
 # 이 파일(app/infrastructure/prompt/)에서 두 단계 위가 app이다.
@@ -18,6 +20,7 @@ class FilePromptStore(PromptStore):
     def __init__(self, prompt_dir: Path = PROMPT_DIR) -> None:
         self._prompt_dir = prompt_dir
 
+    @override
     def get(self, name: str) -> str:
         path = self._prompt_dir / f"{name}.md"
         if not path.is_file():

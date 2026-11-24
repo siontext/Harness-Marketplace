@@ -12,6 +12,7 @@ dependencies = [
     "langchain-core",
     "langgraph",
     "langchain-openai",
+    "typing-extensions",
 ]
 
 [project.optional-dependencies]
