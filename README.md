@@ -14,7 +14,7 @@ plugins/
 │   ├── skills/                   design-doc, agent-design-doc, implementation-checkpoint,
 │   │                             oop-principles, general-style, git-conventions,
 │   │                             commit-splitting, team-workflow, code-map,
-│   │                             requirements-definition
+│   │                             code-sequence, requirements-definition
 │   └── hooks/                    위험 명령 차단 (deny-guard.py + deny-rules.json)
 ├── java/                         Java/Kotlin/Spring Boot 프로젝트
 │   ├── agents/                   backend-dev, java-reviewer
