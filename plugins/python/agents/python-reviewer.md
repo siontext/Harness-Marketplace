@@ -89,7 +89,7 @@ skills:
 - **채팅 기능과 답 만들기** (`agent-architecture`) — `ChatService`가 `ChatUseCase`를 구현하고 부품을 생성자로 받는가(부품 묶음을 메서드에 넘기지 않는가), `/chat`이 `ChatUseCase`에만 의존하는가, 채팅 서비스가 `AnswerGenerator` 포트로 글자만 받는가. 어댑터가 조각(`AIMessageChunk`)과 완성된 답(`AIMessage`)을 둘 다 글자로 바꾸고, 두 경우를 테스트하는가
 - **예외** — LLM 호출 실패가 `UpstreamError`로 바뀌는가 (`langgraph-conventions`). 입력·출력 가드레일 막힘을 `InputBlockedError`·`OutputBlockedError`로 던지고 `SseResponse`가 따로 잡으며 `ErrorRuleBook`의 대응표에 넣지 않았는가. 채팅 서비스가 가드레일 문구를 직접 답으로 내보내지 않는가 (`fastapi-conventions`). `except Exception`이 허용된 두 곳(`python-style`)에만 있고 이유 주석이 있는가
 - **기능 폴더와 도구** (`agent-architecture`의 "기능 폴더"):
-  - 업무 기능마다 `app/application/<기능>/`에 `usecase.py`·`port.py`·`service.py`·`command.py`·`result.py`가 있고, 포트가 쓰는 기능 폴더에 있다 (모든 포트를 한 파일에 모으지 않았다)
+  - 업무 기능마다 `app/application/<기능>/`에 `usecase.py`·`port.py`·`service.py`와 `dto/`(`command.py`·`result.py`)가 있고, 포트가 쓰는 기능 폴더에 있다 (모든 포트를 한 파일에 모으지 않았다)
   - 유스케이스 메서드가 Command/Query를 받고 Result를 돌려주며, 서비스가 유스케이스를 괄호에 적어 구현한다
   - 서비스가 엔티티를 밖으로 돌려주지 않는다. Result에 엔티티가 없다 (코드값 Enum은 허용)
   - 기능마다 `app/domain/<기능>/`에 도메인 객체가 있고(규칙이 없으면 값만 갖는 객체), 저장소가 도메인 객체를 돌려준다
@@ -100,8 +100,8 @@ skills:
   - 도구 안에 판단·계산·저장 순서가 없다 (서비스 호출과 문장 변환만)
   - 업무 서비스가 LLM용 문장을 만들지 않는다 (값이나 예외로 알린다)
   - 도메인 Enum의 값이 코드이고, 표시용 이름과 안내 문장은 도구의 표에 있다
-  - 포트 구현 클래스가 포트를 괄호에 적었고, 포트(`Protocol`) 메서드에 본문이 없다
-- **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — Protocol 의존, `Container` 조립, frozen dataclass, 조합 우선
+  - 포트와 유스케이스가 `ABC`이고 모든 메서드에 `@abstractmethod`가 있으며 본문이 없다. 구현 클래스(테스트용 가짜 포함)가 포트를 괄호에 적어 상속하고, 구현하거나 덮어쓴 메서드에 `@override`(`typing_extensions`)가 있다
+- **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — 포트(ABC) 의존, `Container` 조립, frozen dataclass, 조합 우선
 - **클래스가 기본** (`python-style`의 "클래스가 기본") — `app/`에 모듈 수준 함수가 없다 (FastAPI 엔드포인트와 `lifespan`만 예외). 도우미가 클래스의 비공개 메서드다. 정적 메서드만 모은 클래스가 없다. 오류 대응표가 모듈 전역이 아니라 `ErrorRuleBook` 안에 있다. 의존하는 동작을 함수(`Callable`)로 받지 않고 포트로 받는다. 미들웨어가 `AgentMiddleware` 클래스다
 - **서비스 메서드의 높이** (`python-style`의 "같은 높이로", `agent-architecture`의 "채팅 기능") — 서비스의 공개 메서드가 업무 단계만 적혀 있는가. 시간 제한·문장 나누기 같은 기술 세부가 섞여 있지 않고, 시간 제한은 뼈대의 `TimeLimit`, 문장 나누기는 `SentenceSplitter`를 쓰는가
 - **엔드포인트** (`fastapi-conventions`의 "엔드포인트는 세 단계만") — 엔드포인트 함수가 요청 → Command, 유스케이스 부르기, 응답 틀에 담기만 하는가. SSE 이벤트 만들기·`try/except`·실패 로그를 직접 적지 않고 `SseResponse`를 쓰는가

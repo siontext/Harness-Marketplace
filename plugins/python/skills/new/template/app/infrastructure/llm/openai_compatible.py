@@ -3,6 +3,7 @@
 from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
+from typing_extensions import override
 
 from app.infrastructure.llm.port import LlmProvider
 from app.infrastructure.settings import Settings
@@ -14,6 +15,7 @@ class OpenAiCompatibleLlm(LlmProvider):
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
+    @override
     def chat_model(self) -> BaseChatModel:
         return ChatOpenAI(
             base_url=self._settings.llm_base_url or None,

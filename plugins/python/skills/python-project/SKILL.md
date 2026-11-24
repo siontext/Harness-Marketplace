@@ -26,8 +26,8 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 │   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, SseResponse, ErrorCode, 안내 문구
 │   ├── application/
 │   │   ├── common/          기능의 규칙 없이 쓰는 기술 도우미 — time_limit.py(TimeLimit), sentences.py(SentenceSplitter)
-│   │   ├── agent/           채팅 기능 — usecase.py(ChatUseCase), service.py(ChatService), command.py, port.py(AnswerGenerator·Guardrail). LangChain을 모른다
-│   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, command.py, result.py
+│   │   ├── agent/           채팅 기능 — usecase.py(ChatUseCase), service.py(ChatService), port.py(AnswerGenerator·Guardrail), dto/command.py(ChatCommand). LangChain을 모른다
+│   │   └── <기능>/          업무 기능 하나 — usecase.py, port.py, service.py, dto/(command.py, result.py)
 │   ├── domain/
 │   │   └── <기능>/          도메인 객체(규칙이 없으면 값만), 업무 규칙, 코드값 Enum, 업무 예외
 │   ├── infrastructure/      포트 구현 — __init__.py(Platform·구현 선택), local.py(LocalPlatformFactory), settings.py(Settings)
@@ -110,7 +110,8 @@ uv pip install --python .venv -r pyproject.toml --extra dev -c constraints.txt
 | `DATABASE_URL` | 대화 기록 저장소 (PostgreSQL) |
 
 - `.env.example`(값이 빈 견본)만 git에 넣는다. `.env`는 git과 반출에서 뺀다.
-- `.env`는 `app/infrastructure/settings.py`의 `Settings.from_env()`가 로컬에서만 읽는다. 다른 모듈에서 `os.environ`을 읽지 않는다.
+- 환경 변수와 `.env`는 `app/infrastructure/settings.py`의 `Settings`(`pydantic-settings`의 `BaseSettings`)만 읽는다. `Settings()`로 만들면 칸 이름을 대문자로 바꾼 환경 변수에서 값을 읽고(`llm_model` ← `LLM_MODEL`), 로컬에서는 `.env`도 함께 읽는다. 환경 변수가 `.env`보다 우선한다. 다른 모듈에서 `os.environ`을 읽지 않는다.
+- 환경 변수를 더할 때는 `Settings`에 칸 한 줄(타입과 기본값)을 더하고 `.env.example`에 이름을 적는다. `.env`를 직접 읽거나 값을 바꾸는 코드를 쓰지 않는다. 값의 범위는 `Field(gt=0)`처럼 칸에 적는다.
 - 테스트는 `.env`를 읽지 않는다. 연결 창구 자리에 가짜를 넣는다 (`python-testing`).
 
 ## 실행

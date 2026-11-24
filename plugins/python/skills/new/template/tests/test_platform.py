@@ -23,7 +23,7 @@ def test_env_파일_값을_읽고_환경_변수가_우선한다(
     monkeypatch.setenv("LLM_MODEL", "from-env")
 
     # When
-    settings = Settings.from_env(env_file)
+    settings = Settings(_env_file=env_file)
 
     # Then
     assert settings.llm_model == "from-env"
@@ -32,7 +32,7 @@ def test_env_파일_값을_읽고_환경_변수가_우선한다(
 
 def test_env_파일이_없으면_환경_변수만_쓴다(tmp_path: Path) -> None:
     # When
-    settings = Settings.from_env(tmp_path / "없는파일")
+    settings = Settings(_env_file=tmp_path / "없는파일")
 
     # Then
     assert isinstance(settings, Settings)
@@ -50,7 +50,7 @@ def test_시간_제한을_읽는다(
     monkeypatch.setenv("AGENT_TIMEOUT_SECONDS", raw)
 
     # When
-    settings = Settings.from_env(tmp_path / "없는파일")
+    settings = Settings(_env_file=tmp_path / "없는파일")
 
     # Then
     assert settings.agent_timeout_seconds == expected
@@ -65,7 +65,7 @@ def test_시간_제한이_숫자가_아니거나_0_이하면_서버가_뜨지_�
 
     # When / Then
     with pytest.raises(ValueError):
-        Settings.from_env(tmp_path / "없는파일")
+        Settings(_env_file=tmp_path / "없는파일")
 
 
 def test_PLATFORM이_비어_있으면_로컬_창구를_만든다() -> None:

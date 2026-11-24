@@ -3,13 +3,13 @@
 LangChain 같은 프레임워크의 모양은 여기에 드러내지 않는다. 답은 글자로만 주고받는다.
 구현(어댑터)은 app/infrastructure에 두고 app/container.py가 골라 넣어 준다.
 업무 기능의 포트는 그 기능 폴더(app/application/<기능>/port.py)에 둔다.
-메서드에는 모양만 적고 본문을 넣지 않는다. 구현 클래스는 이 Protocol을 괄호에 적어
-어떤 포트의 구현인지 드러낸다.
+포트는 ABC이고 모든 메서드에 @abstractmethod를 붙인다. 본문은 넣지 않는다.
+구현 클래스는 포트를 괄호에 적어 상속한다.
 """
 
+from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Protocol
 
 
 @dataclass(frozen=True)
@@ -27,21 +27,24 @@ class GuardResult:
     message: str = ""
 
 
-class Guardrail(Protocol):
+class Guardrail(ABC):
     """LLM 앞뒤에서 입력과 출력을 검사하는 창구."""
 
+    @abstractmethod
     async def check_input(self, text: str) -> GuardResult:
         """LLM에 보내기 전 사용자 입력을 검사한다."""
         ...
 
+    @abstractmethod
     async def check_output(self, text: str) -> GuardResult:
         """사용자에게 보내기 전 LLM 출력을 검사한다."""
         ...
 
 
-class AnswerGenerator(Protocol):
+class AnswerGenerator(ABC):
     """질문을 받아 답 글자를 조각으로 내놓는 창구. LLM과 도구 실행은 이 뒤에 있다."""
 
+    @abstractmethod
     def stream(self, question: str) -> AsyncIterator[str]:
         """질문에 대한 답 글자를 만들어지는 대로 내놓는다.
 

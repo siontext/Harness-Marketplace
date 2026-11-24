@@ -1,13 +1,13 @@
 """연결 창구 묶음과 로컬/운영 구현 선택.
 
-창구의 모양(Protocol)은 app/application/<기능>/port.py에 있고,
+창구의 모양(포트, ABC)은 app/application/<기능>/port.py에 있고,
 이 패키지는 그 구현을 둔다.
 """
 
 import importlib
+from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Protocol
 
 from app.application.agent.port import Guardrail
 from app.infrastructure.llm.port import LlmProvider
@@ -60,13 +60,14 @@ class Platform:
             await close()
 
 
-class PlatformFactory(Protocol):
+class PlatformFactory(ABC):
     """연결 창구 묶음을 만드는 창구.
 
     로컬·운영 구현 모듈(app/infrastructure/<이름>.py)마다 구현 클래스를 하나 두고,
     그 인스턴스를 모듈의 factory 이름으로 내놓는다.
     """
 
+    @abstractmethod
     def create(self, settings: Settings) -> Platform:
         """설정으로 연결 창구 묶음을 만든다.
 

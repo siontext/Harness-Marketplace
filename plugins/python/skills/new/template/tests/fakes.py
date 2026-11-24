@@ -13,6 +13,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.messages.tool import tool_call_chunk
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from pydantic import Field
+from typing_extensions import override
 
 from app.application.agent.port import Guardrail, GuardResult
 from app.infrastructure import Platform
@@ -32,9 +33,11 @@ class FakeToolCallingModel(GenericFakeChatModel):
 
     received: list[list[BaseMessage]] = Field(default_factory=list)
 
+    @override
     def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> "FakeToolCallingModel":
         return self
 
+    @override
     def _generate(
         self,
         messages: list[BaseMessage],
@@ -45,6 +48,7 @@ class FakeToolCallingModel(GenericFakeChatModel):
         self.received.append(list(messages))
         return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
 
+    @override
     def _stream(
         self,
         messages: list[BaseMessage],
@@ -71,6 +75,7 @@ class FakeLlmProvider(LlmProvider):
     def __init__(self, model: BaseChatModel) -> None:
         self._model = model
 
+    @override
     def chat_model(self) -> BaseChatModel:
         return self._model
 
@@ -78,6 +83,7 @@ class FakeLlmProvider(LlmProvider):
 class FakePromptStore(PromptStore):
     """어떤 이름이든 같은 문장을 돌려주는 가짜 프롬프트 창구."""
 
+    @override
     def get(self, name: str) -> str:
         return FAKE_SYSTEM_PROMPT
 
@@ -107,11 +113,13 @@ class FakeGuardrail(Guardrail):
         self.checked_inputs: list[str] = []
         self.checked_outputs: list[str] = []
 
+    @override
     async def check_input(self, text: str) -> GuardResult:
         self.checked_inputs.append(text)
         await asyncio.sleep(self._input_delay)
         return self._input_results.get(text, GuardResult(text=text))
 
+    @override
     async def check_output(self, text: str) -> GuardResult:
         self.checked_outputs.append(text)
         await asyncio.sleep(self._output_delay)
@@ -154,6 +162,8 @@ def fake_settings(
 ) -> Settings:
     """.env 대신 쓰는 테스트용 설정. 칸이 늘어도 바꿀 값만 인자로 받는다.
 
+    모든 칸을 직접 넘기고 _env_file=None으로 .env 읽기를 끈다. 그래서 .env나
+    환경 변수 값이 섞이지 않는다.
     dict를 **로 풀어 넣으면 숫자 칸(시간 제한 등)이 생길 때 타입 검사에 걸린다.
 
     Args:
@@ -161,6 +171,7 @@ def fake_settings(
         agent_timeout_seconds: 질문 하나의 전체 시간 제한(초).
     """
     return Settings(
+        _env_file=None,
         platform=platform,
         llm_base_url="http://localhost:9999/v1",
         llm_api_key="test-key",

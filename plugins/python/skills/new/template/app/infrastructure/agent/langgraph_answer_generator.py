@@ -12,6 +12,7 @@ from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResp
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langchain_core.tools import BaseTool
+from typing_extensions import override
 
 from app.application.agent.port import AnswerGenerator
 from app.common.errors import UpstreamError
@@ -37,6 +38,7 @@ class LangGraphAnswerGenerator(AnswerGenerator):
             middleware=[UpstreamErrorMiddleware()],
         )
 
+    @override
     async def stream(self, question: str) -> AsyncIterator[str]:
         stream = self._agent.astream(
             {"messages": [HumanMessage(question)]}, stream_mode="messages"
@@ -63,6 +65,7 @@ class LangGraphAnswerGenerator(AnswerGenerator):
 class UpstreamErrorMiddleware(AgentMiddleware):
     """LLM 호출 실패를 UpstreamError로 바꿔 던진다. 도구 실행은 감싸지 않는다."""
 
+    @override
     async def awrap_model_call(
         self,
         request: ModelRequest,
