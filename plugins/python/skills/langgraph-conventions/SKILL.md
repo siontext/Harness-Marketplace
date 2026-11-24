@@ -59,7 +59,7 @@ class UpstreamErrorMiddleware(AgentMiddleware):
             return await handler(request)
         # LLM 구현마다 던지는 예외가 달라 타입을 좁힐 수 없다.
         except Exception as e:
-            raise UpstreamError(f"LLM 호출 실패: {type(e).__name__}") from e
+            raise UpstreamError.llm_call_failed(type(e).__name__) from e
 
 
 agent = create_agent(..., middleware=[UpstreamErrorMiddleware()])

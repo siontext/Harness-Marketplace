@@ -33,7 +33,7 @@ def _build_test_app() -> FastAPI:
 
     @test_app.get("/upstream-error")
     async def raise_upstream_error() -> None:
-        raise UpstreamError(f"LLM 호출 실패: {LEAK_MARKER}")
+        raise UpstreamError.llm_call_failed(LEAK_MARKER)
 
     @test_app.get("/http-503")
     async def raise_http_503() -> None:

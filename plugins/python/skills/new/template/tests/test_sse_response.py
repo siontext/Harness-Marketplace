@@ -123,7 +123,7 @@ def test_그_밖의_실패는_오류_대응표로_error를_보내고_스트리�
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     # Given
-    client = _client(_sentences(then=UpstreamError("LLM 호출 실패: ConnectError")))
+    client = _client(_sentences(then=UpstreamError.llm_call_failed("ConnectError")))
 
     # When
     with caplog.at_level(logging.WARNING, logger=FAILURE_LOGGER):

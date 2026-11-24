@@ -46,8 +46,6 @@ class TimeLimit:
                         return
                 yield item
         except TimeoutError as e:
-            raise AgentTimeoutError(
-                f"에이전트 실행 시간 초과: timeout_seconds={self._seconds}"
-            ) from e
+            raise AgentTimeoutError(self._seconds) from e
         finally:
             await items.aclose()

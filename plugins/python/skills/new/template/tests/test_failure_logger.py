@@ -22,7 +22,7 @@ def test_스트리밍_중_실패는_로그에_error_이벤트로_응답했다고
     request = Request(
         {"type": "http", "method": "POST", "path": "/chat", "headers": []}
     )
-    exc = UpstreamError("LLM 호출 실패: ConnectError")
+    exc = UpstreamError.llm_call_failed("ConnectError")
 
     # When
     with caplog.at_level(logging.WARNING, logger=FAILURE_LOGGER):
