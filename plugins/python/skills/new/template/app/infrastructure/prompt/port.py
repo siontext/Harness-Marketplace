@@ -4,12 +4,13 @@
 시스템 프롬프트를 받아 답 만들기 어댑터에 넣는다.
 """
 
-from typing import Protocol
+from abc import ABC, abstractmethod
 
 
-class PromptStore(Protocol):
+class PromptStore(ABC):
     """이름으로 프롬프트 문장을 가져오는 창구."""
 
+    @abstractmethod
     def get(self, name: str) -> str:
         """프롬프트 문장을 돌려준다.
 

@@ -1,6 +1,6 @@
 ---
 name: agent-architecture
-description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 답 만들기 포트(AnswerGenerator)와 LangGraph 어댑터, 조립(app/container.py), 공통 영역(app/common, 계층별 common)과 공통 예외 위치, 연결 창구(Protocol) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향(클래스가 기본)·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
+description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 답 만들기 포트(AnswerGenerator)와 LangGraph 어댑터, 조립(app/container.py), 공통 영역(app/common, 계층별 common)과 공통 예외 위치, 연결 창구(ABC 포트) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향(클래스가 기본)·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
 ---
 
 # Agent Architecture
@@ -134,12 +134,16 @@ class OrderResult:
         return cls(order_id=order.order_id, status=order.status, paid_at=order.paid_at)
 
 # app/application/order/usecase.py
-class OrderUseCase(Protocol):
+class OrderUseCase(ABC):
+    @abstractmethod
     async def get_order(self, query: GetOrderQuery) -> OrderResult: ...
+
+    @abstractmethod
     async def cancel_order(self, command: CancelOrderCommand) -> OrderResult: ...
 
 # app/application/order/port.py
-class Clock(Protocol):
+class Clock(ABC):
+    @abstractmethod
     def now(self) -> datetime: ...              # 구현: infrastructure/clock/system_clock.py
 
 # app/application/order/service.py
@@ -161,7 +165,7 @@ class OrderService(OrderUseCase):
         return order
 ```
 
-- **유스케이스(`usecase.py`)는 `Protocol`이고 메서드에 본문을 넣지 않는다.** 서비스는 `class OrderService(OrderUseCase):`로 구현임을 적는다.
+- **유스케이스(`usecase.py`)는 `ABC`이고 모든 메서드에 `@abstractmethod`를 붙인다. 본문은 넣지 않는다.** 서비스는 `class OrderService(OrderUseCase):`로 구현임을 적는다.
 - **유스케이스 메서드는 Command/Query를 받고 Result를 돌려준다.** 상태를 바꾸지 않는 요청은 `...Query`, 바꾸는 요청은 `...Command`로 이름 붙이고 둘 다 `command.py` 한 파일에 둔다. 셋 다 `@dataclass(frozen=True)`이고 pydantic을 쓰지 않는다.
 - **DTO(Command·Query·Result)는 그 기능 폴더의 `command.py`·`result.py`에 둔다.** 채팅 기능도 `agent/command.py`다. 모든 기능의 DTO를 모으는 폴더(`application/dto/` 등)를 따로 만들지 않는다. 한 기능의 Command가 많아 파일이 길어지면 `command.py`를 `command/` 패키지로 바꾼다.
 - **서비스는 엔티티를 밖으로 돌려주지 않는다.** Result로 옮겨 담아 돌려준다. Result에는 부르는 쪽이 필요한 값만 담는다. 도메인의 코드값 Enum은 그대로 써도 되고, 엔티티는 담지 않는다. 엔티티가 바뀌어도 옮겨 담는 곳(서비스·`from_<엔티티>`)에서 멈추고 도구까지 번지지 않는다.
@@ -199,7 +203,8 @@ STATUS_LABELS: dict[OrderStatus, str] = {
 
 ```python
 # app/application/agent/usecase.py
-class ChatUseCase(Protocol):
+class ChatUseCase(ABC):
+    @abstractmethod
     def stream_answer(self, command: ChatCommand) -> AsyncIterator[str]: ...
 
 # app/application/agent/service.py
@@ -240,7 +245,8 @@ class ChatService(ChatUseCase):
 
 ```python
 # app/application/agent/port.py — 포트: 프레임워크 모양을 드러내지 않는다
-class AnswerGenerator(Protocol):
+class AnswerGenerator(ABC):
+    @abstractmethod
     def stream(self, question: str) -> AsyncIterator[str]: ...
 
 # app/infrastructure/agent/langgraph_answer_generator.py — 어댑터 (뼈대에 있다)
@@ -333,7 +339,7 @@ class OrderNotFoundError(AppError):
 
 ## 연결 창구 — 포트와 구현
 
-바깥 시스템에 닿는 일은 모두 연결 창구를 거친다. 창구 하나는 `Protocol` 하나다. 모양(포트)은 그것을 쓰는 폴더(기능은 `app/application/<기능>/port.py`, 답 흐름은 `app/application/agent/port.py`, 답 만들기 어댑터가 쓰는 LLM·프롬프트는 `app/infrastructure/llm/port.py`·`prompt/port.py`)에, 구현(어댑터)은 `app/infrastructure/`에 둔다.
+바깥 시스템에 닿는 일은 모두 연결 창구를 거친다. 창구 하나는 포트(`ABC`) 하나다. 모양(포트)은 그것을 쓰는 폴더(기능은 `app/application/<기능>/port.py`, 답 흐름은 `app/application/agent/port.py`, 답 만들기 어댑터가 쓰는 LLM·프롬프트는 `app/infrastructure/llm/port.py`·`prompt/port.py`)에, 구현(어댑터)은 `app/infrastructure/`에 둔다.
 
 | 창구 | 하는 일 | 로컬 구현 |
 |---|---|---|
@@ -349,20 +355,23 @@ class OrderNotFoundError(AppError):
 - 쓰지 않는 창구는 만들지 않는다. 설계 문서의 전체 아키텍처에 있는 것만 만든다.
 - 구현은 창구 종류마다 폴더 하나에 둔다: `infrastructure/agent/`, `llm/`, `persistence/<기능>/`(DB·메모리 저장소), `client/<기능>/`(외부 API를 부르는 구현), `prompt/`, `guardrail/`. 도구는 `infrastructure/tools/`.
 - **업무 기능의 나가는 포트(저장소, 외부 API)도 연결 창구다.** 기능이 생기면 `Platform`(`app/infrastructure/__init__.py`)에 칸을 더하고(예: `orders: OrderRepository`), 같은 변경에서 `local.py`의 `LocalPlatformFactory`와 `tests/fakes.py`의 `fake_platform`도 고친다. `Container`는 `platform.orders`처럼 꺼내 서비스에 넣는다.
-- **구현 클래스는 포트를 괄호에 적는다** (`class InMemoryOrderRepository(OrderRepository):`). Java의 `implements`처럼 어떤 포트의 구현인지 드러나고 IDE에서 구현을 찾을 수 있다.
-- **포트의 메서드에는 본문을 넣지 않는다** (`...`만). 본문을 넣으면 구현 클래스가 그 동작을 물려받아 상속이 된다.
+- **포트는 `abc.ABC`를 상속하고 모든 메서드에 `@abstractmethod`를 붙인다.** Java의 `interface` 역할이다. 구현 클래스가 메서드를 빠뜨리면 객체를 만들 때 `TypeError`가 난다.
+- **구현 클래스는 포트를 괄호에 적어 상속한다** (`class InMemoryOrderRepository(OrderRepository):`). Java의 `implements`처럼 어떤 포트의 구현인지 드러나고 IDE에서 구현을 찾을 수 있다. 상속하지 않으면 메서드 모양이 같아도 타입 검사에 걸린다. 테스트용 가짜 클래스도 포트를 상속한다.
+- **포트에는 추상 메서드만 둔다.** 본문은 `...`만 적는다. 필드, `__init__`, 본문이 있는 메서드를 넣지 않는다. 넣으면 구현 클래스가 그 동작을 물려받아 기능 상속이 된다.
 - 운영 플랫폼용 구현은 공개 하네스에 없다. 사용자 스킬 폴더의 플랫폼 전용 스킬에 견본이 있으면 그것을 따른다.
 - 테스트는 연결 창구 자리에 가짜를 넣는다. 로컬 Redis·PostgreSQL이 꺼져 있어도 테스트는 돈다 (`python-testing`).
 
 ```python
 # app/application/agent/port.py
-class ConversationMemory(Protocol):
+class ConversationMemory(ABC):
     """대화 id별 최근 대화를 일정 시간 기억하는 창구."""
 
+    @abstractmethod
     async def load(self, conversation_id: str) -> list[BaseMessage]:
         """저장된 최근 대화를 돌려준다. 없거나 만료됐으면 빈 목록."""
         ...
 
+    @abstractmethod
     async def save(self, conversation_id: str, messages: list[BaseMessage]) -> None:
         """대화를 저장하고 유지 시간을 새로 시작한다."""
         ...
@@ -435,13 +444,13 @@ factory = LocalPlatformFactory()
 
 | 원칙 | Python에서 |
 |---|---|
-| 추상화 (인터페이스) | `typing.Protocol`로 모양을 정한다 (Java interface 역할). 상속하지 않아도 모양이 맞으면 된다 |
-| 의존성 역전 (DIP) | `application`은 자기 폴더의 Protocol(포트)에만 의존한다. 구현은 `infrastructure`에 있고 바깥에서 넣어 준다 |
+| 추상화 (인터페이스) | `abc.ABC`와 `@abstractmethod`로 포트를 정한다 (Java `interface` 역할). 구현 클래스는 포트를 상속한다 (Java `implements` 역할) |
+| 의존성 역전 (DIP) | `application`은 자기 폴더의 포트(ABC)에만 의존한다. 구현은 `infrastructure`에 있고 바깥에서 넣어 준다 |
 | 클래스가 기본 | 기능은 책임을 가진 클래스로 만든다. 모듈 함수는 프레임워크가 함수를 요구하는 곳만 쓴다 (`python-style`의 "클래스가 기본") |
 | 의존성 주입 | `app/container.py`의 `Container` 한 곳에서 구현을 골라 조립해 넘겨준다 (Spring이 해 주던 일을 직접). 클래스 안에서 구현을 직접 만들지 않는다. 설정 값도 바꿔 끼울 구현도 없는 도우미만 생성자 안에서 만든다 |
 | 캡슐화 | 밖에서 쓰지 않는 것은 `_`로 시작한다. 값 묶음은 `@dataclass(frozen=True)`. 내부 리스트는 복사본이나 `tuple`로 돌려준다 |
-| 다형성 | `isinstance` 분기가 반복되면 Protocol 구현을 나눈다 |
-| 조합 > 상속 | 기능을 상속으로 물려받지 않고, 필요한 객체를 인자로 받아서 쓴다 |
+| 다형성 | `isinstance` 분기가 반복되면 포트 구현을 나눈다 |
+| 조합 > 상속 | 기능을 상속으로 물려받지 않고, 필요한 객체를 인자로 받아서 쓴다. 포트 상속은 추상 메서드만 물려받으므로 기능 상속이 아니다 |
 | 객체 생성 | 검증은 `__post_init__`. 생성자를 바로 불러도 된다. 만드는 상황마다 채우는 값이 다를 때만 `create()`/`restore()` (`python-style`) |
 
 Python에는 `private`, `final`, `new`가 없다. Java 문법을 흉내 내지 않는다 (예: 생성자를 막으려고 `__new__`를 건드리지 않는다).
@@ -459,7 +468,7 @@ Python에는 `private`, `final`, `new`가 없다. Java 문법을 흉내 내지 �
 | 값 객체 | `@dataclass(frozen=True)` + `__post_init__` 검증 |
 | 엔티티 | id를 가진 클래스. 상태는 의미 있는 메서드로만 바꾼다 |
 | 애그리거트 | 엔티티 묶음. 바깥은 루트를 통해서만 접근 |
-| 리포지토리 | `Protocol`은 `app/application/<기능>/port.py`에, 구현은 `app/infrastructure/persistence/<기능>/`에. 구현은 도메인 객체를 돌려주고, 서비스가 Result로 옮겨 담는다 |
+| 리포지토리 | 포트(`ABC`)는 `app/application/<기능>/port.py`에, 구현은 `app/infrastructure/persistence/<기능>/`에. 구현은 도메인 객체를 돌려주고, 서비스가 Result로 옮겨 담는다 |
 | 도메인 서비스 | 한 객체에 넣기 애매한 규칙을 담는 클래스 (예: `RefundPolicy`). 상태가 없어도 클래스로 둔다 |
 
 `app/domain/`은 LangChain, FastAPI, pydantic 같은 바깥 패키지를 import하지 않는다. 기능마다 `app/domain/<기능>/` 폴더를 둔다.

@@ -4,14 +4,15 @@
 (app/infrastructure/agent)가 이 창구에서 채팅 모델을 받아 쓴다.
 """
 
-from typing import Protocol
+from abc import ABC, abstractmethod
 
 from langchain_core.language_models import BaseChatModel
 
 
-class LlmProvider(Protocol):
+class LlmProvider(ABC):
     """채팅 모델을 돌려주는 창구."""
 
+    @abstractmethod
     def chat_model(self) -> BaseChatModel:
         """에이전트가 쓸 채팅 모델을 돌려준다."""
         ...

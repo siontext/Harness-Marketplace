@@ -68,7 +68,7 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 - **모든 메서드·함수**의 인자와 반환값에 타입을 적는다. 반환이 없으면 `-> None`.
 - 3.11 문법: `list[str]`, `dict[str, int]`, `str | None`. `List`, `Optional` 같은 `typing` 옛 이름 금지.
 - `Any` 피하기. 모양이 정해진 딕셔너리는 TypedDict나 pydantic 모델로.
-- 인터페이스는 `typing.Protocol`로 정한다 (`agent-architecture`).
+- 인터페이스(포트·유스케이스)는 `abc.ABC`와 `@abstractmethod`로 정한다 (`agent-architecture`).
 - 타입 검사는 Pyrefly가 맡는다.
 
 ## 데이터 모델
@@ -151,9 +151,9 @@ class ProductNotFoundError(AppError):
 |---|---|
 | 클래스, 모듈 밖에서 쓰는 메서드, API 엔드포인트 | Google 스타일로 자세히 (`Args:`, `Returns:`, `Raises:`) |
 | 도구 메서드 (`<기능>Tools`) | LLM이 읽는 설명서 — 아래 규칙 |
-| Protocol 메서드 | 자세히 (구현이 지켜야 할 계약) |
+| 포트(ABC) 메서드 | 자세히 (구현이 지켜야 할 계약) |
 | 비공개 메서드 (`_` 접두사) | 한 줄 |
-| 자명한 메서드, Protocol 구현 메서드 | 생략 |
+| 자명한 메서드, 포트 구현 메서드 | 생략 |
 
 - **첫 문장에 책임을 적는다.** 첫 줄만 읽고 무엇을 하는지 알 수 있어야 한다.
 - 한 문장은 짧게. 한 줄에 한 개념.
