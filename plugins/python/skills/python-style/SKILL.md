@@ -61,6 +61,17 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 - 인자 3개 이내 권장(`self` 제외). 넘으면 데이터 모델로 묶는다.
 - 하나의 메서드는 하나의 책임만 수행.
 - **한 메서드 안의 문장은 같은 높이로 적는다 (추상화 수준 통일, SLAP).** 업무 단계(검사한다, 저장한다)와 기술 세부(`asyncio` 사용법, 정규식 반복, 재시도 반복)를 한 메서드에 섞지 않는다. 기술 세부는 이름 붙은 메서드나 도우미 클래스(`TimeLimit`)로 빼고 그 이름으로 부른다.
+- **파이썬 전용 장치로 줄 수를 줄이지 않는다.** Java·Kotlin 개발자가 처음 봐도 읽히게 평범한 `for`·`if`로 쓴다. 아래는 쓰지 않는다.
+
+| 쓰지 않는 것 | 대신 |
+|---|---|
+| `dataclasses.fields(self)` + `getattr(self, name)`로 필드를 돌며 처리 | 필드를 하나씩 적는다 (`if not self.code.strip(): …`) |
+| `operator.attrgetter("code")`, `itemgetter(0)` | `lambda item: item.code` |
+| `(*(item.code for item in items), EXTRA)`처럼 풀어서 조립 | 리스트를 만들고 `append`한 뒤 돌려준다 |
+| 한 줄에 겹친 컴프리헨션, 조건이 둘 이상 붙은 컴프리헨션 | `for` 문으로 푼다 |
+| `functools.reduce`, 겹친 `map`·`filter` | `for` 문 |
+
+- 한 겹짜리 컴프리헨션(`[item.code for item in items]`)과 `sorted(items, key=lambda item: item.code)`는 써도 된다.
 - **기본값에 리스트·딕셔너리 같은 변하는 값 금지.** `def f(items: list[str] = [])` ✕ → `items: list[str] | None = None` 후 안에서 만든다.
 
 ### 클래스 안 배치 순서
@@ -100,7 +111,8 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 | 내부 값 묶음 | `@dataclass(frozen=True)` | Java record와 같다. 값 비교·변경 불가 |
 
 - 내부 값 묶음은 반드시 `frozen=True`. 안 붙이면 값을 바꿀 수 있는 일반 클래스가 된다.
-- 만들 때 검증은 `__post_init__`에서 한다. 어떤 경로로 만들든 잘못된 객체가 생기지 않는다.
+- 만들 때 검증은 `__post_init__`에서 한다. 어떤 경로로 만들든 잘못된 객체가 생기지 않는다. 객체는 자기 값이 올바른지 스스로 책임진다 (자기 검증).
+- **생성 때 검사는 생성자(`__post_init__`, `__init__`) 안에 `if … raise …`로 한눈에 보이게 쓴다.** 검사를 `_validate_…()`·`_reject_…()` 메서드로 빼서 다른 곳으로 보내지 않는다. 생성자만 읽으면 어떤 규칙이 있는지 다 보여야 한다. 조건이 한 줄로 읽히지 않으면 조건만 물음 메서드(`_has_duplicate_code()`처럼 True/False를 돌려주는 것)로 빼고 `raise`는 생성자에 둔다. Kotlin의 `init`·`from()` 안에 `if (…) throw …`를 차례로 적는 모양과 같다.
 
 ```python
 @dataclass(frozen=True)
@@ -111,6 +123,8 @@ class Money:
     def __post_init__(self) -> None:
         if self.amount < 0:
             raise InvalidMoneyError(self.amount)  # 문구는 예외가 만든다
+        if not self.currency.strip():
+            raise BlankCurrencyError()
 ```
 
 ## 예외 처리
@@ -190,7 +204,7 @@ class ProductNotFoundError(AppError):
 
 | 대상 | 수준 |
 |---|---|
-| 클래스, 모듈 밖에서 쓰는 메서드, API 엔드포인트 | Google 스타일로 자세히 (`Args:`, `Returns:`, `Raises:`) |
+| 클래스, 모듈 밖에서 쓰는 메서드, API 엔드포인트 | Google 스타일로 자세히 (`Args:`, `Returns:`, `Raises:`). 다만 본문이 한두 줄이거나 이름과 타입만으로 인자·반환이 자명하면 한 줄만 쓴다. 설명이 코드보다 길어지지 않게 한다 |
 | 도구 메서드 (`<기능>Tools`) | LLM이 읽는 설명서 — 아래 규칙 |
 | 포트(ABC) 메서드 | 자세히 (구현이 지켜야 할 계약) |
 | 비공개 메서드 (`_` 접두사) | 한 줄 |
