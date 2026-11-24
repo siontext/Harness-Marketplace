@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     채팅 기능을 만들면 여기서 조립 객체를 만들어 결과를 app.state에 둔다:
     app.state.chat = Container(platform, settings).build_chat_service()
     """
-    settings = Settings.from_env()
+    settings = Settings()
     platform = Platform.from_settings(settings)
     yield
     await platform.aclose()

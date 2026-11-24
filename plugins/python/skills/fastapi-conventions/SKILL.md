@@ -48,7 +48,7 @@ async def chat(body: ChatRequest, request: Request) -> SseResponse:
 ## main.py — 시작·종료 조립
 
 - `main.py`는 부트스트랩이다. 무엇이 무엇에 연결됐는지(서버 시작 조립, 예외 → 핸들러 메서드, 라우터)를 이 파일에서 다 보이게 한다.
-- 서버가 켜질 때 `lifespan`에서 설정(`Settings.from_env()`)과 연결 창구(`Platform.from_settings()`)를 만들고 `app/container.py`의 `Container`로 에이전트를 **한 번** 만든다. 요청마다 만들지 않는다.
+- 서버가 켜질 때 `lifespan`에서 설정(`Settings()`)과 연결 창구(`Platform.from_settings()`)를 만들고 `app/container.py`의 `Container`로 에이전트를 **한 번** 만든다. 요청마다 만들지 않는다.
 - 만든 것은 `app.state`에 둔다. 엔드포인트는 `request.app.state`에서 꺼내 쓴다.
 - 서버가 꺼질 때 연결(Redis, DB, HTTP 클라이언트)을 닫는다.
 - 연결 창구를 불러오지 못하면 서버가 뜨지 않게 그대로 오류를 낸다 (`agent-architecture`).
@@ -56,7 +56,7 @@ async def chat(body: ChatRequest, request: Request) -> SseResponse:
 ```python
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    settings = Settings.from_env()
+    settings = Settings()
     platform = Platform.from_settings(settings)
     app.state.chat = Container(platform, settings).build_chat_service()
     yield

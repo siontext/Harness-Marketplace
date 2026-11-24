@@ -17,7 +17,7 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 | `tests/`의 테스트·픽스처, 가짜를 만드는 도우미(`fake_llm`, `fake_platform` 등) | pytest 방식이다 |
 
 - 그 밖의 코드는 모두 클래스의 메서드다. 도우미도 그것을 쓰는 클래스의 비공개 메서드(`_` 접두사)로 둔다. `self`를 쓰지 않으면 `@staticmethod`로 둔다.
-- 다른 것으로부터 만드는 일은 `from_<원본>` `@classmethod`로 둔다 (`Settings.from_env()`, `Platform.from_settings()`). 조립은 `Container` 클래스가 한다 (`agent-architecture`의 "조립").
+- 다른 것으로부터 만드는 일은 `from_<원본>` `@classmethod`로 둔다 (`Platform.from_settings()`, `OrderResult.from_order()`). 설정은 예외다. `Settings()`로 만들면 `pydantic-settings`가 환경 변수에서 값을 읽는다. 조립은 `Container` 클래스가 한다 (`agent-architecture`의 "조립").
 - 도구는 `<기능>Tools` 클래스의 메서드, LangChain 미들웨어는 `AgentMiddleware`를 물려받은 클래스, `StateGraph` 노드는 어댑터의 메서드다 (`langgraph-conventions`). 함수에 붙이는 데코레이터(`@tool`, `@wrap_model_call`)로 만들지 않는다.
 - 클래스가 의존하는 동작을 함수로 넘기지 않는다 (`now: Callable[[], datetime]` ✕). 포트(`Clock`)로 받는다. 서버가 꺼질 때 부를 닫기 메서드(`Platform.closers`에 넣는 `client.aclose`)와 프레임워크에 넘기는 메서드(`tool(self.get_product)`)만 값으로 넘긴다.
 - **클래스가 쓰는 다른 객체는 생성자로 받는다.** 설정 값도 바꿔 끼울 구현도 없는 도우미(`SentenceSplitter`, `ErrorRuleBook`)만 생성자 안에서 만든다.
@@ -73,11 +73,12 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 
 ## 데이터 모델
 
-용도에 따라 세 가지를 나눠 쓴다.
+용도에 따라 나눠 쓴다.
 
 | 용도 | 쓰는 것 | 이유 |
 |---|---|---|
-| 바깥과 주고받는 데이터 (API 요청·응답, LLM 구조화 출력, 설정) | pydantic `BaseModel` | 들어올 때 형식을 검사한다 |
+| 바깥과 주고받는 데이터 (API 요청·응답, LLM 구조화 출력) | pydantic `BaseModel` | 들어올 때 형식을 검사한다 |
+| 환경 변수 설정 | `pydantic-settings`의 `BaseSettings` (`app/infrastructure/settings.py`의 `Settings` 하나) | 환경 변수와 `.env`를 읽어 형식을 검사한다. Spring의 `@ConfigurationProperties` 역할 |
 | LangGraph 상태 | `TypedDict` | LangGraph 공식 방식 |
 | 내부 값 묶음 | `@dataclass(frozen=True)` | Java record와 같다. 값 비교·변경 불가 |
 

@@ -39,7 +39,7 @@ def anyio_backend() -> str:
 - **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/<기능>/port.py`, `app/application/agent/port.py`, `app/infrastructure/llm/port.py`·`prompt/port.py`의 포트), 외부 API, DB, Redis.
 - 내 코드 안의 객체(도메인 객체, 상태, 데이터 모델)는 가짜로 만들지 않는다.
 - 연결 창구 가짜는 포트를 상속한 작은 클래스나 `AsyncMock(spec=<포트>)`으로 만든다.
-- 테스트는 `.env`를 읽지 않는다. 흐름·엔드포인트 테스트는 `Platform.from_settings()`를 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립(`Container`)에 넣는다. `Platform.from_settings()` 자체를 확인하는 테스트는 설정(`fake_settings()`)을 직접 넘겨 부른다. `lifespan`은 아래 "서버 시작(lifespan) 테스트"를 따른다.
+- 테스트는 `.env`를 읽지 않는다. 테스트에서 `Settings()`를 직접 부르지 않고 `fake_settings()`를 쓴다. `Settings(...)`는 칸을 넘겨도 넘기지 않은 칸을 환경 변수와 `.env`에서 읽기 때문이다. 설정 읽기 자체를 확인하는 테스트만 `Settings(_env_file=<임시 파일>)`로 만든다. 흐름·엔드포인트 테스트는 `Platform.from_settings()`를 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립(`Container`)에 넣는다. `Platform.from_settings()` 자체를 확인하는 테스트는 설정(`fake_settings()`)을 직접 넘겨 부른다. `lifespan`은 아래 "서버 시작(lifespan) 테스트"를 따른다.
 
 ### 가짜 LLM
 
@@ -53,7 +53,7 @@ def anyio_backend() -> str:
 | `FakeToolCallingModel.received` | 호출마다 받은 메시지 목록. LLM을 불렀는지, 검사를 거친 문장을 받았는지 확인한다 |
 | `FakeGuardrail` | 정해 둔 문장만 막거나 바꾸고 나머지는 통과시킨다. 검사에 들어온 문장을 기록한다. `input_delay`·`output_delay`로 검사마다 기다리게 할 수 있다 (시간 초과 테스트용) |
 | `fake_platform(llm, ...)` | 가짜 창구로 구현 묶음(`Platform`)을 만든다. 이것을 진짜 조립(`Container`, `app/container.py`)에 넣는다 |
-| `fake_settings(platform="", agent_timeout_seconds=30)` | `.env` 대신 쓰는 설정. LLM 칸에 가짜 주소·키가 들어 있다. `Container`·`Platform.from_settings()`·`lifespan` 테스트에 넘긴다 |
+| `fake_settings(platform="", agent_timeout_seconds=30)` | `.env` 대신 쓰는 설정. LLM 칸에 가짜 주소·키가 들어 있고 `.env` 읽기가 꺼져 있다(`_env_file=None`). `Container`·`Platform.from_settings()`·`lifespan` 테스트에 넘긴다 |
 
 - `GenericFakeChatModel`은 `bind_tools`가 없고 스트리밍에서 도구 호출을 조각으로 내지 못한다. `FakeToolCallingModel`이 이 둘을 메운다. `GenericFakeChatModel`을 그대로 쓰면 `create_agent`와 `astream(stream_mode="messages")`에서 오류가 난다.
 - 이 가짜는 langchain-core 내부 동작에 기댄다. `tests/test_fakes.py`가 그 동작을 확인하므로 지우지 않는다.
@@ -146,12 +146,12 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 
 ### 서버 시작(lifespan) 테스트
 
-`lifespan`을 확인하는 테스트만 `with TestClient(app)`를 쓴다. `.env`를 읽지 않도록 `Settings.from_env`를 가짜 설정(`fake_settings`)으로 바꾼다. 뼈대의 `tests/test_main.py`가 이 방식으로 서버가 켜지고 꺼지는지만 확인한다. 채팅 기능을 만들면 아래처럼 `app.state.chat`을 확인하는 테스트를 더한다.
+`lifespan`을 확인하는 테스트만 `with TestClient(app)`를 쓴다. `.env`를 읽지 않도록 `main.py`가 부르는 `Settings`를 가짜 설정을 만드는 함수(`fake_settings`)로 바꾼다. 뼈대의 `tests/test_main.py`가 이 방식으로 서버가 켜지고 꺼지는지만 확인한다. 채팅 기능을 만들면 아래처럼 `app.state.chat`을 확인하는 테스트를 더한다.
 
 ```python
 def test_서버가_켜지면_채팅_서비스를_조립해_둔다(monkeypatch: pytest.MonkeyPatch) -> None:
     # Given: .env 대신 가짜 설정. 로컬 창구를 만들지만 LLM은 부르지 않는다.
-    monkeypatch.setattr(Settings, "from_env", fake_settings)
+    monkeypatch.setattr("main.Settings", fake_settings)
     monkeypatch.setattr(app.state, "chat", None, raising=False)    # 끝나면 되돌린다
 
     # When

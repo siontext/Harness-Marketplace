@@ -63,6 +63,7 @@ app/common/errors.py (공통 예외)  ◀──  모든 레이어
 | FastAPI | `main.py`, `app/presentation` |
 | LangChain·LangGraph | `app/infrastructure` |
 | 운영 플랫폼 SDK, DB·Redis 클라이언트 | `app/infrastructure` |
+| `pydantic-settings` (환경 변수 읽기) | `app/infrastructure/settings.py` |
 | 없음 (표준 라이브러리만) | `app/domain`, `app/application` |
 
 LangChain·LangGraph는 프레임워크라 바깥(`infrastructure`)에만 둔다. `application`은 답을 글자로만 주고받는다 (아래 "답 만들기"). 그래서 프레임워크를 바꾸거나 LLM이 답을 보내는 방식이 달라져도 `application`과 `domain`은 그대로다.
@@ -300,7 +301,7 @@ class Container:
 
 - 구현 → 기능 서비스 → 도구 → 답 만들기 어댑터 → 채팅 서비스 순서로 넣어 준다. 돌려주는 타입은 유스케이스(`ChatUseCase`)다. 서비스 구현을 아는 곳은 `container.py`의 `Container`뿐이다.
 - 만드는 서비스가 늘면 `build_<서비스>()` 메서드를 더한다. 조립 클래스를 따로 만들지 않는다.
-- `main.py`의 `lifespan`이 `Settings.from_env()`로 설정을, `Platform.from_settings()`로 구현 묶음을 만들고 `Container(platform, settings).build_chat_service()` 결과를 `app.state`에 둔다.
+- `main.py`의 `lifespan`이 `Settings()`로 설정을, `Platform.from_settings()`로 구현 묶음을 만들고 `Container(platform, settings).build_chat_service()` 결과를 `app.state`에 둔다.
 - 테스트는 가짜 구현 묶음을 같은 `Container`에 넣는다. 테스트용 조립 코드를 따로 만들지 않는다.
 
 ## 예외 위치

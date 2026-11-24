@@ -154,6 +154,8 @@ def fake_settings(
 ) -> Settings:
     """.env 대신 쓰는 테스트용 설정. 칸이 늘어도 바꿀 값만 인자로 받는다.
 
+    모든 칸을 직접 넘기고 _env_file=None으로 .env 읽기를 끈다. 그래서 .env나
+    환경 변수 값이 섞이지 않는다.
     dict를 **로 풀어 넣으면 숫자 칸(시간 제한 등)이 생길 때 타입 검사에 걸린다.
 
     Args:
@@ -161,6 +163,7 @@ def fake_settings(
         agent_timeout_seconds: 질문 하나의 전체 시간 제한(초).
     """
     return Settings(
+        _env_file=None,
         platform=platform,
         llm_base_url="http://localhost:9999/v1",
         llm_api_key="test-key",

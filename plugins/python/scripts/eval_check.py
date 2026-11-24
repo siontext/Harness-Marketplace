@@ -30,7 +30,7 @@ def get_weather(city: str) -> str:
 
 
 async def main() -> int:
-    platform = Platform.from_settings(Settings.from_env())
+    platform = Platform.from_settings(Settings())
     model = platform.llm.chat_model()
     try:
         reply = await model.ainvoke("연결 확인입니다. '확인'이라고만 답하세요.")
