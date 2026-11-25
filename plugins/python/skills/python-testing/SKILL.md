@@ -114,6 +114,21 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 - 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립(`Container`)이 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다.
 - `tests/`는 pytest 방식을 따른다. 테스트·픽스처·가짜를 만드는 도우미는 함수로 둔다 (`python-style`의 "클래스가 기본"의 예외).
 
+### 테스트 파일 위치 — 소스 폴더 구조를 따른다
+
+- `app/` 아래 폴더 경로를 `tests/` 아래에 그대로 만들고, 테스트 파일은 확인하는 코드와 같은 경로에 둔다. 코드 파일을 보면 테스트를 바로 찾을 수 있고, 테스트가 없는 코드가 눈에 띈다.
+
+| 코드 | 테스트 |
+|---|---|
+| `app/presentation/response/sse_event.py` | `tests/presentation/response/test_sse_event.py` |
+| `app/application/common/time_limit.py` | `tests/application/common/test_time_limit.py` |
+| `app/infrastructure/__init__.py` (`Platform`) | `tests/infrastructure/test_platform.py` |
+| `main.py` (`app/` 밖) | `tests/test_main.py` |
+
+- 파일 이름은 `test_<코드 파일 이름>`이 기본이다. 한 파일의 일부만 따로 볼 때는 그 일의 이름을 쓴다 (`routes.py`의 `/health` → `tests/presentation/test_health.py`).
+- 여러 폴더의 테스트가 같이 쓰는 가짜와 픽스처는 `tests/fakes.py`, `tests/conftest.py`에 둔다.
+- `tests/`와 그 아래 모든 폴더에 빈 `__init__.py`를 둔다. 없으면 pytest가 테스트 폴더를 import 경로 맨 앞에 넣어, 다른 폴더의 같은 이름 테스트 파일끼리 부딪히고, 진짜 패키지와 이름이 같은 테스트 폴더가 그 패키지를 가린다.
+
 ### 서비스와 도구의 단위 테스트
 
 | 대상 | 만드는 법 | 확인하는 것 |
@@ -200,7 +215,8 @@ def test_서버가_켜지면_채팅_서비스를_조립해_둔다(monkeypatch: p
 2. 바꾸기 전에 복사본에서 `pytest`를 한 번 돌려 통과하는지 먼저 본다. 복사를 빠뜨리면 바꾸기와 상관없이 실패해서 모든 변이가 "잡힘"으로 보인다.
 3. 변이 하나마다 원본 상태에서 한 곳만 바꾼다. 여러 곳을 한 번에 바꾸지 않는다.
 4. 실행마다 `PYTHONPYCACHEPREFIX`를 새 폴더로 준다 (`PYTHONPYCACHEPREFIX=<새 폴더> .venv/bin/pytest -q -p no:cacheprovider`). 남은 바이트코드 캐시를 읽으면 바꾼 코드가 돌지 않아 "놓침"으로 보인다.
-5. 결과를 "바꾼 곳 | 실패한 테스트 | 잡혔나" 표로 남긴다. 놓친 것은 테스트를 보강한다. 테스트로 드러나지 않는 코드면 그 코드가 필요한지부터 본다.
+5. 변이마다 바꾼 파일과 같은 경로의 테스트 폴더만 먼저 돌린다 ("테스트 파일 위치"). 예: `app/presentation/response/sse_event.py`를 바꿨으면 `pytest -q -p no:cacheprovider tests/presentation/response`. 여기서 안 잡힌 변이만 `pytest` 전체로 다시 돌린다.
+6. 결과를 "바꾼 곳 | 실패한 테스트 | 잡혔나" 표로 남긴다. 놓친 것은 테스트를 보강한다. 테스트로 드러나지 않는 코드면 그 코드가 필요한지부터 본다.
 
 - 새 패키지(`mutmut` 등)를 설치하지 않는다. 복사·바꾸기·실행은 짧은 스크립트로 돌린다.
 - 모든 줄을 바꿔 볼 필요는 없다. 이번 범위에서 새로 쓰거나 바꾼 검사·분기·경계값·꼭 불러야 하는 호출은 빠짐없이 본다.

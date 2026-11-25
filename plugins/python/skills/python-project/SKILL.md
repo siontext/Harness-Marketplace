@@ -39,7 +39,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 │   │   ├── guardrail/       가드레일 구현
 │   │   └── tools/           도구 클래스 (<기능>Tools — 메서드를 tool()로 감싼다)
 │   └── prompts/             프롬프트 파일 (.md)
-├── tests/                   pytest — 반출에 포함
+├── tests/                   pytest — app/ 아래 폴더 구조를 그대로 따른다 (python-testing), 반출에 포함
 └── evals/                   평가 질문 (results/는 반출 제외)
 ```
 
