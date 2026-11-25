@@ -114,6 +114,21 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 - 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립(`Container`)이 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다.
 - `tests/`는 pytest 방식을 따른다. 테스트·픽스처·가짜를 만드는 도우미는 함수로 둔다 (`python-style`의 "클래스가 기본"의 예외).
 
+### 테스트 파일 위치 — 소스 폴더 구조를 따른다
+
+- `app/` 아래 폴더 경로를 `tests/` 아래에 그대로 만들고, 테스트 파일은 확인하는 코드와 같은 경로에 둔다. 코드 파일을 보면 테스트를 바로 찾을 수 있고, 테스트가 없는 코드가 눈에 띈다.
+
+| 코드 | 테스트 |
+|---|---|
+| `app/presentation/response/sse_event.py` | `tests/presentation/response/test_sse_event.py` |
+| `app/application/common/time_limit.py` | `tests/application/common/test_time_limit.py` |
+| `app/infrastructure/__init__.py` (`Platform`) | `tests/infrastructure/test_platform.py` |
+| `main.py` (`app/` 밖) | `tests/test_main.py` |
+
+- 파일 이름은 `test_<코드 파일 이름>`이 기본이다. 한 파일의 일부만 따로 볼 때는 그 일의 이름을 쓴다 (`routes.py`의 `/health` → `tests/presentation/test_health.py`).
+- 여러 폴더의 테스트가 같이 쓰는 가짜와 픽스처는 `tests/fakes.py`, `tests/conftest.py`에 둔다.
+- `tests/`와 그 아래 모든 폴더에 빈 `__init__.py`를 둔다. 없으면 pytest가 테스트 폴더를 import 경로 맨 앞에 넣어, 다른 폴더의 같은 이름 테스트 파일끼리 부딪히고, 진짜 패키지와 이름이 같은 테스트 폴더가 그 패키지를 가린다.
+
 ### 서비스와 도구의 단위 테스트
 
 | 대상 | 만드는 법 | 확인하는 것 |
