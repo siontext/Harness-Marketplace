@@ -51,7 +51,7 @@ skills:
    1. `implementation-checkpoint` 스킬의 **"페이즈 시작"** 단계를 실행한다 (만들 모듈·클래스·메서드와 시그니처 제시 → 승인).
    2. 승인된 구성대로 코드를 작성한다. 참조 스킬의 원칙을 따른다.
    3. 같은 단계에서 그 코드의 테스트(`python-testing`의 ①단위 ②가짜 LLM 흐름)를 함께 작성한다. 도구는 성공·실패 테스트를 하나씩 쓴다.
-   4. `implementation-checkpoint` 스킬의 **1~4단계**를 실행한다 (Ruff → Ruff format → Pyrefly → pytest → 사용자 승인).
+   4. `implementation-checkpoint` 스킬의 **1~5단계**를 실행한다 (Ruff → Ruff format → Pyrefly → pytest → 변이 테스트 → 확인한 것 보고와 사용자 승인).
    5. 승인 후 다음 단계로 넘어간다. 마지막 단계 승인 후에는 종료 조건으로 진행한다.
 
 ## 규칙
