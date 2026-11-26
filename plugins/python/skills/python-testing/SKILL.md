@@ -36,7 +36,7 @@ def anyio_backend() -> str:
 
 ## 가짜(Mock) 규칙
 
-- **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/<기능>/port.py`, `app/application/agent/port.py`, `app/infrastructure/llm/port.py`·`prompt/port.py`의 포트), 외부 API, DB, Redis.
+- **바깥에 닿는 것만 가짜로 만든다:** LLM, 연결 창구(`app/application/<기능>/port.py`, `app/application/agent/port.py`, `app/infrastructure/llm/port.py`·`prompt/port.py`의 포트), 외부 API, DB, Redis. 노드 테스트(`test_<이름>_node.py`)만 예외로 유스케이스 포트를 가짜로 둔다 (`agent-architecture`의 "입구가 LangGraph 노드일 때").
 - 내 코드 안의 객체(도메인 객체, 상태, 데이터 모델)는 가짜로 만들지 않는다.
 - 연결 창구 가짜는 포트를 상속한 작은 클래스나 `AsyncMock(spec=<포트>)`으로 만든다. 가짜 클래스도 구현한 메서드에 `@override`를 붙인다.
 - 테스트는 `.env`를 읽지 않는다. 테스트에서 `Settings()`를 직접 부르지 않고 `fake_settings()`를 쓴다. `Settings(...)`는 칸을 넘겨도 넘기지 않은 칸을 환경 변수와 `.env`에서 읽기 때문이다. 설정 읽기 자체를 확인하는 테스트만 `Settings(_env_file=<임시 파일>)`로 만든다. 흐름·엔드포인트 테스트는 `Platform.from_settings()`를 부르지 않고 `fake_platform(...)`으로 만든 가짜 묶음을 진짜 조립(`Container`)에 넣는다. `Platform.from_settings()` 자체를 확인하는 테스트는 설정(`fake_settings()`)을 직접 넘겨 부른다. `lifespan`은 아래 "서버 시작(lifespan) 테스트"를 따른다.
@@ -111,7 +111,7 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
     assert "4,500원" in answer
 ```
 
-- 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립(`Container`)이 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다.
+- 가짜는 포트 자리에만 넣는다. 서비스·도구·에이전트는 진짜 조립(`Container`)이 만든 것을 쓴다. 테스트용 조립 코드를 따로 만들지 않는다. 노드 테스트(`test_<이름>_node.py`)만 예외로 유스케이스 포트를 가짜로 둔다 (`agent-architecture`의 "입구가 LangGraph 노드일 때").
 - `tests/`는 pytest 방식을 따른다. 테스트·픽스처·가짜를 만드는 도우미는 함수로 둔다 (`python-style`의 "클래스가 기본"의 예외).
 
 ### 테스트 파일 위치 — 소스 폴더 구조를 따른다
@@ -122,6 +122,8 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 |---|---|
 | `app/presentation/response/sse_event.py` | `tests/presentation/response/test_sse_event.py` |
 | `app/application/common/time_limit.py` | `tests/application/common/test_time_limit.py` |
+| `app/presentation/dto/request.py`·`response.py` (노드 입구) | `tests/presentation/dto/test_request.py`·`test_response.py` |
+| `app/presentation/<이름>_node.py` (노드 입구) | `tests/presentation/test_<이름>_node.py` |
 | `app/infrastructure/__init__.py` (`Platform`) | `tests/infrastructure/test_platform.py` |
 | `main.py` (`app/` 밖) | `tests/test_main.py` |
 
@@ -139,6 +141,8 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 - 도구를 테스트할 때 서비스를 가짜로 만들지 않는다. 서비스는 내 코드다. 진짜 서비스를 지나야 서비스가 실제로 던지는 예외를 도구가 잡는지 확인된다.
 - 도구 테스트에서 순서나 저장 여부를 다시 확인하지 않는다. 그것은 서비스 테스트의 몫이다.
 - 도구의 표시용 표(상태 이름, 사유별 문장)가 Enum의 모든 값을 담고 있는지 테스트로 확인한다. 도메인에 값을 더하고 표를 빠뜨리면 여기서 드러난다.
+- **노드 입구는 DTO와 노드를 나눠 확인한다** (`agent-architecture`의 "입구가 LangGraph 노드일 때"). `tests/presentation/dto/test_request.py`·`test_response.py`가 State 읽기·쓰기 규칙(없거나 이상한 값을 기본값으로 바꾸기, 꼭 있어야 할 값이 잘못되면 아는 예외, 앞뒤가 안 맞는 응답 값 거부, 쓰는 칸, `is_passed_in` 같은 읽는 법)을 직접 확인한다.
+- **노드 테스트는 유스케이스를 `AsyncMock(spec=<유스케이스>)`로 두고 노드가 하는 일만 확인한다:** 흐름(State → State), 실패 처리(아는 실패·코드 버그 → 판정 실패), 결과 로그, 다음 노드 고르기. State 읽기 규칙은 다시 확인하지 않는다. 진짜 서비스 + 가짜 포트로 끝까지 도는 것은 조립 테스트(가짜 구현 묶음을 넣은 `Container`가 만든 노드에 State를 넣어 보기)가 본다.
 
 ### 실패 경로 — 필수
 
@@ -151,6 +155,7 @@ async def test_상품을_물으면_상품_조회_도구를_부른다() -> None:
 | 빈 검색 결과 | 지어내지 않고 없다는 안내를 한다 (가짜 LLM 흐름으로 확인) |
 | 가드레일 | 입력 검사가 LLM보다 먼저, 출력 검사가 답보다 먼저 불린다. 막히면 LLM을 부르지 않는다 |
 | 시간 초과 | `TIMEOUT` 안내를 돌려준다 |
+| 노드 입구 판정 실패 (아는 실패·외부 고장, 코드 버그, 취소) | 고정 이유의 막힘을 State에 쓰고, 다음 노드 고르기는 막힘 쪽으로 간다. 코드 버그는 ERROR 로그에 스택이 남는다. 취소(`asyncio.CancelledError`)는 막힘으로 바뀌지 않고 그대로 올라간다 |
 
 ## 엔드포인트 테스트
 
@@ -188,6 +193,7 @@ def test_서버가_켜지면_채팅_서비스를_조립해_둔다(monkeypatch: p
 | 필수 테스트 | 업무 서비스 메서드와 도구마다 성공 1개 + 실패 1개 |
 | | 에이전트 흐름마다 대표 경로 1개 (설계 문서 시퀀스 다이어그램의 대표 질문) |
 | | 엔드포인트마다 정상 1개 이상 + 요청 형식 오류(422) 1개 |
+| | 노드 입구마다 통과·막힘·아는 실패·코드 버그·취소 각 1개 (입구가 LangGraph 노드일 때) |
 | | 위 "실패 경로 — 필수" 표 |
 
 - **뼈대 코드의 필수 테스트는 뼈대 테스트가 맡는다.** 답 만들기 어댑터(조각·한 번에 답하는 LLM, LLM 실패, 도구 버그), `TimeLimit`(전체 시간 기준), `SentenceSplitter`, `SseResponse`(막힘·오류 이벤트), `GlobalExceptionHandler`(`main.py`의 등록 포함)는 뼈대의 `tests/`에 테스트가 있다. 그 코드를 고치지 않았으면 기능마다 다시 쓰지 않는다. 고쳤으면 그 테스트를 함께 고친다.

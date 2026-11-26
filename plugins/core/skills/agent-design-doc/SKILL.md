@@ -38,13 +38,14 @@ description: AI 에이전트 설계 문서 작성 가이드 — 필수 7개 섹�
 - 누가 어디서 부르나: (호출하는 쪽 — 앱, 다른 서버 등)
 - 흐름 방식: create_agent (LLM이 도구를 고름) / StateGraph (코드가 순서를 고정) — 고른 이유 한 줄
 - 응답 방식: SSE 스트리밍 / 한 번에 응답
+- State 키 약속 (입구가 LangGraph 노드일 때): 키 표(읽는 키·쓰는 키와 값)와 바깥 그래프가 지킬 것(dict State, 키를 그 이름 그대로 선언, add_conditional_edges와 다음 노드 고르기 메서드, ainvoke·astream)을 옮긴다 (python:agent-architecture)
 - 시간 제한: 호출하는 쪽 (기다려 주는 최대 시간, 모르면 "확인 필요") / 우리 쪽 (AGENT_TIMEOUT_SECONDS — 호출하는 쪽보다 2~3초 짧게, 모르면 30초)
 - Out of Scope: (이 에이전트가 하지 않는 일)
 - 기존 영향: 기존 연결 창구·도구·API를 건드리는 경우만. 없으면 "없음"
 ```
 
 - **흐름 방식은 어느 쪽을 골랐든 이유를 한 줄 적는다.** 순서가 정해진 일이면 `StateGraph`를 먼저 검토한다. LLM이 길을 고르게 하면 지연 시간과 비용이 늘고 같은 질문에도 다른 길로 갈 수 있다. 고르는 기준은 `python:langgraph-conventions`를 따른다.
-- 응답 방식의 기준은 `python:fastapi-conventions`를 따른다. 기준과 다르게 갈 때만 결정 섹션에 이유를 적는다.
+- 응답 방식의 기준은 `python:fastapi-conventions`를 따른다. 기준과 다르게 갈 때만 결정 섹션에 이유를 적는다. 입구가 LangGraph 노드면 응답 방식·시간 제한 줄은 "해당 없음(노드 입구)"으로 적는다.
 
 ### 2. 전체 아키텍처
 
@@ -190,7 +191,7 @@ sequenceDiagram
 | 4 | 도구 (`app/infrastructure/tools/` — `<기능>Tools` 클래스) | 3 |
 | 5 | 프롬프트 (`app/prompts/`) | 0 |
 | 6 | 채팅 기능 (`app/application/agent/` — `ChatUseCase`, `ChatService`, `ChatCommand`)과 조립 (`app/container.py`의 `Container`). 답 만들기 어댑터는 뼈대의 것을 쓴다 | 4, 5 |
-| 7 | API (`app/presentation/` — `/chat`, `/health`, 새 예외의 오류 대응. `main.py`는 `Container`를 부르기만) | 6 |
+| 7 | API (`app/presentation/` — `/chat`, `/health`, 새 예외의 오류 대응. `main.py`는 `Container`를 부르기만). 입구가 LangGraph 노드면 노드 입구 (`app/presentation/<이름>_node.py`, `dto/`의 요청·응답 DTO, 읽는 키·쓰는 키의 State 키 약속) | 6 |
 | 8 | 평가 질문 (`evals/`) | 7 |
 
 - 단계 하나가 체크포인트 하나에 대응한다 (`implementation-checkpoint` 스킬).

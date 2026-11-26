@@ -18,7 +18,7 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 
 - 그 밖의 코드는 모두 클래스의 메서드다. 도우미도 그것을 쓰는 클래스의 비공개 메서드(`_` 접두사)로 둔다. `self`를 쓰지 않으면 `@staticmethod`로 둔다.
 - 다른 것으로부터 만드는 일은 `from_<원본>` `@classmethod`로 둔다 (`Platform.from_settings()`, `OrderResult.from_order()`). 설정은 예외다. `Settings()`로 만들면 `pydantic-settings`가 환경 변수에서 값을 읽는다. 조립은 `Container` 클래스가 한다 (`agent-architecture`의 "조립").
-- 도구는 `<기능>Tools` 클래스의 메서드, LangChain 미들웨어는 `AgentMiddleware`를 물려받은 클래스, `StateGraph` 노드는 어댑터의 메서드다 (`langgraph-conventions`). 함수에 붙이는 데코레이터(`@tool`, `@wrap_model_call`)로 만들지 않는다.
+- 도구는 `<기능>Tools` 클래스의 메서드, LangChain 미들웨어는 `AgentMiddleware`를 물려받은 클래스, `StateGraph` 노드는 어댑터의 메서드다 (`langgraph-conventions`). 다른 그래프에 꽂으라고 내놓는 노드는 presentation의 노드 클래스다 (`agent-architecture`의 "입구가 LangGraph 노드일 때"). 함수에 붙이는 데코레이터(`@tool`, `@wrap_model_call`)로 만들지 않는다.
 - 클래스가 의존하는 동작을 함수로 넘기지 않는다 (`now: Callable[[], datetime]` ✕). 포트(`Clock`)로 받는다. 서버가 꺼질 때 부를 닫기 메서드(`Platform.closers`에 넣는 `client.aclose`)와 프레임워크에 넘기는 메서드(`tool(self.get_product)`)만 값으로 넘긴다.
 - **클래스가 쓰는 다른 객체는 생성자로 받는다.** 설정 값도 바꿔 끼울 구현도 없는 도우미(`SentenceSplitter`, `ErrorRuleBook`)만 생성자 안에서 만든다.
 - 정적 메서드만 모은 클래스(`class Utils:`에 `@staticmethod`만)는 만들지 않는다. 이름만 클래스인 함수 묶음이다. 메서드는 인스턴스를 만들어 부른다.
@@ -43,6 +43,7 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 | 다른 것**으로부터** 만들기 | `OrderResponse.from(order)` | `from_<원본>` `@classmethod` | `OrderResponse.from_order(order)` |
 | 새로 만들기 / 되살리기 | `create()`, `restore()` | 같음 (`@classmethod`) | `Order.create(...)`, `Order.restore(...)` |
 | 다른 것**으로** 바꾸기 | `order.toResponse()` | `to_<대상>` | `order.to_response()` |
+| 정해진 상태의 값 만들기 | `Result.passed()` | 그 상태 이름 `@classmethod` | `ReviewResponse.not_reviewed()`, `Result.passed()` |
 
 - Python은 같은 이름의 메서드를 여러 개 만들 수 없다(오버로딩 없음). 그래서 `from` 뒤에 원본 이름을 붙여 구분한다: `from_order`, `from_row`, `from_request`.
 - `create()`·`restore()`는 **만드는 상황에 따라 채우는 값이 다를 때만** 만든다 (예: 새 주문은 id 없음·상태 "접수됨", 되살린 주문은 저장된 id·상태). 만드는 방법이 하나면 생성자를 바로 쓴다.
@@ -95,6 +96,7 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 - **모든 메서드·함수**의 인자와 반환값에 타입을 적는다. 반환이 없으면 `-> None`.
 - 3.11 문법: `list[str]`, `dict[str, int]`, `str | None`. `List`, `Optional` 같은 `typing` 옛 이름 금지.
 - `Any` 피하기. 모양이 정해진 딕셔너리는 TypedDict나 pydantic 모델로.
+- 다른 그래프에 꽂는 노드 입구는 예외다. 바깥 그래프의 State 모양을 모르므로 `Mapping[str, object]`로 받고 `dict[str, object]`를 돌려준다. 키 이름 상수는 요청·응답 DTO 안에만 둔다 (`agent-architecture`의 "입구가 LangGraph 노드일 때").
 - 인터페이스(포트·유스케이스)는 `abc.ABC`와 `@abstractmethod`로 정한다 (`agent-architecture`).
 - **부모 클래스의 메서드를 구현하거나 덮어쓰는 메서드에는 `@override`를 붙인다.** 포트·유스케이스의 구현, 프레임워크 클래스(`AgentMiddleware` 등)를 물려받아 덮어쓰는 메서드, 테스트용 가짜가 모두 해당한다. Python 3.11에는 `typing.override`가 없으므로 `from typing_extensions import override`로 가져온다. `__init__` 같은 특수 메서드에는 붙이지 않는다. 다른 데코레이터와 함께 쓸 때는 `@override`를 맨 위에 둔다.
 - 타입 검사는 Pyrefly가 맡는다.
@@ -107,11 +109,12 @@ Python 3.11 기준이다. 포맷과 import 정리는 Ruff가 맡는다 (`python-
 |---|---|---|
 | 바깥과 주고받는 데이터 (API 요청·응답, LLM 구조화 출력) | pydantic `BaseModel` | 들어올 때 형식을 검사한다 |
 | 환경 변수 설정 | `pydantic-settings`의 `BaseSettings` (`app/infrastructure/settings.py`의 `Settings` 하나) | 환경 변수와 `.env`를 읽어 형식을 검사한다. Spring의 `@ConfigurationProperties` 역할 |
-| LangGraph 상태 | `TypedDict` | LangGraph 공식 방식 |
+| LangGraph 상태 | `TypedDict` | LangGraph 공식 방식. 다른 그래프에 꽂는 노드 입구는 `Mapping[str, object]`로 받는다 (위 "타입 표시") |
 | 내부 값 묶음 | `@dataclass(frozen=True)` | Java record와 같다. 값 비교·변경 불가 |
 
 - 내부 값 묶음은 반드시 `frozen=True`. 안 붙이면 값을 바꿀 수 있는 일반 클래스가 된다.
 - 만들 때 검증은 `__post_init__`에서 한다. 어떤 경로로 만들든 잘못된 객체가 생기지 않는다. 객체는 자기 값이 올바른지 스스로 책임진다 (자기 검증).
+- 노드 입구에서 State를 읽는 요청 DTO는 예외다 (`agent-architecture`의 "입구가 LangGraph 노드일 때").
 - **생성 때 검사는 생성자(`__post_init__`, `__init__`) 안에 `if … raise …`로 한눈에 보이게 쓴다.** 검사를 `_validate_…()`·`_reject_…()` 메서드로 빼서 다른 곳으로 보내지 않는다. 생성자만 읽으면 어떤 규칙이 있는지 다 보여야 한다. 조건이 한 줄로 읽히지 않으면 조건만 물음 메서드(`_has_duplicate_code()`처럼 True/False를 돌려주는 것)로 빼고 `raise`는 생성자에 둔다. Kotlin의 `init`·`from()` 안에 `if (…) throw …`를 차례로 적는 모양과 같다.
 
 ```python
@@ -132,9 +135,10 @@ class Money:
 - 의미 있는 예외 클래스를 만든다 (예: `ProductNotFoundError`). 이름은 `Error`로 끝낸다.
 - 예외 클래스를 두는 곳은 `agent-architecture`의 "예외 위치"를 따른다 (공통 예외는 `app/common/errors.py`).
 - `except:`(아무것도 안 적음) 금지. 구체적인 예외 타입을 잡는다.
-- `except Exception`은 아래 두 곳에서만 쓰고, 그 줄 위에 이유를 주석으로 적는다. 그 밖의 곳에서는 쓰지 않는다.
+- `except Exception`은 아래 세 곳에서만 쓰고, 그 줄 위에 이유를 주석으로 적는다. 그 밖의 곳에서는 쓰지 않는다.
   - LLM 호출을 감싸 `UpstreamError`로 바꾸는 곳 (`langgraph-conventions`). LLM 구현마다 던지는 예외가 다르다.
   - `SseResponse`가 `error` 이벤트로 바꾸는 곳 (`fastapi-conventions`). 스트리밍이 시작된 뒤에는 전역 핸들러가 잡지 못해 여기가 마지막 경계다.
+  - 다른 에이전트 그래프에 꽂히는 노드 입구의 노드 메서드 (`agent-architecture`의 "입구가 LangGraph 노드일 때"). 노드 밖은 가져다 쓴 쪽의 코드라 여기가 마지막 경계다. 자기 앱 안의 엔드포인트·노드는 지금처럼 잡지 않고 전역 핸들러에 맡긴다 (스트리밍 중이면 `SseResponse`). 이 예외는 다른 에이전트 그래프에 꽂히는 노드에만 쓴다.
 - 예외를 바꿔 던질 때는 원인을 잇는다: `raise ProductLookupError(...) from e`.
 - 예외 메시지에 맥락을 넣는다 (예: `"상품을 찾을 수 없다: product_id=P001"`). 키·개인정보는 넣지 않는다.
 - **프로젝트가 만든 예외는 대상 값을 받아 메시지를 스스로 만든다.** 던지는 쪽은 `raise ProductNotFoundError(product_id)`처럼 값만 넘긴다. 문구를 던지는 곳마다 적지 않는다 (`agent-architecture`의 "예외 위치"). `raise SomeError(f"… {값}")`처럼 던지는 자리에서 문구를 조립하면 위반이다.

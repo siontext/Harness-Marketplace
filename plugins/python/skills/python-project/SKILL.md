@@ -13,7 +13,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 
 ```text
 <프로젝트>/
-├── main.py                  부트스트랩 — FastAPI 앱 만들기, lifespan에서 조립(Container) 부르기, 전역 예외 핸들러 등록, 라우터 붙이기
+├── main.py                  부트스트랩 — FastAPI 앱 만들기, lifespan에서 조립(Container) 부르기, 전역 예외 핸들러 등록, 라우터 붙이기. 노드만 내놓는 모듈은 main.py·/health를 두지 않는다
 ├── run-application.sh       운영 플랫폼에서 서버를 띄우는 스크립트
 ├── pyproject.toml           패키지·도구 설정
 ├── constraints.txt          운영 플랫폼 패키지 버전 고정 파일 (있을 때)
@@ -22,8 +22,9 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 ├── app/
 │   ├── common/              모든 계층이 같이 쓰는 것 — errors.py(공통 예외). 표준 라이브러리만
 │   ├── container.py         조립(Container) — 구현을 골라 서비스·도구·에이전트에 넣어 주기
-│   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), exception/(전역 예외 핸들러·오류 대응표·실패 로그)
-│   │   └── response/        공통 응답 틀 — ApiResponse, SseEvent, SseResponse, ErrorCode, 안내 문구
+│   ├── presentation/        웹 레이어 — routes.py(엔드포인트), schemas.py(요청·응답 내용), exception/(전역 예외 핸들러·오류 대응표·실패 로그). 입구가 LangGraph 노드면 <이름>_node.py(노드 클래스)
+│   │   ├── response/        공통 응답 틀 — ApiResponse, SseEvent, SseResponse, ErrorCode, 안내 문구
+│   │   └── dto/             노드 입구의 요청·응답 DTO — request.py, response.py (노드가 여럿이면 <이름>_request.py, <이름>_response.py). 입구가 LangGraph 노드일 때만 (agent-architecture)
 │   ├── application/
 │   │   ├── common/          기능의 규칙 없이 쓰는 기술 도우미 — time_limit.py(TimeLimit), sentences.py(SentenceSplitter)
 │   │   ├── agent/           채팅 기능 — usecase.py(ChatUseCase), service.py(ChatService), port.py(AnswerGenerator·Guardrail), dto/command.py(ChatCommand). LangChain을 모른다
@@ -65,7 +66,7 @@ description: Python AI 에이전트 프로젝트 구성 — 고정 폴더 구성
 
 - 버전은 `pyproject.toml`에 적지 않고 `constraints.txt`로 고정한다. 범위만 적는다 (예: `"langgraph"`).
 - 커버리지 도구는 운영 플랫폼에 없을 수 있다. `pyproject.toml`에 `--cov`를 넣으면 운영 플랫폼의 테스트 실행이 깨진다. 커버리지는 python-reviewer와 `/python:export`가 실행할 때만 붙인다.
-- 프로젝트 자체는 패키지로 설치하지 않는다. `pythonpath = ["."]`로 `app`을 찾는다.
+- 프로젝트 자체는 패키지로 설치하지 않는다 (노드 입구 모듈은 `agent-architecture`의 "입구가 LangGraph 노드일 때"를 따른다). `pythonpath = ["."]`로 `app`을 찾는다.
 - 로컬에 없는 SDK를 import하는 운영 플랫폼 구현(`app/infrastructure/<이름>.py`)은 `[tool.pyrefly] project-excludes`와 `[tool.coverage.run] omit`에 넣는다. 운영 플랫폼에서는 그대로 쓰인다.
 
 Ruff 설정:
