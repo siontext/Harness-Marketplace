@@ -63,7 +63,8 @@ skills:
 - 서비스 메서드와 도구마다 성공 1개 + 실패 1개
 - 에이전트 흐름마다 대표 경로 1개 (설계 문서 시퀀스의 대표 질문)
 - 엔드포인트마다 정상 1개 이상 + 요청 형식 오류(422) 1개
-- "실패 경로 — 필수" 표 (도구 오류, 외부 시스템 고장, 출력 형식 깨짐, 빈 검색, 가드레일 순서, 시간 초과). 설계에 없는 것(구조화 출력을 쓰지 않으면 출력 형식 깨짐, 검색 도구가 없으면 빈 검색)은 리뷰 문서에 "해당 없음"으로 적고 넘어간다
+- 노드 입구마다 통과·막힘·아는 실패·코드 버그·취소 각 1개 (입구가 LangGraph 노드일 때)
+- "실패 경로 — 필수" 표 (도구 오류, 외부 시스템 고장, 출력 형식 깨짐, 빈 검색, 가드레일 순서, 시간 초과, 노드 입구 판정 실패). 설계에 없는 것(구조화 출력을 쓰지 않으면 출력 형식 깨짐, 검색 도구가 없으면 빈 검색, 입구가 노드가 아니면 노드 입구 판정 실패)은 리뷰 문서에 "해당 없음"으로 적고 넘어간다
 - 뼈대 코드(답 만들기 어댑터, `TimeLimit`, `SentenceSplitter`, `SseResponse`, `GlobalExceptionHandler`)를 고치지 않았으면 그 필수 테스트는 뼈대 테스트로 채운 것으로 본다. 고쳤으면 뼈대 테스트도 함께 고쳤는지 본다
 
 빠진 테스트는 작성한다. 테스트를 새로 작성했으면 **2(정적 검사)로 돌아간다**. 작성 후에도 기준에 못 미치면 FAIL이다.
@@ -88,7 +89,7 @@ skills:
   - `app/presentation` 밖에서 오류 규칙 값(`..._RULE`)이나 `ErrorCode`를 쓰지 않고 예외 클래스만 던진다
   - 연결 창구 선택이 `Platform.from_settings()` 한 곳에만 있다
 - **채팅 기능과 답 만들기** (`agent-architecture`) — `ChatService`가 `ChatUseCase`를 구현하고 부품을 생성자로 받는가(부품 묶음을 메서드에 넘기지 않는가), `/chat`이 `ChatUseCase`에만 의존하는가, 채팅 서비스가 `AnswerGenerator` 포트로 글자만 받는가. 어댑터가 조각(`AIMessageChunk`)과 완성된 답(`AIMessage`)을 둘 다 글자로 바꾸고, 두 경우를 테스트하는가
-- **예외** — LLM 호출 실패가 `UpstreamError`로 바뀌는가 (`langgraph-conventions`). 입력·출력 가드레일 막힘을 `InputBlockedError`·`OutputBlockedError`로 던지고 `SseResponse`가 따로 잡으며 `ErrorRuleBook`의 대응표에 넣지 않았는가. 채팅 서비스가 가드레일 문구를 직접 답으로 내보내지 않는가 (`fastapi-conventions`). `except Exception`이 허용된 두 곳(`python-style`)에만 있고 이유 주석이 있는가
+- **예외** — LLM 호출 실패가 `UpstreamError`로 바뀌는가 (`langgraph-conventions`). 입력·출력 가드레일 막힘을 `InputBlockedError`·`OutputBlockedError`로 던지고 `SseResponse`가 따로 잡으며 `ErrorRuleBook`의 대응표에 넣지 않았는가. 채팅 서비스가 가드레일 문구를 직접 답으로 내보내지 않는가 (`fastapi-conventions`). `except Exception`이 허용된 세 곳(`python-style`)에만 있고 이유 주석이 있는가
 - **기능 폴더와 도구** (`agent-architecture`의 "기능 폴더"):
   - 업무 기능마다 `app/application/<기능>/`에 `usecase.py`·`port.py`·`service.py`와 `dto/`(`command.py`·`result.py`)가 있고, 포트가 쓰는 기능 폴더에 있다 (모든 포트를 한 파일에 모으지 않았다)
   - 유스케이스 메서드가 Command/Query를 받고 Result를 돌려주며, 서비스가 유스케이스를 괄호에 적어 구현한다
@@ -105,10 +106,11 @@ skills:
 - **객체지향** (`agent-architecture`의 "객체지향 — Python에서 지키는 법") — 포트(ABC) 의존, `Container` 조립, frozen dataclass, 조합 우선
 - **클래스가 기본** (`python-style`의 "클래스가 기본") — `app/`에 모듈 수준 함수가 없다 (FastAPI 엔드포인트와 `lifespan`만 예외). 도우미가 클래스의 비공개 메서드다. 정적 메서드만 모은 클래스가 없다. 오류 대응표가 모듈 전역이 아니라 `ErrorRuleBook` 안에 있다. 의존하는 동작을 함수(`Callable`)로 받지 않고 포트로 받는다. 미들웨어가 `AgentMiddleware` 클래스다
 - **예외 문구** (`python-style`의 "예외 처리") — 프로젝트가 만든 예외가 값을 받아 메시지를 스스로 만드는가. 던지는 자리에서 문구를 조립(`raise SomeError(f"…")`)하지 않는가. 이유가 여러 개인 예외는 이유별 생성 메서드를 두었는가
-- **읽기 쉬운 코드** (`python-style`의 "데이터 모델", "메서드", "독스트링 대상") — 생성 때 검사가 생성자 안에 `if … raise …`로 보이는가(검사를 다른 메서드로 보내지 않았는가). `fields`+`getattr`, `attrgetter`, 풀어서 조립하기, 겹친 컴프리헨션 같은 장치로 줄 수를 줄이지 않았는가. 한두 줄짜리 메서드에 긴 독스트링을 달지 않았는가
+- **읽기 쉬운 코드** (`python-style`의 "데이터 모델", "메서드", "독스트링 대상") — 생성 때 검사가 생성자 안에 `if … raise …`로 보이는가(검사를 다른 메서드로 보내지 않았는가). `fields`+`getattr`, `attrgetter`, 풀어서 조립하기, 겹친 컴프리헨션 같은 장치로 줄 수를 줄이지 않았는가. 한두 줄짜리 메서드에 긴 독스트링을 달지 않았는가. 노드 입구의 요청 DTO는 예외다 (`agent-architecture`의 "입구가 LangGraph 노드일 때")
 - **클래스 안 배치 순서** (`python-style`의 "클래스 안 배치 순서") — 상수·필드 → 생성자·생성 메서드 → 공개 메서드(핵심 동작부터) → 값만 돌려주는 메서드·프로퍼티 → 비공개 메서드(부르는 순서) 순서인가. 비공개 메서드가 공개 메서드 사이에 끼어 있지 않은가
 - **서비스 메서드의 높이** (`python-style`의 "같은 높이로", `agent-architecture`의 "채팅 기능") — 서비스의 공개 메서드가 업무 단계만 적혀 있는가. 시간 제한·문장 나누기 같은 기술 세부가 섞여 있지 않고, 시간 제한은 뼈대의 `TimeLimit`, 문장 나누기는 `SentenceSplitter`를 쓰는가
 - **엔드포인트** (`fastapi-conventions`의 "엔드포인트는 세 단계만") — 엔드포인트 함수가 요청 → Command, 유스케이스 부르기, 응답 틀에 담기만 하는가. SSE 이벤트 만들기·`try/except`·실패 로그를 직접 적지 않고 `SseResponse`를 쓰는가
+- **노드 입구** (`agent-architecture`의 "입구가 LangGraph 노드일 때") — 입구가 LangGraph 노드일 때만. State 키 이름 상수가 `app/presentation/dto/`에만 있고 설계 문서의 State 키 약속과 같은가. 노드가 State 키를 직접 읽거나 쓰지 않는가. 노드 메서드가 정해진 다섯 가지만 하는가. 판정하지 못하면(아는 실패·코드 버그) 고정 이유의 막힘을 State에 쓰고 다음 노드 고르기가 막힘 쪽으로 가는가. 앞뒤가 안 맞는 Result를 응답 DTO가 `AppError`가 아닌 예외로 거부하는가
 - **응답 틀** (`fastapi-conventions`) — `/health`를 뺀 JSON 엔드포인트가 `ApiResponse[내용 모델]`로 답하고, 스트리밍 이벤트를 `SseEvent`로 만들고, 안내 문구가 `app/presentation/response/messages.py`에 있다
 - 참조 스킬(`python-style`, `langgraph-conventions`, `fastapi-conventions`)의 규칙. 특히 예전 API 사용, 프롬프트 문장 하드코딩, 로그에 키·개인정보·프롬프트 전문
 - 불일치 발견 시 수정한 뒤 **2(정적 검사)로 돌아간다**. 수정 → 재검증 루프가 3회 반복되면 미해결 이슈로 기록하고 다음으로 넘어간다.

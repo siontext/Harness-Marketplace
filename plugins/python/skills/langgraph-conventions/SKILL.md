@@ -69,7 +69,7 @@ agent = create_agent(..., middleware=[UpstreamErrorMiddleware()])
 - **미들웨어는 `AgentMiddleware`를 상속한 클래스로 만든다.** 함수에 붙이는 데코레이터(`@wrap_model_call`, `@before_model`, `@after_model`)는 쓰지 않는다 (`python-style`의 "클래스가 기본"). 에이전트를 `astream`·`ainvoke`로 돌리므로 `a`로 시작하는 메서드(`awrap_model_call`, `abefore_model`, `aafter_model`)를 구현한다.
 - 모델 호출만 감싼다. 도구 실행까지 감싸면 도구 안의 코드 버그가 `UpstreamError`로 바뀌어 가려진다.
 - 예외 메시지에는 예외 종류만 넣는다. LLM 라이브러리의 메시지에는 주소나 키 일부가 들어 있을 수 있다. 원인은 `from e`로 잇고 로그에서 본다.
-- `StateGraph`로 만들 때는 LLM을 부르는 노드에서 같은 방식으로 바꾼다. 노드는 어댑터 클래스의 메서드로 두고 `graph.add_node("<이름>", self._<노드>)`로 붙인다.
+- `StateGraph`로 만들 때는 LLM을 부르는 노드에서 같은 방식으로 바꾼다. 노드는 어댑터 클래스의 메서드로 두고 `graph.add_node("<이름>", self._<노드>)`로 붙인다. 다른 에이전트 그래프가 가져다 꽂으라고 내놓는 노드는 어댑터가 아니라 presentation의 입구다 (`agent-architecture`의 "입구가 LangGraph 노드일 때").
 - 필수 테스트: LLM 호출 실패가 `UPSTREAM_ERROR`로 나가는지, 도구의 코드 버그는 `UPSTREAM_ERROR`로 바뀌지 않는지.
 
 ## 도구 만들기
@@ -153,6 +153,8 @@ async def answer(self, command: ChatCommand) -> str:
 - 출력 검사 결과의 `.text`만 꺼내 쓰지 않는다. 막혔을 때(`blocked`) 가린 글자가 정상 답으로 나간다. 스트리밍과 같은 `_check_output`으로 막힘을 예외로 바꾼다.
 
 - 에이전트 흐름은 요청 모델(`ChatRequest`)이 아니라 Command를 받는다. `ChatRequest`는 `app/presentation`에 있어 `application`이 import할 수 없다 (`agent-architecture`의 "Command").
+
+- 검사를 여러 에이전트가 같이 쓰는 노드로 내놓을 때는 `agent-architecture`의 "입구가 LangGraph 노드일 때"를 따른다.
 
 - 입력 검사는 에이전트 실행 전 한 번, 출력 검사는 최종 답에 한 번 한다.
 - 도구 호출 사이마다 검사가 필요하면 미들웨어 클래스(`AgentMiddleware`의 `abefore_model`, `aafter_model`)를 쓴다. 설계 문서에 적힌 경우만.

@@ -1,6 +1,6 @@
 ---
 name: agent-architecture
-description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 답 만들기 포트(AnswerGenerator)와 LangGraph 어댑터, 조립(app/container.py), 공통 영역(app/common, 계층별 common)과 공통 예외 위치, 연결 창구(ABC 포트) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향(클래스가 기본)·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
+description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation / application / domain / infrastructure)과 포트·어댑터 의존 방향, 기능 폴더(유스케이스·Command/Query·Result·서비스·포트)와 도구의 역할, 입구가 LangGraph 노드일 때의 요청·응답 DTO, 답 만들기 포트(AnswerGenerator)와 LangGraph 어댑터, 조립(app/container.py), 공통 영역(app/common, 계층별 common)과 공통 예외 위치, 연결 창구(ABC 포트) 구조와 로컬/운영 구현 선택(PLATFORM), LLM과 코드의 역할 나누기, 가드레일 위치, 객체지향(클래스가 기본)·DDD를 Python으로 지키는 법. 에이전트 코드를 구현하거나 리뷰할 때 참조.
 ---
 
 # Agent Architecture
@@ -12,7 +12,7 @@ description: Python AI 에이전트 아키텍처 규칙 — 4계층(presentation
 ```text
 main.py ──▶ app/container.py (조립: 구현을 골라 연결)
 
-app/presentation      FastAPI — 엔드포인트, 요청·응답, 전역 예외 핸들러
+app/presentation      FastAPI — 엔드포인트, 요청·응답, 전역 예외 핸들러 (또는 다른 그래프에 꽂는 노드)
         │
         ▼
 app/application       에이전트 흐름(agent/), 기능별 유스케이스·서비스·포트(<기능>/)
@@ -27,7 +27,7 @@ app/common/errors.py (공통 예외)  ◀──  모든 레이어
 
 | 레이어 | 두는 것 | import할 수 있는 프로젝트 코드 |
 |---|---|---|
-| `app/presentation` | 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러 | `application`, `app/common/errors.py` |
+| `app/presentation` | 엔드포인트, 요청·응답 모델, 공통 응답 틀, 전역 예외 핸들러. 입구가 LangGraph 노드면 노드 클래스(`<이름>_node.py`)와 요청·응답 DTO(`dto/`) | `application`, `app/common/errors.py` |
 | `app/application/agent/` | 채팅 기능 — `usecase.py`(`ChatUseCase`), `service.py`(`ChatService`: 입력 검사 → 답 글자 받기 → 문장별 출력 검사, 시간 제한), `port.py`(`AnswerGenerator`·`Guardrail`), `dto/command.py`(`ChatCommand`) | `application` 안, `domain`, `app/common/errors.py` |
 | `app/application/<기능>/` | 업무 기능 하나 — `usecase.py`(들어오는 포트), `port.py`(나가는 포트), `service.py`, `dto/`(`command.py`, `result.py`) | 같은 기능 폴더, `domain`, `app/common/errors.py` |
 | `app/domain/<기능>/` | 도메인 객체(엔티티·값 객체)와 업무 규칙, 코드값 Enum, 업무 예외 | `app/common/errors.py`만 |
@@ -38,8 +38,8 @@ app/common/errors.py (공통 예외)  ◀──  모든 레이어
 | `app/application/common/` | 애플리케이션 안 여러 기능이 쓰는 도우미 — `time_limit.py`(`TimeLimit`), `sentences.py`(`SentenceSplitter`) | `app/common/`, 표준 라이브러리 |
 
 - **`application`과 `domain`은 `infrastructure`와 `presentation`을 import하지 않는다.** 위반이면 불통과다.
-- `presentation`은 `infrastructure`를 import하지 않는다. 필요한 것은 `container.py`가 만들어 `app.state`에 둔다.
-- **구현을 골라 끼우는 곳은 `container.py`(와 그것을 부르는 `main.py`)뿐이다.** 서비스 구현(`OrderService`, `ChatService`)과 어댑터 구현을 만들어 서로 넣어 주는 일은 여기서만 한다. `infrastructure`는 `application`의 포트·유스케이스·DTO를 import할 수 있지만 서비스 구현을 만들지 않는다.
+- `presentation`은 `infrastructure`를 import하지 않는다. 필요한 것은 `container.py`가 만들어 `app.state`에 둔다 (노드 입구면 아래 "입구가 LangGraph 노드일 때").
+- **구현을 골라 끼우는 곳은 `container.py`(와 그것을 부르는 `main.py`, 노드 입구면 바깥 앱)뿐이다.** 서비스 구현(`OrderService`, `ChatService`)과 어댑터 구현을 만들어 서로 넣어 주는 일은 여기서만 한다. `infrastructure`는 `application`의 포트·유스케이스·DTO를 import할 수 있지만 서비스 구현을 만들지 않는다.
 - `application`, `domain`에서 운영 플랫폼 SDK를 import하거나 `os.environ`을 읽으면 위반이다.
 
 ### 공통 영역
@@ -86,10 +86,265 @@ class ChatCommand:
 command = ChatCommand(conversation_id=body.conversation_id, message=body.message)
 ```
 
-- Command는 `app/application`에 두는 변하지 않는 값 묶음이다 (`@dataclass(frozen=True)`). pydantic을 쓰지 않는다. 형식 검사는 요청 모델이 이미 했다.
+- Command는 `app/application`에 두는 변하지 않는 값 묶음이다 (`@dataclass(frozen=True)`). pydantic을 쓰지 않는다. 형식 검사는 요청 모델이 이미 했다 (노드 입구면 요청 DTO의 `to_command()`가 한다).
 - `application`은 요청 모델(`ChatRequest`)을 모른다. 넘길 값이 늘면 Command에 칸을 더하고 메서드 모양은 그대로 둔다.
-- 바꾸는 곳은 `app/presentation/routes.py`다.
+- 바꾸는 곳은 `app/presentation/routes.py`다. 입구가 LangGraph 노드면 요청 DTO의 `to_command()`다 (아래 "입구가 LangGraph 노드일 때").
 - 기능의 유스케이스가 받는 값(`GetOrderQuery`, `CancelOrderCommand`)도 같은 규칙이다 (아래 "기능 폴더").
+
+### 입구가 LangGraph 노드일 때 — 요청·응답 DTO
+
+다른 에이전트 그래프가 가져다 꽂는 노드를 내놓는 모듈(예: 여러 에이전트가 같이 쓰는 검사 노드)은 presentation의 입구가 엔드포인트가 아니라 노드다. **노드 클래스가 입구(FastAPI 엔드포인트와 같은 자리)이고, LangGraph State가 요청이다.** State를 읽고 쓰는 일은 presentation 전용 DTO가 맡는다.
+
+```text
+State → <이름>Request → <기능>Command → 유스케이스 → <기능>Result → <이름>Response → State
+```
+
+| 파일 | 두는 것 |
+|---|---|
+| `app/presentation/<이름>_node.py` | 노드 클래스(`ReviewNode`) — 노드 메서드, 다음 노드 고르기 |
+| `app/presentation/dto/request.py` | `<이름>Request` — 읽는 State 키 이름 상수, `from_state(state)`, `to_command()` |
+| `app/presentation/dto/response.py` | `<이름>Response` — 쓰는 State 키 이름 상수와 판정 실패 이유, 앞뒤가 맞는지 검사(`__post_init__`), `from_result(result)`, 판정 실패 값 생성 메서드, `to_state()`, 자기가 쓴 칸 읽기 |
+
+- 노드가 둘 이상이면 `dto/<이름>_request.py`, `dto/<이름>_response.py`로 나눈다. `dto/`는 노드 입구가 State를 읽고 쓰는 값이라, FastAPI 공통 응답 틀을 두는 `presentation/response/`와 다르다.
+
+```python
+# app/presentation/dto/request.py
+SESSION_ID_KEY = "session_id"
+TEXT_KEY = "text"
+LANGUAGE_KEY = "language"
+DEFAULT_LANGUAGE = "ko"
+
+
+class InvalidStateValueError(AppError):
+    """꼭 있어야 할 State 값이 없거나 잘못됐을 때. presentation 안에서만 쓴다.
+
+    Attributes:
+        key: 잘못된 State 키 이름. 값은 사용자 글일 수 있어 담지 않는다.
+    """
+
+    def __init__(self, key: str) -> None:
+        super().__init__(f"State 값이 없거나 잘못됐다: key={key}")
+        self.key = key
+
+
+@dataclass(frozen=True)
+class ReviewRequest:
+    """State에서 읽은 검토 요청. 꼭 있어야 할 값의 검사는 to_command()가 한다."""
+
+    session_id: str
+    text: str | None
+    language: str
+
+    @classmethod
+    def from_state(cls, state: Mapping[str, object]) -> "ReviewRequest":
+        """State에서 이 모듈이 읽는 키만 꺼낸다. dict State면 실패하지 않는다.
+
+        없어도 되는 값이 없거나 이상하면 기본값으로 바꾼다.
+        꼭 있어야 할 값(text)은 읽어 두기만 한다.
+        """
+        session_id = state.get(SESSION_ID_KEY)
+        text = state.get(TEXT_KEY)
+        language = state.get(LANGUAGE_KEY)
+        if not isinstance(session_id, str):
+            session_id = ""
+        if not isinstance(text, str):
+            text = None
+        if not isinstance(language, str) or not language:
+            language = DEFAULT_LANGUAGE
+        return cls(session_id=session_id, text=text, language=language)
+
+    def to_command(self) -> ReviewCommand:
+        """검토 Command로 바꾼다.
+
+        Raises:
+            InvalidStateValueError: 검토할 글(text)이 없거나 비었을 때.
+        """
+        if self.text is None or not self.text.strip():
+            raise InvalidStateValueError(TEXT_KEY)
+        return ReviewCommand(text=self.text, language=self.language)
+
+
+# app/presentation/dto/response.py
+IS_PASSED_KEY = "is_review_passed"
+REASON_KEY = "review_reason"
+NOT_REVIEWED_REASON = "검사하지 못함"
+
+
+class InconsistentReviewResponseError(ValueError):
+    """검토 응답의 통과 여부와 이유가 앞뒤가 안 맞을 때. 코드 버그라 AppError가 아니다.
+
+    Attributes:
+        is_passed: 들어온 통과 여부.
+    """
+
+    def __init__(self, is_passed: bool) -> None:
+        super().__init__(f"검토 응답 값이 앞뒤가 안 맞다: is_passed={is_passed}")
+        self.is_passed = is_passed
+
+
+@dataclass(frozen=True)
+class ReviewResponse:
+    """State에 쓸 검토 결과. 통과면 이유가 없고, 막힘이면 이유가 있다."""
+
+    is_passed: bool
+    reason: str | None
+
+    def __post_init__(self) -> None:
+        if self.is_passed and self.reason is not None:
+            raise InconsistentReviewResponseError(self.is_passed)
+        if not self.is_passed and not self.reason:
+            raise InconsistentReviewResponseError(self.is_passed)
+
+    @classmethod
+    def from_result(cls, result: ReviewResult) -> "ReviewResponse":
+        return cls(is_passed=result.is_passed, reason=result.reason)
+
+    @classmethod
+    def not_reviewed(cls) -> "ReviewResponse":
+        """판정하지 못했을 때. 통과시키지 않고, 이유는 고정 값이다."""
+        return cls(is_passed=False, reason=NOT_REVIEWED_REASON)
+
+    def to_state(self) -> dict[str, object]:
+        """LangGraph가 State에 합칠 칸."""
+        return {IS_PASSED_KEY: self.is_passed, REASON_KEY: self.reason}
+
+    @staticmethod
+    def is_passed_in(state: Mapping[str, object]) -> bool:
+        """이 노드가 쓴 칸을 읽는다. 칸이 없거나 State가 dict가 아니면 막힘이다."""
+        return isinstance(state, Mapping) and state.get(IS_PASSED_KEY) is True
+
+
+# app/presentation/review_node.py
+PASS_ROUTE = "pass"
+BLOCK_ROUTE = "block"
+UNEXPECTED_ERROR_REASON = "예상하지 못한 오류"
+
+
+class ReviewNode:
+    """다른 에이전트 그래프가 꽂는 검토 노드.
+
+    State를 읽고 State에 합칠 칸을 돌려준다.
+    """
+
+    def __init__(self, review: ReviewUseCase) -> None:
+        self._review = review
+
+    async def run(self, state: Mapping[str, object]) -> dict[str, object]:
+        """State의 글을 검토해 State에 합칠 결과 칸을 돌려준다.
+
+        판정하지 못하면(아는 실패, 코드 버그) 막힘으로 적는다. 통과시키지 않는다.
+        """
+        started = time.perf_counter()
+        session_id = ""
+        try:
+            request = ReviewRequest.from_state(state)
+            session_id = request.session_id
+            result = await self._review.review(request.to_command())
+            response = ReviewResponse.from_result(result)
+        except AppError as e:
+            self._log_failure(session_id, e, started)
+            return ReviewResponse.not_reviewed().to_state()
+        # 노드 밖은 가져다 쓴 쪽의 코드라 여기가 마지막 경계다.
+        # 코드 버그도 막힘으로 적는다. 취소(CancelledError)는 잡히지 않는다.
+        except Exception:
+            self._log_unexpected_error(session_id, started)
+            return ReviewResponse.not_reviewed().to_state()
+        self._log_result(session_id, response, started)
+        return response.to_state()
+
+    def route(self, state: Mapping[str, object]) -> str:
+        """이 노드가 쓴 칸으로 다음 노드를 고른다. 판정 실패도 막힘 쪽이다."""
+        return PASS_ROUTE if ReviewResponse.is_passed_in(state) else BLOCK_ROUTE
+
+    def _log_failure(self, session_id: str, error: AppError, started: float) -> None:
+        """아는 실패를 WARNING 한 줄로 남긴다. 이유는 예외 문구다."""
+        logger.warning(
+            "검토 판정 실패: session_id=%s reason=%s elapsed_ms=%d",
+            session_id,
+            error,
+            self._measure_elapsed_ms(started),
+        )
+
+    def _log_unexpected_error(self, session_id: str, started: float) -> None:
+        """코드 버그를 ERROR 한 줄과 스택으로 남긴다. 예외 문구는 스택 끝줄에 나온다."""
+        logger.exception(
+            "검토 판정 실패: session_id=%s reason=%s elapsed_ms=%d",
+            session_id,
+            UNEXPECTED_ERROR_REASON,
+            self._measure_elapsed_ms(started),
+        )
+
+    def _log_result(
+        self, session_id: str, response: ReviewResponse, started: float
+    ) -> None:
+        """통과·막힘을 INFO 한 줄로 남긴다."""
+        logger.info(
+            "검토 결과: session_id=%s is_passed=%s reason=%s elapsed_ms=%d",
+            session_id,
+            response.is_passed,
+            response.reason,
+            self._measure_elapsed_ms(started),
+        )
+
+    @staticmethod
+    def _measure_elapsed_ms(started: float) -> int:
+        """시작부터 지금까지 걸린 시간(밀리초)."""
+        return round((time.perf_counter() - started) * 1000)
+```
+
+- **State 키 이름 상수는 `dto/`의 요청·응답 DTO에만 있다.** 노드는 State 키를 직접 읽거나 쓰지 않는다 (`state["text"]`, `{"is_review_passed": ...}` ✕). 키 이름이 바뀌어도 DTO만 고친다.
+- **State 키는 바깥 그래프와의 약속이다.** 원본은 DTO의 키 이름 상수이고, 설계 문서에는 아래 키 표와 바깥 그래프가 지킬 것(dict State, 키를 그 이름 그대로 선언, `add_conditional_edges`와 다음 노드 고르기 메서드, `ainvoke`·`astream`)을 옮긴다.
+
+| 키 | 읽기·쓰기 | 값 |
+|---|---|---|
+| `session_id` | 읽음, 없어도 됨 | 문자열. 없거나 문자열이 아니면 `""` |
+| `text` | 읽음, 꼭 있어야 함 | 공백뿐이 아닌 문자열. 아니면 판정 실패 |
+| `language` | 읽음, 없어도 됨 | 문자열. 없거나 문자열이 아니거나 비면 `"ko"` |
+| `is_review_passed` | 씀 | 통과 `True`, 막힘·판정 실패 `False` |
+| `review_reason` | 씀 | 통과 `None`, 막힘은 Result의 이유(유스케이스가 정한 값), 판정 실패는 `"검사하지 못함"` |
+
+- 바깥 State는 dict(`TypedDict`)여야 한다. pydantic 모델·dataclass State는 `Mapping`이 아니어서 언제나 판정 실패(코드 버그)로 막힌다.
+- 바깥 그래프의 State에 위 키를 그 이름 그대로 선언한다. 선언하지 않은 키에 쓴 값은 LangGraph가 조용히 버린다 (다음 노드 고르기는 그 값을 보고 나누지만, 뒤 노드와 최종 State에는 남지 않는다). 꼭 있어야 할 키는 이름이 다르면 매번 막히고, 없어도 되는 키는 이름이 다르면 오류 없이 기본값이 된다.
+- **바깥 그래프는 반드시 `add_conditional_edges`로 노드의 다음 노드 고르기(`route`)를 써서 나눈다.** `add_edge`로 바로 이으면 막힘이 그대로 다음 노드로 지나간다. 노드 메서드가 `async`라 바깥 그래프는 `ainvoke`·`astream`으로 부른다 (`invoke`는 `TypeError`).
+- 요청·응답 DTO는 `@dataclass(frozen=True)`다. pydantic을 쓰지 않는다.
+- **`from_state()`는 dict State면 실패하지 않는다.** 없어도 되는 값이 없거나 이상하면 기본값으로 바꾼다. 꼭 있어야 할 값은 읽어 두기만 하고, 검사는 `to_command()`가 한다. 잘못됐으면 아는 예외(`AppError` 하위)를 던진다. 검사를 `from_state()`나 `__post_init__`으로 당기지 않는 이유: 실패해도 세션 id 같은 로그용 값은 먼저 읽어 둬야 해서다. State를 읽는 요청 DTO만 `python-style`의 "만들 때 검증은 `__post_init__`"의 예외다. `from_state()`도 `try` 안에서 불러, dict가 아닌 State가 와도 판정 실패로 막는다.
+- **응답 DTO는 예외가 아니다.** 앞뒤가 안 맞는 값(통과인데 이유가 있음, 막힘인데 이유가 없음)은 `__post_init__`에서 거부한다. 앞뒤가 안 맞는 Result는 코드 버그라서 `except AppError`에 잡히면 안 된다. 그래서 거부 예외는 `AppError`가 아니라 `ValueError`를 상속하고 (아래 "예외 위치"), `except Exception`이 받아 ERROR와 스택으로 남긴다.
+- `<이름>Response`는 Result에서 만드는 `from_result()`, 판정 실패 값을 만드는 생성 메서드(`not_reviewed()`), LangGraph가 State에 합칠 dict를 만드는 `to_state()`를 갖는다. 다음 노드 고르기가 자기가 쓴 칸을 다시 읽어야 하면 그 읽는 법(`is_passed_in(state)`)도 여기 둔다.
+- **노드 메서드는 다섯 가지만 한다:** State → 요청 DTO → Command, 유스케이스 부르기, Result → 응답 DTO → `to_state()`, 예외를 판정 실패로, 결과 로그 한 줄. 이 이상의 판단(통과 기준 등)은 `application`에 둔다.
+- **판정하지 못하면 통과시키지 않는다.** 아는 실패(`AppError`와 그 하위, 외부 고장 `UpstreamError` 포함)도 코드 버그도 모두 판정 실패(막힘)로 바꾸고, 다음 노드 고르기는 막힘 쪽으로 간다. `except AppError` 다음에 `except Exception`을 둔다 (`python-style`의 `except Exception` 세 번째 곳). 도구가 고장을 잡지 않고 올려 보내는 것(Fail Fast, 아래 "기능 폴더")과 다른 이유: 판정 없이 다음 노드로 넘기면 안 되고, 노드 밖은 가져다 쓴 쪽의 코드라 노드 메서드가 마지막 경계다. 취소(`asyncio.CancelledError`)는 `Exception`이 아니라 잡히지 않고 그대로 올라간다.
+- **State에는 정해진 값만 쓴다.** 판정 실패의 이유는 아는 실패든 코드 버그든 고정 값(`NOT_REVIEWED_REASON`) 하나다. 예외 이름·문구 같은 자세한 이유는 로그에만 남긴다.
+- **막힘은 예외로 던지지 않고 State 값으로 넘긴다.** 아래 "예외 위치"의 "흐름을 끝내는 것은 예외로"의 예외다. 노드가 던지면 바깥 그래프 실행 전체가 멈추고, 잡을 곳이 가져다 쓴 쪽 코드뿐이다. 그래서 바깥 그래프가 `route`로 반드시 나눈다 (위 키 약속).
+- **결과 로그는 한 줄이다.** 통과·막힘은 INFO, 아는 실패(`AppError`)는 WARNING, 코드 버그는 `logger.exception`(ERROR)으로 남긴다. 엔드포인트(5xx는 ERROR)와 달리 노드는 아는 실패를 판정 실패(막힘)로 바꿔 흐름을 이어 가므로 WARNING이다. 셋 다 세션 id·이유·걸린 시간을 적는다. 아는 실패의 이유는 예외 문구, 코드 버그의 이유는 고정 문구("예상하지 못한 오류")다. 결과 줄은 한 줄이지만 코드 버그는 그 밑에 ERROR 스택이 따로 붙고, 버그의 예외 문구는 스택 마지막 줄에 나온다. 이유에 사용자 글이 섞이지 않게 한다 (코드 버그 스택의 마지막 줄에는 내장 예외가 입력 값을 실을 수 있다. 엔드포인트의 5xx 로그와 같은 수준이다): 예외 문구와 Result의 이유에는 키 이름·코드값만 넣고 State의 글을 넣지 않는다 (`python-style`의 "로그").
+- 노드는 유스케이스(`ReviewUseCase`)만 생성자로 받는다. 서비스 구현을 만들어 넣는 곳은 `container.py`다.
+- 노드도 LangGraph를 import하지 않는다. State를 `Mapping[str, object]`로 받고 `dict[str, object]`를 돌려주면 LangGraph가 State에 합친다. 바깥 그래프의 State 클래스(`TypedDict`)는 모양을 알 수 없어 import하지 않는다. 아는 것은 위의 키 약속뿐이다 (`python-style`의 "타입 표시").
+- FastAPI 엔드포인트는 지금처럼 `schemas.py`의 pydantic 요청·응답 모델을 쓴다 (`fastapi-conventions`). 요청·응답 DTO는 노드 입구에만 둔다.
+- 테스트는 DTO와 노드를 나눠 확인한다. 노드 테스트는 `python-testing`의 "바깥에 닿는 것만 가짜로"의 예외로 유스케이스 포트를 가짜로 둔다. 노드는 유스케이스 포트에만 기대고 어떤 예외든 같은 판정 실패로 바꾸므로, 진짜 서비스를 지나야 드러나는 것이 없다 (`python-testing`의 "서비스와 도구의 단위 테스트").
+
+조립은 엔드포인트 입구와 같은 `Container`가 한다. `build_review_node()`가 구현을 골라 서비스를 만들고 그것을 넣은 `ReviewNode`를 돌려준다 (아래 "조립"의 `build_<서비스>()`와 같은 규칙). `main.py`의 `lifespan`이 하던 일은 바깥 앱이 시작·종료 때 한다. 노드 입구만 있으면 `main.py`의 `lifespan`과 `app.state`를 쓰지 않는다.
+
+```python
+# app/container.py
+class Container:
+    ...
+
+    def build_review_node(self) -> ReviewNode:
+        """검토 서비스를 넣은 노드를 만든다. 바깥 앱이 시작할 때 한 번 부른다."""
+        return ReviewNode(ReviewService(self._platform.reviewer))
+
+
+# 가져다 쓰는 에이전트 앱 (이 모듈 밖)
+settings = Settings()
+platform = Platform.from_settings(settings)  # 시작할 때 한 번
+review_node = Container(platform, settings).build_review_node()
+graph.add_node("review", review_node.run)
+graph.add_conditional_edges(
+    "review", review_node.route, {PASS_ROUTE: "answer", BLOCK_ROUTE: END}
+)
+...
+await platform.aclose()  # 끝날 때
+```
+
+- 가져다 쓰는 쪽과 패키지 이름(`app`)·환경 변수 이름이 겹치지 않게, 이 모듈의 패키지 이름과 가져다 쓰는 방법(복사·설치)을 설계 문서에 적고 사용자와 정한다.
 
 ## 기능 폴더 — 유스케이스, 서비스, 도구
 
@@ -303,9 +558,9 @@ class Container:
         return ChatService(answers, platform.guardrail, time_limit)
 ```
 
-- 구현 → 기능 서비스 → 도구 → 답 만들기 어댑터 → 채팅 서비스 순서로 넣어 준다. 돌려주는 타입은 유스케이스(`ChatUseCase`)다. 서비스 구현을 아는 곳은 `container.py`의 `Container`뿐이다.
+- 구현 → 기능 서비스 → 도구 → 답 만들기 어댑터 → 채팅 서비스 순서로 넣어 준다. 돌려주는 타입은 유스케이스(`ChatUseCase`)다 (노드 입구면 노드 클래스, "입구가 LangGraph 노드일 때"). 서비스 구현을 아는 곳은 `container.py`의 `Container`뿐이다.
 - 만드는 서비스가 늘면 `build_<서비스>()` 메서드를 더한다. 조립 클래스를 따로 만들지 않는다.
-- `main.py`의 `lifespan`이 `Settings()`로 설정을, `Platform.from_settings()`로 구현 묶음을 만들고 `Container(platform, settings).build_chat_service()` 결과를 `app.state`에 둔다.
+- `main.py`의 `lifespan`이 `Settings()`로 설정을, `Platform.from_settings()`로 구현 묶음을 만들고 `Container(platform, settings).build_chat_service()` 결과를 `app.state`에 둔다. 노드 입구면 같은 일을 바깥 앱이 시작·종료 때 한다 ("입구가 LangGraph 노드일 때").
 - 테스트는 가짜 구현 묶음을 같은 `Container`에 넣는다. 테스트용 조립 코드를 따로 만들지 않는다.
 
 ## 예외 위치
@@ -339,8 +594,8 @@ class OrderNotFoundError(AppError):
         self.order_id = order_id
 ```
 
-- 새 예외는 `AppError`나 그 하위 예외를 상속한다. 대응표에 없으면 가장 가까운 부모의 규칙으로 답한다.
-- **의도된 결과라도 흐름을 끝내는 것은 예외로 던지고, 가까운 곳에서 이름을 적어 잡는다** (취소 불가는 도구가, 입력·출력 막힘은 `SseResponse`가). 값에 표시를 달아 넘기면 받는 쪽이 확인을 빠뜨려도 조용히 지나간다. 이런 예외는 오류가 아니므로 대응표(`ErrorRuleBook`)에 넣지 않는다. 잡는 곳을 빠뜨리면 `INTERNAL_ERROR`로 드러난다.
+- 새 예외는 `AppError`나 그 하위 예외를 상속한다. 코드 버그를 나타내는 예외(`PlatformLoadError`, 응답 DTO의 거부 예외)는 `AppError`를 상속하지 않는다. `except AppError`에 잡혀 아는 실패로 남으면 안 되기 때문이다. 대응표에 없으면 가장 가까운 부모의 규칙으로 답한다.
+- **의도된 결과라도 흐름을 끝내는 것은 예외로 던지고, 가까운 곳에서 이름을 적어 잡는다** (취소 불가는 도구가, 입력·출력 막힘은 `SseResponse`가). 값에 표시를 달아 넘기면 받는 쪽이 확인을 빠뜨려도 조용히 지나간다. 이런 예외는 오류가 아니므로 대응표(`ErrorRuleBook`)에 넣지 않는다. 잡는 곳을 빠뜨리면 `INTERNAL_ERROR`로 드러난다. 다른 그래프에 꽂는 노드 입구만 예외로 막힘을 State 값으로 넘기고, 바깥 그래프가 다음 노드 고르기로 반드시 나눈다 ("입구가 LangGraph 노드일 때").
 
 ## 연결 창구 — 포트와 구현
 
@@ -400,7 +655,7 @@ class ConversationMemory(ABC):
 - 운영 플랫폼의 `run-application.sh`에 `PLATFORM` 값을 적는다. 로컬에서는 비워 둔다.
 - **운영용 구현을 불러오지 못하면 오류를 내고 서버를 멈춘다.** 로컬 구현으로 조용히 바꾸지 않는다 (운영에서 가짜 답이 나가는 사고를 막는다).
 - 자동 감지(패키지가 있으면 운영용)는 쓰지 않는다.
-- 고르는 곳은 `app/infrastructure/__init__.py`의 `Platform.from_settings()` 한 곳이다. `main.py`가 서버 시작 때 한 번 부른다.
+- 고르는 곳은 `app/infrastructure/__init__.py`의 `Platform.from_settings()` 한 곳이다. `main.py`(노드 입구면 바깥 앱)가 서버 시작 때 한 번 부른다.
 - `local.py`와 `<운영>.py`는 구현들을 모아 묶음(`Platform`)을 만드는 클래스(`PlatformFactory` 구현)를 두고, 그 인스턴스를 모듈의 `factory` 이름으로 내놓는다. `from_settings()`가 이 이름으로 찾는다.
 
 ```python
